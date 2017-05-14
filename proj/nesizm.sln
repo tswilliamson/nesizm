@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.24720.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "nesizm", "nesizm.vcxproj", "{0A1E9BF8-05DD-4F73-81D8-18DA73DB5796}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		DeviceDebug|Prizm = DeviceDebug|Prizm
+		DeviceRelease|Prizm = DeviceRelease|Prizm
+		Emulator|Prizm = Emulator|Prizm
+		WindowsSim|Prizm = WindowsSim|Prizm
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0A1E9BF8-05DD-4F73-81D8-18DA73DB5796}.DeviceDebug|Prizm.ActiveCfg = DeviceDebug|x64
+		{0A1E9BF8-05DD-4F73-81D8-18DA73DB5796}.DeviceDebug|Prizm.Build.0 = DeviceDebug|x64
+		{0A1E9BF8-05DD-4F73-81D8-18DA73DB5796}.DeviceRelease|Prizm.ActiveCfg = DeviceRelease|x64
+		{0A1E9BF8-05DD-4F73-81D8-18DA73DB5796}.DeviceRelease|Prizm.Build.0 = DeviceRelease|x64
+		{0A1E9BF8-05DD-4F73-81D8-18DA73DB5796}.Emulator|Prizm.ActiveCfg = Emulator|x64
+		{0A1E9BF8-05DD-4F73-81D8-18DA73DB5796}.Emulator|Prizm.Build.0 = Emulator|x64
+		{0A1E9BF8-05DD-4F73-81D8-18DA73DB5796}.WindowsSim|Prizm.ActiveCfg = WindowsSim|Win32
+		{0A1E9BF8-05DD-4F73-81D8-18DA73DB5796}.WindowsSim|Prizm.Build.0 = WindowsSim|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

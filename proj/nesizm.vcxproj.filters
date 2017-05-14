@@ -1,0 +1,96 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="ptune2_simple">
+      <UniqueIdentifier>{693d36c5-6996-45ff-a69e-a5ad57b2d2a1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="prizm-zx7">
+      <UniqueIdentifier>{101f6621-ea55-42c5-a919-df436e845d59}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="prizm-winsim">
+      <UniqueIdentifier>{80e0df14-724b-48b1-8ebd-32f08df57407}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="calctype">
+      <UniqueIdentifier>{37933317-d9e2-4ed4-8297-a8e5e5b8c6ff}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\ptune2_simple\Ptune2_direct.c">
+      <Filter>ptune2_simple</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\prizm-zx7\zx7.c">
+      <Filter>prizm-zx7</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\prizm-zx7\compress.c">
+      <Filter>prizm-zx7</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\prizm-zx7\dzx7.c">
+      <Filter>prizm-zx7</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\prizm-zx7\optimize.c">
+      <Filter>prizm-zx7</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\prizm-winsim\winmain.cpp">
+      <Filter>prizm-winsim</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\prizm-winsim\prizmsim.cpp">
+      <Filter>prizm-winsim</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\calctype\calctype.c">
+      <Filter>calctype</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\calctype\calctype_prizm.c">
+      <Filter>calctype</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\debug.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\main.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\ptune2_simple\Ptune2_direct.h">
+      <Filter>ptune2_simple</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\ptune2_simple\SH7305_CPG_BSC.h">
+      <Filter>ptune2_simple</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\prizm-zx7\zx7.h">
+      <Filter>prizm-zx7</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\prizm-winsim\prizmsim.h">
+      <Filter>prizm-winsim</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\calctype\calctype.h">
+      <Filter>calctype</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\platform.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Makefile" />
+    <None Include="..\..\prizm-zx7\zx7.inl">
+      <Filter>prizm-zx7</Filter>
+    </None>
+    <None Include="..\..\calctype\calctype.inl">
+      <Filter>calctype</Filter>
+    </None>
+  </ItemGroup>
+</Project>
