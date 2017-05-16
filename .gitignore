@@ -29,3 +29,5 @@
 *.app
 /DeviceDebug
 /proj/WindowsSim
+/proj/*.db
+/proj/*.opendb
