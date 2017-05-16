@@ -24,14 +24,26 @@ int main(void) {
 	printf("NESizm Initializing...");
 	DrawFrame(0x0000);
 
+	// allocate nes_carts on stack
+	unsigned char stackBanks[NUM_CACHED_ROM_BANKS * 8192] ALIGN(256);
+	nesCart.allocateROMBanks(stackBanks);
+
+
 	const char* romFile = "\\\\fls0\\DonkeyKong.nes";
-	nesCart.loadROM(romFile);
+	if (nesCart.loadROM(romFile)) {
+		Bdisp_PutDisp_DD();
 
-	SetQuitHandler(shutdown);
-	Bdisp_PutDisp_DD();
+		SetQuitHandler(shutdown);
 
-	int key = 0; 
-	GetKey(&key);
+		mainCPU.reset();
+
+		while (1) {
+			cpu6502_Step();
+		}
+	} else {
+		int key = 0; 
+		GetKey(&key);
+	}
 
 	return 0;
 }

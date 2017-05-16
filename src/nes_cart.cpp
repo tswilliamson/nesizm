@@ -12,6 +12,12 @@ nes_cart::nes_cart() {
 	file[0] = 0;
 }
 
+void nes_cart::allocateROMBanks(unsigned char* withAlloced) {
+	for (int i = 0; i < NUM_CACHED_ROM_BANKS; i++) {
+		romBanks[i] = withAlloced + 8192 * i;
+	}
+}
+
 bool nes_cart::loadROM(const char* withFile) {
 	DebugAssert(handle <= 0);
 
@@ -122,6 +128,9 @@ bool nes_cart::loadROM(const char* withFile) {
 		return false;
 	}
 
+	// default memory mapping first
+	mainCPU.mapDefaults();
+
 	// mapper logic
 	handle = file;
 	if (setupMapper()) {
@@ -138,13 +147,40 @@ bool nes_cart::loadROM(const char* withFile) {
 bool nes_cart::setupMapper() {
 	switch (mapper) {
 		case 0:
-			setupMapper0();
+			setupMapper0_NROM();
 			return true;
 		default:
 			return false;
 	}
 }
 
-void nes_cart::setupMapper0() {
+void nes_cart::setupMapper0_NROM() {
+	// read ROM banks (up to 2)
+	for (int i = 0; i < 2 * numPRGBanks; i++) {
+		Bfile_ReadFile_OS(handle, romBanks[i], 8192, -1);
+	}
 
+	// read CHR bank (always one)
+	int chrBank = 2 * numPRGBanks;
+	Bfile_ReadFile_OS(handle, romBanks[chrBank], 8192, -1);
+	nesPPU.chrMap = romBanks[chrBank];
+
+	// map memory to read-in ROM
+	if (numPRGBanks == 1) {
+		for (int m = 0x00; m < 0x20; m++) {
+			mainCPU.map[m + 0x80] = &romBanks[0][m * 0x100];
+			mainCPU.map[m + 0xA0] = &romBanks[1][m * 0x100];
+			mainCPU.map[m + 0xC0] = &romBanks[0][m * 0x100];
+			mainCPU.map[m + 0xE0] = &romBanks[1][m * 0x100];
+		}
+	} else {
+		DebugAssert(numPRGBanks == 2);
+
+		for (int m = 0x00; m < 0x20; m++) {
+			mainCPU.map[m + 0x80] = &romBanks[0][m * 0x100];
+			mainCPU.map[m + 0xA0] = &romBanks[1][m * 0x100];
+			mainCPU.map[m + 0xC0] = &romBanks[2][m * 0x100];
+			mainCPU.map[m + 0xE0] = &romBanks[3][m * 0x100];
+		}
+	}
 }

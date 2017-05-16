@@ -55,9 +55,10 @@
     <ClCompile Include="..\..\prizm-zx7\zx7.c">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='WindowsSim|Win32'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="..\src\6502.cpp" />
     <ClCompile Include="..\src\debug.cpp" />
-    <ClCompile Include="..\src\nes_mem.cpp" />
     <ClCompile Include="..\src\nes_cart.cpp" />
+    <ClCompile Include="..\src\nes_cpu.cpp" />
     <ClCompile Include="..\src\nes_ppu.cpp" />
     <ClCompile Include="..\src\ptune2_simple\Ptune2_direct.c" />
     <ClCompile Include="..\src\main.cpp">
@@ -77,6 +78,7 @@
     <ClInclude Include="..\..\prizm-zx7\zx7.h" />
     <ClInclude Include="..\src\6502.h" />
     <ClInclude Include="..\src\nes.h" />
+    <ClInclude Include="..\src\nes_cpu.h" />
     <ClInclude Include="..\src\ptune2_simple\Ptune2_direct.h" />
     <ClInclude Include="..\src\ptune2_simple\SH7305_CPG_BSC.h" />
     <ClInclude Include="..\src\main.h" />

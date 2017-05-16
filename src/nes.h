@@ -3,20 +3,31 @@
 
 // NES emulator specific header
 
+#define NES 1
+#include "6502.h"
+
+#define NUM_CACHED_ROM_BANKS 20
+
 // specifications about the cart, rom file, mapper, etc
 struct nes_cart {
 	nes_cart();
 
-	int handle;					// current file handle
-	char file[128];				// file name
+	int handle;						// current file handle
+	char file[128];					// file name
 
-	int mapper;					// mapper ID used with ROM
-	int numPRGBanks;			// num 16 kb Program ROM banks
-	int numCHRBanks;			// num 8 kb CHR ROM banks
-	int numRAMBanks;			// num 8 kb RAM banks
+	int mapper;						// mapper ID used with ROM
+	int numPRGBanks;				// num 16 kb Program ROM banks
+	int numCHRBanks;				// num 8 kb CHR ROM banks
+	int numRAMBanks;				// num 8 kb RAM banks
 
-	int isBatteryBacked;		// 0 if no battery backup
-	int isPAL;					// 1 if PAL, 0 if NTSC
+	int isBatteryBacked;			// 0 if no battery backup
+	int isPAL;						// 1 if PAL, 0 if NTSC
+
+	// 8kb ROM banks for various usages based on mapper (allocated on stack due to Prizm deficiencies
+	unsigned char* romBanks[NUM_CACHED_ROM_BANKS];	
+
+	// sets up ROM bank pointers with the given allocated data
+	void allocateROMBanks(unsigned char* withAlloced);
 
 	// Loads a ROM from the given file path
 	bool loadROM(const char* withFile);
@@ -25,7 +36,7 @@ struct nes_cart {
 	bool setupMapper();
 
 	// various mapper setups
-	void setupMapper0();
+	void setupMapper0_NROM();
 };
 
 // ppu properties and vram
@@ -36,40 +47,13 @@ struct nes_ppu {
 		MT_4PANE
 	};
 
+	// all 8 kb mapped for character memory at once
+	unsigned char* chrMap;
+
 	nes_ppu();
 
 	mirror_type mirror;
 };
 
-// current nes main memory, memory map and settings
-struct nes_mem {
-	// always around
-	unsigned char zeroPage[0x100];
-	unsigned char stack[0x100];
-	unsigned char RAM[0x600];
-
-	// high byte memory map
-	unsigned char* map[0x100]; 
-
-	FORCE_INLINE unsigned char read(unsigned int addr) {
-		if (addr >= 0x2000 && addr <= 0x401F)
-			return readSpecial(addr);
-		else
-			return map[addr >> 8][addr & 0xFF];
-	}
-
-	FORCE_INLINE void write(unsigned int addr, unsigned char value) {
-		if (addr >= 0x2000) {
-			writeSpecial(addr, value);
-		} else {
-			map[addr >> 8][addr & 0xFF] = value;
-		}
-	}
-
-	unsigned char readSpecial(unsigned int addr);
-	void writeSpecial(unsigned int addr, unsigned char value);
-};
-
 extern nes_cart nesCart;
-extern nes_mem nesMem;
 extern nes_ppu nesPPU;
