@@ -118,5 +118,8 @@
     <None Include="..\..\calctype\calctype.inl">
       <Filter>Dependencies\calctype</Filter>
     </None>
+    <None Include="..\src\6502_opcodes.inl">
+      <Filter>Source Files\6502</Filter>
+    </None>
   </ItemGroup>
 </Project>

@@ -69,6 +69,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='WindowsSim|Win32'">true</ExcludedFromBuild>
     </None>
     <None Include="..\..\prizm-zx7\zx7.inl" />
+    <None Include="..\src\6502_opcodes.inl" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\calctype\calctype.h">
