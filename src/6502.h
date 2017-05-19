@@ -25,10 +25,28 @@ struct cpu_6502 {
 	unsigned int A;		// accumulator and index registers, 8-bit
 	unsigned int X;
 	unsigned int Y;
-	unsigned int P;		// status flags, 8-bit
+	unsigned int P;		// processor status flags, 8-bit
+
+	// clock cycle counter
+	unsigned int clocks;
 };
 
-#define CARRY_BIT (1 << 0)
+#define ST_CRY_BIT (0)
+#define ST_ZRO_BIT (1)
+#define ST_INT_BIT (2)
+#define ST_BCD_BIT (3)
+#define ST_BRK_BIT (4)
+#define ST_OVR_BIT (6)
+#define ST_NEG_BIT (7)
+
+#define ST_CRY (1 << ST_CRY_BIT)
+#define ST_ZRO (1 << ST_ZRO_BIT)
+#define ST_INT (1 << ST_INT_BIT)
+#define ST_BCD (1 << ST_BCD_BIT)
+#define ST_BRK (1 << ST_BRK_BIT)
+#define ST_OVR (1 << ST_OVR_BIT)
+#define ST_NEG (1 << ST_NEG_BIT)
+#define ST_UNUSED (1 << 5)
 
 #if NES
 #include "nes_cpu.h"

@@ -45,9 +45,9 @@ void nes_cpu::reset() {
 	PC = read(0xFFFC) + (read(0xFFFD) << 8);
 
 	// stack pointer technically came from $0000
-	RAM[0x01FB] = 48;
-	RAM[0x01FC] = 2;
 	RAM[0x01FD] = 0;
+	RAM[0x01FC] = 2;
+	RAM[0x01FB] = 48;
 	SP = 0xFA;
 
 	// rest of the registers are 0

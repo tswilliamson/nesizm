@@ -32,6 +32,16 @@ struct nes_cpu : public cpu_6502 {
 		}
 	}
 
+	FORCE_INLINE void push(unsigned int byte) {
+		RAM[0x100 | (SP & 0xFF)] = byte;
+		SP--;
+	}
+
+	FORCE_INLINE unsigned int pop() {
+		SP++;
+		return RAM[0x100 | (SP & 0xFF)];
+	}
+
 	// returns pointer to data for special address but does not perform a "read" operation if it effects it
 	unsigned char* getSpecial(unsigned int addr);
 

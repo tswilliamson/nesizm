@@ -6,6 +6,12 @@
 #define NES 1
 #include "6502.h"
 
+#ifdef LITTLE_E
+#define PTR_TO_BYTE(x) ((unsigned char*) &x)
+#else
+#define PTR_TO_BYTE(x) (((unsigned char*) &x) + 3)
+#endif
+
 // the low 5 bits of the opcode determines the addressing mode with only 5 instruction exceptions (noted)
 static int modeTable[32] = {
 	AM_None,		// 00
@@ -47,41 +53,546 @@ static int modeTable[32] = {
 
 void cpu6502_Step() {
 	// TODO : cache into single read (with instruction overlap in bank pages)
-	unsigned int instr = mainCPU.read(mainCPU.PC++);
-	unsigned int data1 = mainCPU.read(mainCPU.PC);
-	unsigned int data2 = mainCPU.read(mainCPU.PC + 1);
+	unsigned int instr = mainCPU.read(mainCPU.PC);
+	unsigned int data1 = mainCPU.read(mainCPU.PC + 1);
+	unsigned int data2 = mainCPU.read(mainCPU.PC + 2);
 
 	unsigned char* operand;
 	unsigned int isSpecial = 0;
 	unsigned int isWrite = 0;
 
+	// instruction base clocks
+	// mainCPU.clocks += clockTable[instr];
+
 	switch (modeTable[instr & 0x1F]) {
 		case AM_Absolute:
 			operand = mainCPU.getByte(data1 + (data2 << 8), isSpecial);
+			mainCPU.PC += 3;
 			break;
 		case AM_AbsoluteX:
-			operand = mainCPU.getByte(data1 + (data2 << 8) + (mainCPU.P & CARRY_BIT), isSpecial);
+			operand = mainCPU.getByte(data1 + (data2 << 8) + (mainCPU.P & ST_CRY), isSpecial);
+			mainCPU.PC += 3;
 			break;
 		case AM_IndirectX:
 		{
 			int target = (data1 + mainCPU.X) & 0xFF;
 			operand = mainCPU.getByte(mainCPU.RAM[target] + (mainCPU.RAM[(target + 1) & 0xFF] << 8), isSpecial);
+			mainCPU.PC += 2;
 			break;
 		}
 		case AM_IndirectY:
 		{
 			operand = mainCPU.getByte(mainCPU.RAM[data1] + (mainCPU.RAM[(data1 + 1) & 0xFF] << 8) + mainCPU.Y, isSpecial);
+			mainCPU.PC += 2;
 			break;
 		}
 		case AM_Zero:
 			operand = &mainCPU.RAM[data1];
+			mainCPU.PC += 2;
 			break;
 		case AM_ZeroX:
 			operand = &mainCPU.RAM[(data1 + mainCPU.X) & 0xFF];
+			mainCPU.PC += 2;
 			break;
 		default:
 			DebugAssert(modeTable[instr & 0x1F] == AM_None);
+			mainCPU.PC += 1;
 			break;
+	}
+
+	int result;	// used in some instructions
+
+	switch (instr) {
+		/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		// STORE / LOAD
+
+		case 0xA9:
+			// LDA #$NN (load A immediate)
+			mainCPU.PC++;
+			operand = PTR_TO_BYTE(data1);
+		case 0xA5: case 0xB5: case 0xAD: case 0xBD: case 0xB9: case 0xA1: case 0xB1:
+			// LDA (load accumulator)
+			mainCPU.A = *operand;
+			mainCPU.P =
+				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_NEG)) |			// keep flags
+				((mainCPU.A & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
+				((mainCPU.A == 0x00) ? ST_ZRO : 0);										// zero flag
+			break;
+
+		case 0xA2:
+			// LDX #$NN (load X immediate)
+			mainCPU.PC++;
+			operand = PTR_TO_BYTE(data1);
+		case 0xA6: case 0xB6: case 0xAE: case 0xBE:
+			// LDX (load X)
+			mainCPU.X = *operand;
+			mainCPU.P =
+				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_NEG)) |			// keep flags
+				((mainCPU.X & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
+				((mainCPU.X == 0x00) ? ST_ZRO : 0);										// zero flag
+			break;
+
+		case 0xA0:
+			// LDY #$NN (load Y immediate)
+			mainCPU.PC++;
+			operand = PTR_TO_BYTE(data1);
+		case 0xA4: case 0xB4: case 0xAC: case 0xBC:
+			// LDY (load Y)
+			mainCPU.Y = *operand;
+			mainCPU.P =
+				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_NEG)) |			// keep flags
+				((mainCPU.Y & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
+				((mainCPU.Y == 0x00) ? ST_ZRO : 0);										// zero flag
+			break;
+
+		case 0x85: case 0x95: case 0x8D: case 0x9D: case 0x99: case 0x81: case 0x91:
+			// STA (store accumulator)
+			*operand = mainCPU.A;
+			isWrite = 1;
+			break;
+
+		case 0x86: case 0x96: case 0x8E:
+			// STX (store X)
+			*operand = mainCPU.X;
+			isWrite = 1;
+			break;
+
+		case 0x84: case 0x94: case 0x8C:
+			// STY (store Y)
+			*operand = mainCPU.Y;
+			isWrite = 1;
+			break;
+
+		case 0xAA:
+			// TAX (A -> X)
+			mainCPU.X = mainCPU.A;
+			goto trxFlags;
+		case 0x8A:
+			// TXA (X -> A)
+			mainCPU.A = mainCPU.X;
+			goto trxFlags;
+		case 0xA8:
+			// TAY (A -> Y)
+			mainCPU.Y = mainCPU.A;
+			goto trxFlags;
+		case 0x98:
+			// TYA (Y -> A)
+			mainCPU.A = mainCPU.Y;
+		trxFlags:
+			mainCPU.P =
+				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_NEG)) |			// keep flags
+				((mainCPU.A & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
+				((mainCPU.A == 0x00) ? ST_ZRO : 0);										// zero flag
+			break;
+
+		case 0xBA:
+			// TSX (SP -> X)
+			mainCPU.X = mainCPU.SP;
+		case 0x9A:
+			// TXS (X -> SP)
+			mainCPU.SP = mainCPU.X;
+			mainCPU.P =
+				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_NEG)) |			// keep flags
+				((mainCPU.X & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
+				((mainCPU.X == 0x00) ? ST_ZRO : 0);										// zero flag
+			break;
+
+		case 0x48:
+			// PHA (push A)
+			mainCPU.push(mainCPU.A);
+			break;
+
+		case 0x68:
+			// PLA (pull A)
+			mainCPU.A = mainCPU.pop();
+			mainCPU.P =
+				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_NEG)) |			// keep flags
+				((mainCPU.A & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
+				((mainCPU.A == 0x00) ? ST_ZRO : 0);										// zero flag
+			break;
+
+		case 0x08:
+			// PHP (push processor status)
+			mainCPU.push(mainCPU.P | ST_UNUSED);
+			break;
+
+		case 0x28:
+			// PLP (pop processor status)
+			mainCPU.P = mainCPU.pop();
+			break;
+
+		/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		// ALU
+
+		case 0x69:
+			// ADC #$NN (or immediate)
+			mainCPU.PC++;
+			operand = PTR_TO_BYTE(data1);
+		case 0x65: case 0x75: case 0x6D: case 0x7D: case 0x79: case 0x61: case 0x71:
+			// ADC
+			// TODO : possibly move overflow calculation to flag resolve?
+			result = mainCPU.A + *operand + (mainCPU.P & ST_CRY);
+			mainCPU.P =
+				(mainCPU.P & (ST_INT | ST_BRK | ST_BCD)) |								// keep flags
+				((result & 0x100) >> (8 - ST_CRY_BIT)) |								// carry
+				((result & 0xFF) == 0 ? ST_ZRO : 0) |									// zero
+				(((mainCPU.A^result)&(*operand^result) & 0x80) >> (7 - ST_OVR_BIT)) |	// overflow (http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html)
+				((result & 0x80) >> (7 - ST_NEG_BIT));									// negative (sign)
+			mainCPU.A = result & 0xFF;
+			break;
+			
+		case 0xE9:
+			// SBC #$NN (or immediate)
+			mainCPU.PC++;
+			operand = PTR_TO_BYTE(data1);
+		case 0xE5: case 0xF5: case 0xED: case 0xFD: case 0xF9: case 0xE1: case 0xF1:
+			// SBC
+			// TODO : possibly move overflow calculation to flag resolve?
+			result = mainCPU.A - *operand - (mainCPU.P & ST_CRY);
+			mainCPU.P =
+				(mainCPU.P & (ST_INT | ST_BRK | ST_BCD)) |									// keep flags
+				((result & 0x100) >> (8 - ST_CRY_BIT)) |									// carry
+				((result & 0xFF) == 0 ? ST_ZRO : 0) |										// zero
+				(((mainCPU.A^result)&((~(*operand))^result) & 0x80) >> (7 - ST_OVR_BIT)) |	// overflow (http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html)
+				((result & 0x80) >> (7 - ST_NEG_BIT));										// negative (sign)
+			mainCPU.A = result & 0xFF;
+			break;
+
+		case 0xC6: case 0xD6: case 0xCE: case 0xDE:
+			// DEC
+			(*operand)--;
+			mainCPU.P =
+				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_CRY)) |			// keep flags
+				((*operand & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
+				((*operand == 0x00) ? ST_ZRO : 0);										// zero flag
+			isWrite = 1;
+			break;
+
+		case 0xE6: case 0xF6: case 0xEE: case 0xFE:
+			// INC
+			(*operand)++;
+			mainCPU.P =
+				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_NEG)) |			// keep flags
+				((*operand & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
+				((*operand == 0x00) ? ST_ZRO : 0);										// zero flag
+			isWrite = 1;
+			break;
+
+		case 0xCA: 
+			// TODO (perf) (try -= 2 and skip flags and break?)
+			// DEX (decrement X)
+			mainCPU.X = (mainCPU.X - 1) & 0xFF;
+			mainCPU.P =
+				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_CRY)) |			// keep flags
+				((mainCPU.X & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
+				((mainCPU.X == 0x00) ? ST_ZRO : 0);										// zero flag
+			break;
+
+		case 0xE8: 
+			// INX (increment X)
+			mainCPU.X = (mainCPU.X + 1) & 0xFF;
+			mainCPU.P =
+				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_CRY)) |			// keep flags
+				((mainCPU.X & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
+				((mainCPU.X == 0x00) ? ST_ZRO : 0);										// zero flag
+			break;
+
+		case 0x88: 
+			// DEY (decrement Y)
+			// TODO (perf) (try -= 2 and skip flags and break?)
+			mainCPU.Y = (mainCPU.Y - 1) & 0xFF;
+			mainCPU.P =
+				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_CRY)) |			// keep flags
+				((mainCPU.Y & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
+				((mainCPU.Y == 0x00) ? ST_ZRO : 0);										// zero flag
+			break;
+
+		case 0xC8: 
+			// INY (increment Y)
+			mainCPU.Y = (mainCPU.Y + 1) & 0xFF;
+			mainCPU.P =
+				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_CRY)) |			// keep flags
+				((mainCPU.Y & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
+				((mainCPU.Y == 0x00) ? ST_ZRO : 0);										// zero flag
+			break;
+
+		/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		// BITWISE
+			
+		case 0x09:
+			// ORA #$NN (or immediate)
+			mainCPU.PC++;
+			operand = PTR_TO_BYTE(data1);
+		case 0x05: case 0x15: case 0x0D: case 0x1D: case 0x19: case 0x01: case 0x11: 
+			// ORA
+			mainCPU.A = mainCPU.A | *operand;
+			mainCPU.P = 
+				(mainCPU.P & (ST_CRY | ST_INT | ST_BCD | ST_BRK | ST_OVR)) |			// keep flags
+				((mainCPU.A == 0) ? ST_ZRO : 0) |										// zero
+				((mainCPU.A & 0x80) >> (7 - ST_NEG_BIT));								// negative (sign)
+			break;
+
+		case 0x29:
+			// AND #$NN (and immediate)
+			mainCPU.PC++;
+			operand = PTR_TO_BYTE(data1);
+		case 0x25: case 0x35: case 0x2D: case 0x3D: case 0x39: case 0x21: case 0x31: 
+			// AND
+			mainCPU.A = mainCPU.A & *operand;
+			mainCPU.P = 
+				(mainCPU.P & (ST_CRY | ST_INT | ST_BCD | ST_BRK | ST_OVR)) |			// keep flags
+				((mainCPU.A == 0) ? ST_ZRO : 0) |										// zero
+				((mainCPU.A & 0x80) >> (7 - ST_NEG_BIT));								// negative (sign)
+			break;
+
+		case 0x49:
+			// EOR #$NN (xor immediate)
+			mainCPU.PC++;
+			operand = PTR_TO_BYTE(data1);
+		case 0x45: case 0x55: case 0x4D: case 0x5D: case 0x59: case 0x41: case 0x51: 
+			// EOR
+			mainCPU.A = mainCPU.A ^ *operand;
+			mainCPU.P = 
+				(mainCPU.P & (ST_CRY | ST_INT | ST_BCD | ST_BRK | ST_OVR)) |			// keep flags
+				((mainCPU.A == 0) ? ST_ZRO : 0) |										// zero
+				((mainCPU.A & 0x80) >> (7 - ST_NEG_BIT));								// negative (sign)
+			break;
+
+		case 0x0A:
+			// ASL A
+			operand = PTR_TO_BYTE(mainCPU.A);
+		case 0x06: case 0x16: case 0x0E: case 0x1E:
+			// ASL
+			mainCPU.P =
+				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR)) |						// keep flags
+				((*operand & 0x80) >> (7 - ST_CRY_BIT)) |								// carry
+				(((*operand & 0x7F) == 0) ? ST_ZRO : 0) |								// zero
+				((*operand & 0x40) << (ST_NEG_BIT - 6));								// negative (sign)
+			*operand = (*operand << 1) & 0xFF;
+			isWrite = 1;
+			break;
+			
+		case 0x4A:
+			// LSR A
+			operand = PTR_TO_BYTE(mainCPU.A);
+		case 0x46: case 0x56: case 0x4E: case 0x5E:
+			// LSR
+			mainCPU.P =
+				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR)) |						// keep flags
+				((*operand & 0x01) >> (0 - ST_CRY_BIT)) |								// carry
+				(((*operand & 0xFE) == 0) ? ST_ZRO : 0) |								// zero
+				0;																		// negative (sign) always cleared
+			*operand >>= 1;
+			isWrite = 1;
+			break;
+
+		case 0x2A:
+			// ROL A
+			operand = PTR_TO_BYTE(mainCPU.A);
+		case 0x26: case 0x36: case 0x2E: case 0x3E:
+			// ROL 
+			result = (*operand << 1) | (mainCPU.P & ST_CRY);
+			mainCPU.P =
+				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR)) |						// keep flags
+				((result & 0x100) >> (8 - ST_CRY_BIT)) |								// carry
+				(((result & 0xFF) == 0) ? ST_ZRO : 0) |									// zero
+				((result & 0x80) >> (7 - ST_NEG_BIT));									// negative (sign)
+			*operand = result;
+			break;
+
+		case 0x6A:
+			// ROR A
+			operand = PTR_TO_BYTE(mainCPU.A);
+		case 0x66: case 0x76: case 0x6E: case 0x7E:
+			result = (*operand >> 1) | ((mainCPU.P & ST_CRY) << (7 - ST_CRY_BIT));
+			mainCPU.P =
+				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR)) |						// keep flags
+				((*operand & 0x01) >> (0 - ST_CRY_BIT)) |								// carry
+				((result == 0) ? ST_ZRO : 0) |											// zero
+				((result & 0x80) >> (7 - ST_NEG_BIT));									// negative (sign)
+			*operand = result;
+			break;
+
+
+		case 0x24: case 0x2C:
+			// BIT
+			mainCPU.P =
+				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_CRY)) |						// keep flags
+				(((*operand & mainCPU.A) == 0) ? ST_ZRO : 0) |							// zero flag
+				(*operand & (ST_OVR | ST_NEG));											// these are copied in (bits 6-7)
+			break;
+
+		/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		// BRANCH / JUMP
+
+		case 0x10:	
+			// BPL
+			result = (~mainCPU.P) & ST_NEG;
+			goto finishBranch;
+		case 0x30:
+			// BMI
+			result = mainCPU.P & ST_NEG;
+			goto finishBranch;
+		case 0x50:
+			// BVC
+			result = (~mainCPU.P) & ST_OVR;
+			goto finishBranch;
+		case 0x70:
+			// BVS
+			result = mainCPU.P & ST_OVR;
+			goto finishBranch;
+		case 0x90:
+			// BCC
+			result = (~mainCPU.P) & ST_CRY;
+			goto finishBranch;
+		case 0xB0:
+			// BCS
+			result = mainCPU.P & ST_CRY;
+			goto finishBranch;
+		case 0xD0:
+			// BNE
+			result = (~mainCPU.P) & ST_ZRO;
+			goto finishBranch;
+		case 0xF0:
+			// BEQ
+			result = mainCPU.P & ST_ZRO;
+		finishBranch:
+			mainCPU.PC++;
+			if (result) {
+				unsigned int oldPC = mainCPU.PC;
+				mainCPU.PC += (char) (data1);
+				mainCPU.clocks += 1 + ((oldPC & 0xFF00) != (mainCPU.PC & 0xFF00) ? 1 : 0);
+			}
+			break;
+
+		case 0x4C:
+			// JMP (absolute)
+			mainCPU.PC = data1 + (data2 << 8);
+			break;
+
+		case 0x6C:
+			// JMP (indirect)
+			DebugAssert(data1 != 0xFF);			// don't support jumps at end of a page 
+			mainCPU.PC = operand[0] + (operand[1] << 8);
+			break;
+
+		case 0x20:
+			// JSR (subroutine)
+			mainCPU.PC += 1;
+			mainCPU.push(mainCPU.PC >> 8);
+			mainCPU.push(mainCPU.PC & 0xFF);
+
+			mainCPU.PC = data1 + (data2 << 8);
+			break;
+
+		case 0x40:
+			// RTI (return from interrupt)
+			mainCPU.P = mainCPU.pop();
+			mainCPU.PC = mainCPU.pop() | (mainCPU.pop() << 8);
+			break;
+
+		case 0x60:
+			// RTS
+			mainCPU.PC = mainCPU.pop() | (mainCPU.pop() << 8);
+			mainCPU.PC++;
+			break;
+
+		/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		// COMPARE / TEST
+
+		case 0xC9:
+			// CMP #$NN (compare immediate)
+			mainCPU.PC++;
+			operand = PTR_TO_BYTE(data1);
+		case 0xC5: case 0xD5: case 0xCD: case 0xDD: case 0xD9: case 0xC1: case 0xD1:
+			// CMP
+			mainCPU.P =
+				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR)) |						// keep flags
+				((*operand > mainCPU.A) ? ST_CRY : 0) |									// carry flag
+				((*operand == mainCPU.A) ? ST_ZRO : 0) |								// zero flag
+				(((mainCPU.A - *operand) & 0x80) >> (7 - ST_NEG_BIT));					// negative (sign) flag
+			break;
+
+		case 0xE0:
+			// CPX #$NN (compare immediate)
+			mainCPU.PC++;
+			operand = PTR_TO_BYTE(data1);
+		case 0xE4: case 0xEC:
+			// CPX
+			mainCPU.P =
+				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR)) |						// keep flags
+				((*operand > mainCPU.X) ? ST_CRY : 0) |									// carry flag
+				((*operand == mainCPU.X) ? ST_ZRO : 0) |								// zero flag
+				(((mainCPU.X - *operand) & 0x80) >> (7 - ST_NEG_BIT));					// negative (sign) flag
+			break;
+			
+		case 0xC0:
+			// CPY #$NN (compare immediate)
+			mainCPU.PC++;
+			operand = PTR_TO_BYTE(data1);
+		case 0xC4: case 0xCC:
+			// CPY
+			mainCPU.P =
+				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR)) |						// keep flags
+				((*operand > mainCPU.Y) ? ST_CRY : 0) |									// carry flag
+				((*operand == mainCPU.Y) ? ST_ZRO : 0) |								// zero flag
+				(((mainCPU.Y - *operand) & 0x80) >> (7 - ST_NEG_BIT));					// negative (sign) flag
+			break;
+
+		/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		// STATUS FLAGS
+
+		case 0x18:
+			// CLC (clear carry)
+			mainCPU.P &= ~ST_CRY;
+			break;
+
+		case 0x38:
+			// SEC (set carry)
+			mainCPU.P |= ST_CRY;
+			break;
+
+		case 0x58:
+			// CLI (clear interrupt)
+			mainCPU.P &= ~ST_INT;
+			break;
+
+		case 0x78:
+			// SEI (set interrupt)
+			mainCPU.P |= ST_INT;
+			break;
+
+		case 0xB8:
+			// CLV (clear overflow)
+			mainCPU.P &= ~ST_OVR;
+			break;
+
+		case 0xD8:
+			// CLD (clear decimal)
+			mainCPU.P &= ~ST_BCD;
+			break;
+
+		case 0xF8:
+			// SED (set decimal)
+			mainCPU.P |= ST_BCD;
+			break;
+
+		/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		// MISC
+
+		case 0x00:
+			// BRK : TODO (generic interrupt handler)
+			DebugAssert(false);
+			mainCPU.PC++;
+			break;
+
+		case 0xEA:
+			// NOP
+			break;
+
+		default:
+			// unhandled instruction
+			DebugAssert(false);
 	}
 
 	if (isSpecial) {
