@@ -29,6 +29,16 @@ struct cpu_6502 {
 
 	// clock cycle counter
 	unsigned int clocks;
+};		
+
+struct cpu_instr_history {
+	cpu_6502 regs;			// copy of CPU pre op and address
+	unsigned int instr;		// instruction byte
+	unsigned int data1;
+	unsigned int data2;
+	unsigned int addr;		// effective address
+	
+	void output();
 };
 
 #define ST_CRY_BIT (0)

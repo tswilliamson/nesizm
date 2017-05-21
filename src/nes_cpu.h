@@ -18,7 +18,8 @@ struct nes_cpu : public cpu_6502 {
 	}
 
 	FORCE_INLINE unsigned char read(unsigned int addr) {
-		if (addr >= 0x2000 && addr <= 0x401F)
+		// TODO: play with this math and determine fastest instructional approach
+		if (addr >= 0x2000 && addr < 0x6000)
 			return readSpecial(addr);
 		else
 			return map[addr >> 8][addr & 0xFF];
@@ -45,10 +46,13 @@ struct nes_cpu : public cpu_6502 {
 	// returns pointer to data for special address but does not perform a "read" operation if it effects it
 	unsigned char* getSpecial(unsigned int addr);
 
-	void postSpecialRead(unsigned char* fromAddr);
-	void postSpecialWrite(unsigned char* toAddr);
+	// performs read operation on byte (in case memory is effected)
+	void postSpecialRead(unsigned int addr);
 
+	// combined special read (for off cpu ops) 
 	unsigned char readSpecial(unsigned int addr);
+
+	// performs write operation on byte (when >= 0x2000)
 	void writeSpecial(unsigned int addr, unsigned char value);
 
 	// map default memory for CPU (zero page, stack, RAM, mirrors, etc)

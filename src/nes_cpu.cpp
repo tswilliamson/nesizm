@@ -7,6 +7,16 @@
 
 nes_cpu mainCPU;
 
+unsigned char* nes_cpu::getSpecial(unsigned int addr) {
+	static unsigned char specByte = 0;
+	DebugAssert(0);
+	return &specByte;
+}
+
+void nes_cpu::postSpecialRead(unsigned int addr) {
+	DebugAssert(0);
+}
+
 unsigned char nes_cpu::readSpecial(unsigned int addr) {
 	DebugAssert(0);
 	return 0;
@@ -29,6 +39,8 @@ void nes_cpu::mapDefaults() {
 
 // reset the CPU (assumes memory mapping is set up properly for this)
 void nes_cpu::reset() {
+	// CPU set to match FCEUX for debugging
+
 	// RAM reset
 	for (int i = 0; i < 0x800; i += 8) {
 		RAM[i + 0] = 0;
@@ -55,4 +67,6 @@ void nes_cpu::reset() {
 	X = 0;
 	Y = 0;
 	P = 0;
+
+	clocks = 7;
 }

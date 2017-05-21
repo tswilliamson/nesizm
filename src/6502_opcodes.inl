@@ -15,7 +15,25 @@
 //  OPCODE_ZRX		zero page X
 //  OPCODE_ZRY		zero page Y
 
-// if the individual macro's aren't defined, then we are looking for standard behavior:
+// if the individual macro's aren't defined, then we are looking for other behavior:
+
+// opcode based on data width
+#if !defined(OPCODE_NONE) && defined(OPCODE_0W)
+#define OPCODE_NON		OPCODE_0W
+#define OPCODE_IMM		OPCODE_1W
+#define OPCODE_REL		OPCODE_1W
+#define OPCODE_ABS		OPCODE_2W
+#define OPCODE_ABX		OPCODE_2W
+#define OPCODE_ABY		OPCODE_2W
+#define OPCODE_IND		OPCODE_2W
+#define OPCODE_INX		OPCODE_1W
+#define OPCODE_INY		OPCODE_1W
+#define OPCODE_ZRO		OPCODE_1W
+#define OPCODE_ZRX		OPCODE_1W
+#define OPCODE_ZRY		OPCODE_1W
+#endif
+
+// generic opcode
 #if !defined(OPCODE_NONE) && defined(OPCODE)
 #define OPCODE_NON		OPCODE
 #define OPCODE_IMM		OPCODE
@@ -202,6 +220,9 @@ OPCODE_ABX( 0xfd,		"SBC $%04x,X",		4,	3,	{}		)
 OPCODE_ABX( 0xfe,		"INC $%04x,Y",		7,	3,	{}		)
 
 #undef OPCODE
+#undef OPCODE_0W
+#undef OPCODE_1W
+#undef OPCODE_2W
 #undef OPCODE_NON
 #undef OPCODE_IMM
 #undef OPCODE_REL

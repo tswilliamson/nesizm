@@ -6,6 +6,8 @@
 #define NES 1
 #include "6502.h"
 
+#define TRACE_INSTRUCTIONS 1
+
 #ifdef LITTLE_E
 #define PTR_TO_BYTE(x) ((unsigned char*) &x)
 #else
@@ -52,10 +54,22 @@ static int modeTable[32] = {
 };
 
 void cpu6502_Step() {
+#if TRACE_INSTRUCTIONS
+	cpu_instr_history hist;
+	memcpy(&hist.regs, &mainCPU, sizeof(cpu_6502));
+#endif
+
 	// TODO : cache into single read (with instruction overlap in bank pages)
 	unsigned int instr = mainCPU.read(mainCPU.PC);
 	unsigned int data1 = mainCPU.read(mainCPU.PC + 1);
 	unsigned int data2 = mainCPU.read(mainCPU.PC + 2);
+
+	// effective address
+#if TARGET_WINSIM
+	unsigned int effAddr = 0xFFFFFFFF;
+#else
+	unsigned int effAddr;
+#endif
 
 	unsigned char* operand;
 	unsigned int isSpecial = 0;
@@ -64,34 +78,41 @@ void cpu6502_Step() {
 	// instruction base clocks
 	// mainCPU.clocks += clockTable[instr];
 
+	// TODO : perf (try labels here)
 	switch (modeTable[instr & 0x1F]) {
 		case AM_Absolute:
-			operand = mainCPU.getByte(data1 + (data2 << 8), isSpecial);
+			effAddr = data1 + (data2 << 8);
+			operand = mainCPU.getByte(effAddr, isSpecial);
 			mainCPU.PC += 3;
 			break;
 		case AM_AbsoluteX:
-			operand = mainCPU.getByte(data1 + (data2 << 8) + (mainCPU.P & ST_CRY), isSpecial);
+			effAddr = data1 + (data2 << 8) + (mainCPU.P & ST_CRY);
+			operand = mainCPU.getByte(effAddr, isSpecial);
 			mainCPU.PC += 3;
 			break;
 		case AM_IndirectX:
 		{
 			int target = (data1 + mainCPU.X) & 0xFF;
-			operand = mainCPU.getByte(mainCPU.RAM[target] + (mainCPU.RAM[(target + 1) & 0xFF] << 8), isSpecial);
+			effAddr = mainCPU.RAM[target] + (mainCPU.RAM[(target + 1) & 0xFF] << 8);
+			operand = mainCPU.getByte(effAddr, isSpecial);
 			mainCPU.PC += 2;
 			break;
 		}
 		case AM_IndirectY:
 		{
-			operand = mainCPU.getByte(mainCPU.RAM[data1] + (mainCPU.RAM[(data1 + 1) & 0xFF] << 8) + mainCPU.Y, isSpecial);
+			effAddr = mainCPU.RAM[data1] + (mainCPU.RAM[(data1 + 1) & 0xFF] << 8) + mainCPU.Y;
+			operand = mainCPU.getByte(effAddr, isSpecial);
 			mainCPU.PC += 2;
 			break;
 		}
 		case AM_Zero:
-			operand = &mainCPU.RAM[data1];
+			effAddr = data1;
+			operand = &mainCPU.RAM[effAddr];
 			mainCPU.PC += 2;
 			break;
 		case AM_ZeroX:
-			operand = &mainCPU.RAM[(data1 + mainCPU.X) & 0xFF];
+			effAddr = (data1 + mainCPU.X) & 0xFF;
+			operand = &mainCPU.RAM[effAddr];
 			mainCPU.PC += 2;
 			break;
 		default:
@@ -100,7 +121,15 @@ void cpu6502_Step() {
 			break;
 	}
 
-	int result;	// used in some instructions
+#if TRACE_INSTRUCTIONS
+	hist.instr = instr;
+	hist.data1 = data1;
+	hist.data2 = data2;
+	hist.addr = effAddr;
+	hist.output();
+#endif
+
+	unsigned int result;	// used in some instructions
 
 	switch (instr) {
 		/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -147,19 +176,19 @@ void cpu6502_Step() {
 
 		case 0x85: case 0x95: case 0x8D: case 0x9D: case 0x99: case 0x81: case 0x91:
 			// STA (store accumulator)
-			*operand = mainCPU.A;
+			result = mainCPU.A;
 			isWrite = 1;
 			break;
 
 		case 0x86: case 0x96: case 0x8E:
 			// STX (store X)
-			*operand = mainCPU.X;
+			result = mainCPU.X;
 			isWrite = 1;
 			break;
 
 		case 0x84: case 0x94: case 0x8C:
 			// STY (store Y)
-			*operand = mainCPU.Y;
+			result = mainCPU.Y;
 			isWrite = 1;
 			break;
 
@@ -260,21 +289,21 @@ void cpu6502_Step() {
 
 		case 0xC6: case 0xD6: case 0xCE: case 0xDE:
 			// DEC
-			(*operand)--;
+			result = (*operand - 1) & 0xFF;
 			mainCPU.P =
 				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_CRY)) |			// keep flags
-				((*operand & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
-				((*operand == 0x00) ? ST_ZRO : 0);										// zero flag
+				((result & 0x80) >> (7 - ST_NEG_BIT)) |									// sign flag
+				(result == 0x00 ? ST_ZRO : 0);											// zero flag
 			isWrite = 1;
 			break;
 
 		case 0xE6: case 0xF6: case 0xEE: case 0xFE:
 			// INC
-			(*operand)++;
+			result = (*operand + 1) & 0xFF;
 			mainCPU.P =
 				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_NEG)) |			// keep flags
-				((*operand & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
-				((*operand == 0x00) ? ST_ZRO : 0);										// zero flag
+				((result & 0x80) >> (7 - ST_NEG_BIT)) |									// sign flag
+				(result == 0x00 ? ST_ZRO : 0);											// zero flag
 			isWrite = 1;
 			break;
 
@@ -368,7 +397,7 @@ void cpu6502_Step() {
 				((*operand & 0x80) >> (7 - ST_CRY_BIT)) |								// carry
 				(((*operand & 0x7F) == 0) ? ST_ZRO : 0) |								// zero
 				((*operand & 0x40) << (ST_NEG_BIT - 6));								// negative (sign)
-			*operand = (*operand << 1) & 0xFF;
+			result = (*operand << 1) & 0xFF;
 			isWrite = 1;
 			break;
 			
@@ -382,7 +411,7 @@ void cpu6502_Step() {
 				((*operand & 0x01) >> (0 - ST_CRY_BIT)) |								// carry
 				(((*operand & 0xFE) == 0) ? ST_ZRO : 0) |								// zero
 				0;																		// negative (sign) always cleared
-			*operand >>= 1;
+			result = *operand >> 1;
 			isWrite = 1;
 			break;
 
@@ -397,7 +426,7 @@ void cpu6502_Step() {
 				((result & 0x100) >> (8 - ST_CRY_BIT)) |								// carry
 				(((result & 0xFF) == 0) ? ST_ZRO : 0) |									// zero
 				((result & 0x80) >> (7 - ST_NEG_BIT));									// negative (sign)
-			*operand = result;
+			isWrite = 1;
 			break;
 
 		case 0x6A:
@@ -410,9 +439,8 @@ void cpu6502_Step() {
 				((*operand & 0x01) >> (0 - ST_CRY_BIT)) |								// carry
 				((result == 0) ? ST_ZRO : 0) |											// zero
 				((result & 0x80) >> (7 - ST_NEG_BIT));									// negative (sign)
-			*operand = result;
+			isWrite = 1;
 			break;
-
 
 		case 0x24: case 0x2C:
 			// BIT
@@ -595,11 +623,44 @@ void cpu6502_Step() {
 			DebugAssert(false);
 	}
 
-	if (isSpecial) {
-		if (isWrite) {
-			mainCPU.postSpecialWrite(operand);
+	if (isWrite) {
+		DebugAssert((result & 0xFF) == result && effAddr != 0xFFFFFFFF);
+		if (effAddr >= 0x2000) {
+			mainCPU.writeSpecial(effAddr, result);
 		} else {
-			mainCPU.postSpecialRead(operand);
+			*operand = result;
 		}
+	} else if (isSpecial) {
+		DebugAssert(effAddr != 0xFFFFFFFF);
+		mainCPU.postSpecialRead(effAddr);
 	}
+}
+
+void cpu_instr_history::output() {
+	static bool showClocks = true;
+	if (showClocks) {
+		OutputLog(" c%- 12d", regs.clocks);
+	}
+	static bool showRegs = true;
+	if (showRegs) {
+		OutputLog(" A:%02X X:%02X Y:%02X S:%02X P:%s%su%s%s%s%s%s ",
+			regs.A,
+			regs.X,
+			regs.Y,
+			regs.SP,
+			regs.P & ST_NEG ? "N" : "n",
+			regs.P & ST_OVR ? "V" : "v",
+			regs.P & ST_BRK ? "B" : "b",
+			regs.P & ST_BCD ? "D" : "d",
+			regs.P & ST_INT ? "I" : "i",
+			regs.P & ST_ZRO ? "Z" : "z",
+			regs.P & ST_CRY ? "C" : "c");
+	}
+
+#define OPCODE_0W(op,str,clk,sz,spc) if (instr == op) OutputLog("$%04X " str "\n", regs.PC);
+#define OPCODE_1W(op,str,clk,sz,spc) if (instr == op) OutputLog("$%04X " str "  (eff:%04X)\n", regs.PC, data1, addr);
+#define OPCODE_2W(op,str,clk,sz,spc) if (instr == op) OutputLog("$%04X " str "  (eff:%04X)\n", regs.PC, data1 + (data2 << 8), addr);
+#include "6502_opcodes.inl"
+
+	int j = 1;
 }
