@@ -8,6 +8,9 @@ struct nes_cpu : public cpu_6502 {
 	// high byte memory map
 	unsigned char* map[0x100];
 
+	// clocks for next PPU update
+	unsigned int ppuClocks;
+
 	FORCE_INLINE unsigned char* getByte(unsigned int addr, unsigned int& isSpecial) {
 		if (addr >= 0x2000 && addr <= 0x401F) {
 			isSpecial = 1;

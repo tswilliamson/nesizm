@@ -8,21 +8,37 @@
 nes_cpu mainCPU;
 
 unsigned char* nes_cpu::getSpecial(unsigned int addr) {
+	if (addr < 0x4000) {
+		DebugAssert(addr >= 0x2000);	// assumed to be PPU register then
+		return nesPPU.latchReg(addr & 0x07);
+	}
+
 	static unsigned char specByte = 0;
 	DebugAssert(0);
 	return &specByte;
 }
 
 void nes_cpu::postSpecialRead(unsigned int addr) {
+	if (addr < 0x4000) {
+		DebugAssert(addr >= 0x2000);	// assumed to be PPU register then
+		return;
+	}
 	DebugAssert(0);
 }
 
 unsigned char nes_cpu::readSpecial(unsigned int addr) {
-	DebugAssert(0);
-	return 0;
+	unsigned char *spec = getSpecial(addr);
+	unsigned char ret = *spec;
+	postSpecialRead(addr);
+	return ret;
 }
 
 void nes_cpu::writeSpecial(unsigned int addr, unsigned char value) {
+	if (addr < 0x4000) {
+		DebugAssert(addr >= 0x2000);	// assumed to be PPU register then
+		nesPPU.writeReg(addr & 0x07, value);
+		return;
+	}
 	DebugAssert(0);
 }
 
