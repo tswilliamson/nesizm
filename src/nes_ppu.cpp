@@ -22,12 +22,103 @@ nes_ppu::nes_ppu() {
 }
 
 unsigned char* nes_ppu::latchReg(unsigned int regNum) {
-	// TODO
-	DebugAssert(0);
-	return NULL;
+	switch (regNum) {
+		case 0x02:  
+			latch = &PPUSTATUS;
+			break;
+		case 0x04:
+			latch = &oam[OAMADDR];
+			break;
+		case 0x07:
+			latch = resolvePPUMem((ADDRHI << 8) | ADDRLO);
+			break;
+		// the rest are write only registers, simply return current latch
+		// case 0x00:  PPUCTRL
+		// case 0x01:  PPUMASK
+		// case 0x03:  OAMADDR
+		// case 0x05:  SCROLLX/Y
+		// case 0x06:  ADDRHI/LO
+	}
+	return latch;
 }
 
 void nes_ppu::writeReg(unsigned int regNum, unsigned char value) {
-	// TODO
-	DebugAssert(0);
+	switch (regNum) {
+		case 0x00:	// PPUCTRL
+			if ((PPUCTRL & 0x80) == 0 && (value & 0x80)) {
+				// TODO : activate NMI
+				DebugAssert(0);
+			}
+			latch = &PPUCTRL;
+			break;
+		case 0x01:	// PPUMASK
+			latch = &PPUMASK;
+			break;
+		case 0x02:  
+			latch = &PPUSTATUS;
+			break;
+		case 0x03:  // OAMADDR
+			latch = &OAMADDR;
+			break;
+		case 0x04:
+			latch = &oam[OAMADDR];
+			OAMADDR++;	// writes to OAM data increment the OAM address
+			break;
+		case 0x05:  // SCROLLX/Y
+			if (latch == &SCROLLX) {
+				latch = &SCROLLY;
+			} else {
+				latch = &SCROLLX;
+			}
+			break;
+		case 0x06:  // ADDRHI/LO
+			if (latch == &ADDRHI) {
+				latch = &ADDRLO;
+			} else {
+				latch = &ADDRHI;
+			}
+			break;
+		case 0x07:
+			unsigned int address = (ADDRHI << 8) | ADDRLO;
+			latch = resolvePPUMem(address);
+			if (PPUSTATUS & PPUSTAT_VRAMINC) {
+				address += 32;
+			} else {
+				address += 1;
+			}
+			ADDRHI = (address & 0xFF00) >> 8;
+			ADDRLO = (address & 0xFF);
+			break;
+	}
+
+	*latch = value;
+}
+
+unsigned char* nes_ppu::resolvePPUMem(unsigned int address) {
+	address &= 0x3FFF;
+	if (address < 0x2000) {
+		// pattern table memory
+		return &chrMap[address];
+	} else if (address < 0x3F00) {
+		// name table memory
+		switch (mirror) {
+			case mirror_type::MT_HORIZONTAL:
+				// $2400 = $2000, and $2c00 = $2800, so ignore bit 10:
+				address = address & 0x03FF | ((address & 0x800) >> 1);
+				break;
+			case mirror_type::MT_VERTICAL:
+				// $2800 = $2000, and $2c00 = $2400, so ignore bit 11:
+				address = address & 0x07FF;
+				break;
+			case mirror_type::MT_4PANE:
+				address = address & 0x0FFF;
+				break;
+		}
+		// this is meant to overflow
+		return &nameTables[0].table[address];
+	} else {
+		// palette memory
+		address &= 0x1F;
+		return &palette[address & 0x1F];
+	}
 }

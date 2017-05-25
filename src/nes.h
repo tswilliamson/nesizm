@@ -69,24 +69,32 @@ struct nes_ppu {
 	unsigned char PPUMASK;			// $2001
 	unsigned char PPUSTATUS;		// $2002
 	unsigned char OAMADDR;			// $2003
-	unsigned char OAMDATA;			// $2004 (only used for latch behavior)
+	// unsigned char OAMDATA;		// $2004 (unused with latch behavior)
 	unsigned char SCROLLX;			// $2005 (a)
 	unsigned char SCROLLY;			// $2005 (b)
 	unsigned char ADDRHI;			// $2006 (a)
 	unsigned char ADDRLO;			// $2006 (b)
-	unsigned char DATA;				// $2007 (only used for latch behavior)
+	// unsigned char DATA;			// $2007 (unused with latch behavior)
 
 	// cur latch pointer (to the registers above)
 	unsigned char* latch;
 
 	mirror_type mirror;
 
+	unsigned char* resolvePPUMem(unsigned int addr);
 
 	nes_ppu();
 
 	unsigned char* latchReg(unsigned int regNum);
 	void writeReg(unsigned int regNum, unsigned char value);
 };
+
+#define PPUSTAT_VRAMINC (1 << 2)		// 0 = +1, 1 = +32
+#define PPUSTAT_OAMTABLE (1 << 3)		// 1 = 0x1000
+#define PPUSTAT_BGDTABLE (1 << 4)		// 1 = 0x1000
+#define PPUSTAT_SPRSIZE (1 << 5)		// 1 = 8x16
+#define PPUSTAT_SLAVE (1 << 6)
+#define PPUSTAT_NMI (1 << 7)
 
 extern nes_cart nesCart;
 extern nes_ppu nesPPU;
