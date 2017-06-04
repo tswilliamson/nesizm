@@ -44,6 +44,7 @@ struct nes_nametable {
 	unsigned char attr[64];
 };
 
+// TODO : this should all be static (not necessary to OO except for ease of reading)
 // ppu properties and vram
 struct nes_ppu {
 	enum mirror_type {
@@ -83,10 +84,22 @@ struct nes_ppu {
 
 	unsigned char* resolvePPUMem(unsigned int addr);
 
+	unsigned char scanlineBuffer[256];
+
+	// render the scanline with the given number to the scanlineBuffer
+	void renderScanline(unsigned int scanlineNum);
+
+	// resolve the rendered scanline buffer to the screen at the desired y position
+	void resolveScanline(unsigned int y);
+
+	unsigned int scanline;
+
 	nes_ppu();
 
 	unsigned char* latchReg(unsigned int regNum);
+	void postReadLatch();
 	void writeReg(unsigned int regNum, unsigned char value);
+	void step();
 };
 
 #define PPUSTAT_VRAMINC (1 << 2)		// 0 = +1, 1 = +32
@@ -95,6 +108,15 @@ struct nes_ppu {
 #define PPUSTAT_SPRSIZE (1 << 5)		// 1 = 8x16
 #define PPUSTAT_SLAVE (1 << 6)
 #define PPUSTAT_NMI (1 << 7)
+
+#define PPUMASK_GRAYSCALE (1 << 0)
+#define PPUMASK_SHOWLEFTBG (1 << 1)		// if on, show left 8 pixels of background screen
+#define PPUMASK_SHOWLEFTOBJ (1 << 2)	// if on, show left 8 pixels of objects screen
+#define PPUMASK_SHOWBG (1 << 3)
+#define PPUMASK_SHOWOBJ (1 << 4)
+#define PPUMASK_EMPHRED (1 << 5)
+#define PPUMASK_EMPHGREEN (1 << 6)
+#define PPUMASK_EMPHBLUE (1 << 7)
 
 extern nes_cart nesCart;
 extern nes_ppu nesPPU;

@@ -42,6 +42,13 @@ unsigned char* nes_ppu::latchReg(unsigned int regNum) {
 	return latch;
 }
 
+void nes_ppu::postReadLatch() {
+	if (latch == &PPUSTATUS) {
+		// vblank flag cleared after read
+		PPUSTATUS &= ~PPUSTAT_NMI;
+	}
+}
+
 void nes_ppu::writeReg(unsigned int regNum, unsigned char value) {
 	switch (regNum) {
 		case 0x00:	// PPUCTRL
@@ -120,5 +127,59 @@ unsigned char* nes_ppu::resolvePPUMem(unsigned int address) {
 		// palette memory
 		address &= 0x1F;
 		return &palette[address & 0x1F];
+	}
+}
+
+// TODO : scanline check faster to do with table or function ptr?
+void nes_ppu::step() {
+	// cpu time for next scanline
+	mainCPU.ppuClocks += (341 / 3) + (scanline % 3 != 0 ? 1 : 0);
+
+	// TODO: we should be able to render 224 via DMA
+	// 262 scanlines, we render 13-228 (middle 216 lines)
+	if (scanline == 0) {
+		// inactive scanline with even/odd clock cycle thing
+		PPUSTATUS &= ~PPUSTAT_NMI;			// clear vblank flag
+	} else if (scanline < 13) {
+		// non-resolved but active scanline (may cause sprite 0 collision)
+		renderScanline(scanline - 1);
+	} else if (scanline < 229) {
+		// rendered scanline
+		renderScanline(scanline - 1);
+		resolveScanline(scanline - 13);
+	} else if (scanline < 241) {
+		// non-resolved scanline
+		renderScanline(scanline - 1);
+	} else if (scanline == 241) {
+		// blank scanline area
+	} else if (scanline == 242) {
+		// TODO NMI support 
+		PPUSTATUS |= PPUSTAT_NMI;
+	} else if (scanline < 262) {
+		// inside vblank
+	} else {
+		// final scanline
+		scanline = 0xFFFFFFFF;
+	}
+
+	scanline++;
+}
+
+void nes_ppu::renderScanline(unsigned int scanlineNum) {
+	if (PPUMASK & PPUMASK_SHOWBG) {
+
+	}
+}
+
+void nes_ppu::resolveScanline(unsigned int y) {
+	unsigned short* dest = ((unsigned short*)GetVRAMAddress()) + 384 * y + 64;
+	for (int i = 0; i < 256; i++) {
+		DebugAssert(scanlineBuffer[i] < 64);
+
+		unsigned char* rgb = &rgbPalette[scanlineBuffer[i]];
+		*(dest++) =
+			((rgb[0] & 0xF8) << 8) |
+			((rgb[1] & 0xFC) << 3) |
+			((rgb[2] & 0xF8) >> 3);
 	}
 }

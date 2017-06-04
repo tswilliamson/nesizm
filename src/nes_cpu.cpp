@@ -21,6 +21,7 @@ unsigned char* nes_cpu::getSpecial(unsigned int addr) {
 void nes_cpu::postSpecialRead(unsigned int addr) {
 	if (addr < 0x4000) {
 		DebugAssert(addr >= 0x2000);	// assumed to be PPU register then
+		nesPPU.postReadLatch();
 		return;
 	}
 	DebugAssert(0);

@@ -39,6 +39,9 @@ int main(void) {
 
 		while (1) {
 			cpu6502_Step();
+
+			if (mainCPU.clocks >= mainCPU.ppuClocks)
+				nesPPU.step();
 		}
 	} else {
 		int key = 0; 
