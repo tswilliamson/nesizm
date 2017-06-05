@@ -44,79 +44,79 @@ struct nes_nametable {
 	unsigned char attr[64];
 };
 
-// TODO : this should all be static (not necessary to OO except for ease of reading)
-// ppu properties and vram
-struct nes_ppu {
-	enum mirror_type {
-		MT_HORIZONTAL,
-		MT_VERTICAL,
-		MT_4PANE
-	};
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// PPU
 
-	// oam data
-	unsigned char oam[0x100];
+#define PPUCTRL_FLIPXTBL    (1 << 0)		// flip the x axis nametable lookup? (doesn't matter for horizontal lookup)
+#define PPUCTRL_FLIPYTBL    (1 << 1)		// flip the y axix nametable lookup? (doesn't matter for vertical lookup)
+#define PPUCTRL_VRAMINC		(1 << 2)		// 0 = +1, 1 = +32
+#define PPUCTRL_OAMTABLE	(1 << 3)		// 1 = 0x1000
+#define PPUCTRL_BGDTABLE	(1 << 4)		// 1 = 0x1000
+#define PPUCTRL_SPRSIZE		(1 << 5)		// 1 = 8x16
+#define PPUCTRL_SLAVE		(1 << 6)
+#define PPUCTRL_NMI			(1 << 7)
 
-	// up to four name tables potentially (most games use 2)
-	nes_nametable nameTables[4];
+#define PPUMASK_GRAYSCALE	(1 << 0)
+#define PPUMASK_SHOWLEFTBG	(1 << 1)		// if on, show left 8 pixels of background screen
+#define PPUMASK_SHOWLEFTOBJ (1 << 2)		// if on, show left 8 pixels of objects screen
+#define PPUMASK_SHOWBG		(1 << 3)
+#define PPUMASK_SHOWOBJ		(1 << 4)
+#define PPUMASK_EMPHRED		(1 << 5)
+#define PPUMASK_EMPHGREEN	(1 << 6)
+#define PPUMASK_EMPHBLUE	(1 << 7)
 
-	// palette ram (first 16 bytes are BG, second are OBJ palettes)
-	unsigned char palette[0x20];
+enum nes_mirror_type {
+	MT_UNSET,
+	MT_HORIZONTAL,
+	MT_VERTICAL,
+	MT_4PANE
+};
 
-	// all 8 kb mapped for character memory at once (0x0000 - 0x2000)
-	unsigned char* chrMap;
-
+struct ppu_registers_type {
 	// registers (some of them map to $2000-$2007, but this is handled case by case)
 	unsigned char PPUCTRL;			// $2000
 	unsigned char PPUMASK;			// $2001
 	unsigned char PPUSTATUS;		// $2002
 	unsigned char OAMADDR;			// $2003
-	// unsigned char OAMDATA;		// $2004 (unused with latch behavior)
+									// unsigned char OAMDATA;		// $2004 (unused with latch behavior)
 	unsigned char SCROLLX;			// $2005 (a)
 	unsigned char SCROLLY;			// $2005 (b)
 	unsigned char ADDRHI;			// $2006 (a)
 	unsigned char ADDRLO;			// $2006 (b)
-	// unsigned char DATA;			// $2007 (unused with latch behavior)
+									// unsigned char DATA;			// $2007 (unused with latch behavior)
 
-	// cur latch pointer (to the registers above)
-	unsigned char* latch;
-
-	mirror_type mirror;
-
-	unsigned char* resolvePPUMem(unsigned int addr);
-
-	unsigned char scanlineBuffer[256];
-
-	// render the scanline with the given number to the scanlineBuffer
-	void renderScanline(unsigned int scanlineNum);
-
-	// resolve the rendered scanline buffer to the screen at the desired y position
-	void resolveScanline(unsigned int y);
-
-	unsigned int scanline;
-
-	nes_ppu();
+	unsigned char* latch;			// cur latch pointer (to the registers above)
 
 	unsigned char* latchReg(unsigned int regNum);
 	void postReadLatch();
 	void writeReg(unsigned int regNum, unsigned char value);
-	void step();
+
+	ppu_registers_type() {
+		memset(this, 0, sizeof(ppu_registers_type));
+		latch = &PPUCTRL;
+	}
 };
 
-#define PPUSTAT_VRAMINC (1 << 2)		// 0 = +1, 1 = +32
-#define PPUSTAT_OAMTABLE (1 << 3)		// 1 = 0x1000
-#define PPUSTAT_BGDTABLE (1 << 4)		// 1 = 0x1000
-#define PPUSTAT_SPRSIZE (1 << 5)		// 1 = 8x16
-#define PPUSTAT_SLAVE (1 << 6)
-#define PPUSTAT_NMI (1 << 7)
+// main ppu registers (2000-2007 and emulated latch)
+extern ppu_registers_type ppu_registers;
 
-#define PPUMASK_GRAYSCALE (1 << 0)
-#define PPUMASK_SHOWLEFTBG (1 << 1)		// if on, show left 8 pixels of background screen
-#define PPUMASK_SHOWLEFTOBJ (1 << 2)	// if on, show left 8 pixels of objects screen
-#define PPUMASK_SHOWBG (1 << 3)
-#define PPUMASK_SHOWOBJ (1 << 4)
-#define PPUMASK_EMPHRED (1 << 5)
-#define PPUMASK_EMPHGREEN (1 << 6)
-#define PPUMASK_EMPHBLUE (1 << 7)
+// oam data
+extern unsigned char ppu_oam[0x100];
+
+// up to four name tables potentially (most games use 2)
+extern nes_nametable ppu_nameTables[4];
+
+// palette ram (first 16 bytes are BG, second are OBJ palettes)
+extern unsigned char ppu_palette[0x20];
+
+// all 8 kb mapped for character memory at once (0x0000 - 0x2000)
+extern unsigned char* ppu_chrMap;
+
+extern void ppu_setMirrorType(nes_mirror_type withType);
+
+// reading / writing
+extern unsigned char* ppu_resolveMemoryAddress(unsigned int addr);
+
+extern void ppu_step();
 
 extern nes_cart nesCart;
-extern nes_ppu nesPPU;

@@ -63,5 +63,8 @@ struct cpu_instr_history {
 extern nes_cpu mainCPU;
 #endif
 
+// initalizes vars needed for 6502 simulation
+void cpu6502_Init();
+
 // this is done statically to obtain static addressing optimizations
 void cpu6502_Step();

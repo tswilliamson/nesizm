@@ -63,11 +63,11 @@ bool nes_cart::loadROM(const char* withFile) {
 
 	// byte 6: flags (and lower mapper nibble which is used later)
 	if (header[6] & (1 << 3)) {
-		nesPPU.mirror = nes_ppu::MT_4PANE;
+		ppu_setMirrorType(MT_4PANE);
 	} else if (header[6] & (1 << 0)) {
-		nesPPU.mirror = nes_ppu::MT_VERTICAL;
+		ppu_setMirrorType(MT_VERTICAL);
 	} else {
-		nesPPU.mirror = nes_ppu::MT_HORIZONTAL;
+		ppu_setMirrorType(MT_HORIZONTAL);
 	}
 	isBatteryBacked = header[6] & (1 << 1);
 
@@ -163,7 +163,7 @@ void nes_cart::setupMapper0_NROM() {
 	// read CHR bank (always one)
 	int chrBank = 2 * numPRGBanks;
 	Bfile_ReadFile_OS(handle, romBanks[chrBank], 8192, -1);
-	nesPPU.chrMap = romBanks[chrBank];
+	ppu_chrMap = romBanks[chrBank];
 
 	// map memory to read-in ROM
 	if (numPRGBanks == 1) {

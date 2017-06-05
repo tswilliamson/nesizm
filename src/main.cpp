@@ -35,13 +35,14 @@ int main(void) {
 
 		SetQuitHandler(shutdown);
 
+		cpu6502_Init();
 		mainCPU.reset();
 
 		while (1) {
 			cpu6502_Step();
 
 			if (mainCPU.clocks >= mainCPU.ppuClocks)
-				nesPPU.step();
+				ppu_step();
 		}
 	} else {
 		int key = 0; 

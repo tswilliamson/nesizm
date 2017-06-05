@@ -14,6 +14,13 @@
 #define PTR_TO_BYTE(x) (((unsigned char*) &x) + 3)
 #endif
 
+unsigned int clockTable[256] = { 0 };
+
+void cpu6502_Init() {
+	#define OPCODE(op,str,clk,sz,spc) clockTable[op] = clk;
+	#include "6502_opcodes.inl"
+}
+
 // the low 5 bits of the opcode determines the addressing mode with only 5 instruction exceptions (noted)
 static int modeTable[32] = {
 	AM_None,		// 00
@@ -65,18 +72,13 @@ void cpu6502_Step() {
 	unsigned int data2 = mainCPU.read(mainCPU.PC + 2);
 
 	// effective address
-#if TARGET_WINSIM
-	unsigned int effAddr = 0xFFFFFFFF;
-#else
-	unsigned int effAddr;
-#endif
-
+	unsigned int effAddr = 0;
 	unsigned char* operand;
 	unsigned int isSpecial = 0;
 	unsigned int isWrite = 0;
 
 	// instruction base clocks
-	// mainCPU.clocks += clockTable[instr];
+	mainCPU.clocks += clockTable[instr];
 
 	// TODO : perf (try labels here)
 	switch (modeTable[instr & 0x1F]) {
@@ -126,7 +128,6 @@ void cpu6502_Step() {
 	hist.data1 = data1;
 	hist.data2 = data2;
 	hist.addr = effAddr;
-	hist.output();
 #endif
 
 	unsigned int result;	// used in some instructions
@@ -624,7 +625,7 @@ void cpu6502_Step() {
 	}
 
 	if (isWrite) {
-		DebugAssert((result & 0xFF) == result && effAddr != 0xFFFFFFFF);
+		// DebugAssert((result & 0xFF) == result && effAddr != 0xFFFFFFFF);
 		if (effAddr >= 0x2000) {
 			mainCPU.writeSpecial(effAddr, result);
 		} else {

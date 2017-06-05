@@ -10,7 +10,7 @@ nes_cpu mainCPU;
 unsigned char* nes_cpu::getSpecial(unsigned int addr) {
 	if (addr < 0x4000) {
 		DebugAssert(addr >= 0x2000);	// assumed to be PPU register then
-		return nesPPU.latchReg(addr & 0x07);
+		return ppu_registers.latchReg(addr & 0x07);
 	}
 
 	static unsigned char specByte = 0;
@@ -21,7 +21,7 @@ unsigned char* nes_cpu::getSpecial(unsigned int addr) {
 void nes_cpu::postSpecialRead(unsigned int addr) {
 	if (addr < 0x4000) {
 		DebugAssert(addr >= 0x2000);	// assumed to be PPU register then
-		nesPPU.postReadLatch();
+		ppu_registers.postReadLatch();
 		return;
 	}
 	DebugAssert(0);
@@ -37,7 +37,7 @@ unsigned char nes_cpu::readSpecial(unsigned int addr) {
 void nes_cpu::writeSpecial(unsigned int addr, unsigned char value) {
 	if (addr < 0x4000) {
 		DebugAssert(addr >= 0x2000);	// assumed to be PPU register then
-		nesPPU.writeReg(addr & 0x07, value);
+		ppu_registers.writeReg(addr & 0x07, value);
 		return;
 	}
 	DebugAssert(0);
