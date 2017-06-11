@@ -36,6 +36,7 @@ struct cpu_instr_history {
 	unsigned char instr;	// instruction byte
 	unsigned char data1;
 	unsigned char data2;	
+	unsigned short effAddr;	// not used by all instructions
 	unsigned char effByte;  // effective address byte
 	
 	void output();

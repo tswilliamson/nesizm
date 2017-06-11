@@ -146,15 +146,10 @@ void cpu6502_Step() {
 	hist.instr = instr;
 	hist.data1 = data1;
 	hist.data2 = data2;
+	hist.effAddr = effAddr;
 	if (modeTable[instr & 0x1F] != AM_None) {
 		hist.effByte = *operand;
 	}
-	/*
-	hist.output();
-	if (mainCPU.clocks > 3000) {
-		DebugBreak();
-	}
-	*/
 
 	traceHistory[traceNum++] = hist;
 	if (traceNum == 100) traceNum = 0;
@@ -178,7 +173,7 @@ void cpu6502_Step() {
 			// LDA (load accumulator)
 			mainCPU.A = *operand;
 			mainCPU.P =
-				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR)) |						// keep flags
+				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_CRY)) |			// keep flags
 				((mainCPU.A & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
 				((mainCPU.A == 0x00) ? ST_ZRO : 0);										// zero flag
 			break;
@@ -191,7 +186,7 @@ void cpu6502_Step() {
 			// LDX (load X)
 			mainCPU.X = *operand;
 			mainCPU.P =
-				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_NEG)) |			// keep flags
+				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_CRY)) |			// keep flags
 				((mainCPU.X & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
 				((mainCPU.X == 0x00) ? ST_ZRO : 0);										// zero flag
 			break;
@@ -204,7 +199,7 @@ void cpu6502_Step() {
 			// LDY (load Y)
 			mainCPU.Y = *operand;
 			mainCPU.P =
-				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_NEG)) |			// keep flags
+				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_CRY)) |			// keep flags
 				((mainCPU.Y & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
 				((mainCPU.Y == 0x00) ? ST_ZRO : 0);										// zero flag
 			break;
@@ -244,7 +239,7 @@ void cpu6502_Step() {
 			mainCPU.A = mainCPU.Y;
 		trxFlags:
 			mainCPU.P =
-				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_NEG)) |			// keep flags
+				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_CRY)) |			// keep flags
 				((mainCPU.A & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
 				((mainCPU.A == 0x00) ? ST_ZRO : 0);										// zero flag
 			break;
@@ -256,7 +251,7 @@ void cpu6502_Step() {
 			// TXS (X -> SP)
 			mainCPU.SP = mainCPU.X;
 			mainCPU.P =
-				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_NEG)) |			// keep flags
+				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_CRY)) |			// keep flags
 				((mainCPU.X & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
 				((mainCPU.X == 0x00) ? ST_ZRO : 0);										// zero flag
 			break;
@@ -269,8 +264,8 @@ void cpu6502_Step() {
 		case 0x68:
 			// PLA (pull A)
 			mainCPU.A = mainCPU.pop();
-			mainCPU.P =
-				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_NEG)) |			// keep flags
+			mainCPU.P =	
+				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_CRY)) |			// keep flags
 				((mainCPU.A & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
 				((mainCPU.A == 0x00) ? ST_ZRO : 0);										// zero flag
 			break;
@@ -337,7 +332,7 @@ void cpu6502_Step() {
 			// INC
 			result = (*operand + 1) & 0xFF;
 			mainCPU.P =
-				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_NEG)) |			// keep flags
+				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR )) |					// keep flags
 				((result & 0x80) >> (7 - ST_NEG_BIT)) |									// sign flag
 				(result == 0x00 ? ST_ZRO : 0);											// zero flag
 			isWrite = 1;
@@ -574,7 +569,7 @@ void cpu6502_Step() {
 			// CMP
 			mainCPU.P =
 				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR)) |						// keep flags
-				((*operand > mainCPU.A) ? ST_CRY : 0) |									// carry flag
+				((*operand < mainCPU.A) ? ST_CRY : 0) |									// carry flag
 				((*operand == mainCPU.A) ? ST_ZRO : 0) |								// zero flag
 				(((mainCPU.A - *operand) & 0x80) >> (7 - ST_NEG_BIT));					// negative (sign) flag
 			break;
@@ -587,7 +582,7 @@ void cpu6502_Step() {
 			// CPX
 			mainCPU.P =
 				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR)) |						// keep flags
-				((*operand > mainCPU.X) ? ST_CRY : 0) |									// carry flag
+				((*operand < mainCPU.X) ? ST_CRY : 0) |									// carry flag
 				((*operand == mainCPU.X) ? ST_ZRO : 0) |								// zero flag
 				(((mainCPU.X - *operand) & 0x80) >> (7 - ST_NEG_BIT));					// negative (sign) flag
 			break;
@@ -600,7 +595,7 @@ void cpu6502_Step() {
 			// CPY
 			mainCPU.P =
 				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR)) |						// keep flags
-				((*operand > mainCPU.Y) ? ST_CRY : 0) |									// carry flag
+				((*operand < mainCPU.Y) ? ST_CRY : 0) |									// carry flag
 				((*operand == mainCPU.Y) ? ST_ZRO : 0) |								// zero flag
 				(((mainCPU.Y - *operand) & 0x80) >> (7 - ST_NEG_BIT));					// negative (sign) flag
 			break;
@@ -711,13 +706,13 @@ void cpu_instr_history::output() {
 	// output is set up to match fceux for easy comparison
 
 #if DEBUG
-	static bool showClocks = true;
+	static bool showClocks = false;
 	if (showClocks) {
-		OutputLog("c%-11d", regs.clocks);
+		OutputLog("c%-11d ", regs.clocks);
 	}
 	static bool showRegs = true;
 	if (showRegs) {
-		OutputLog(" A:%02X X:%02X Y:%02X S:%02X P:%s%su%s%s%s%s%s  ",
+		OutputLog("A:%02X X:%02X Y:%02X S:%02X P:%s%su%s%s%s%s%s  ",
 			regs.A,
 			regs.X,
 			regs.Y,
@@ -738,7 +733,11 @@ void cpu_instr_history::output() {
 #include "6502_opcodes.inl"
 #endif
 
-	if (modeTable[instr & 0x1F] != AM_None) {
+	unsigned int addressMode = modeTable[instr & 0x1F];
+	if (addressMode == AM_IndirectX || addressMode == AM_IndirectY) {
+		OutputLog(" @ $%04X", effAddr);
+	}
+	if (addressMode != AM_None && instr != 0x4C) {
 		OutputLog(" = #$%02X", effByte);
 	}
 	OutputLog("\n");

@@ -192,7 +192,9 @@ void ppu_step() {
 	} else if (scanline == 242) {
 		// blank scanline area
 	} else if (scanline == 243) {
-		ppu_registers.PPUSTATUS |= PPUCTRL_NMI;
+		if (mainCPU.clocks > 30000) {
+			ppu_registers.PPUSTATUS |= PPUCTRL_NMI;
+		}
 		if ((ppu_registers.PPUCTRL & PPUCTRL_NMI) && (mainCPU.clocks > 140000)) {
 			mainCPU.NMI();
 		}
