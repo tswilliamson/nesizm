@@ -33,10 +33,10 @@ struct cpu_6502 {
 
 struct cpu_instr_history {
 	cpu_6502 regs;			// copy of CPU pre op and address
-	unsigned int instr;		// instruction byte
-	unsigned int data1;
-	unsigned int data2;
-	unsigned int addr;		// effective address
+	unsigned char instr;	// instruction byte
+	unsigned char data1;
+	unsigned char data2;	
+	unsigned char effByte;  // effective address byte
 	
 	void output();
 };

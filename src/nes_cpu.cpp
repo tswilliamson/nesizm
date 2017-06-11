@@ -74,7 +74,7 @@ void nes_cpu::reset() {
 	A = 0;
 	X = 0;
 	Y = 0;
-	P = 48;
+	P = 0;
 
 	PC = 0x0002;
 	SP = 0xFD;

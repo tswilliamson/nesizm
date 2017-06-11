@@ -146,7 +146,16 @@ void cpu6502_Step() {
 	hist.instr = instr;
 	hist.data1 = data1;
 	hist.data2 = data2;
-	hist.addr = effAddr;
+	if (modeTable[instr & 0x1F] != AM_None) {
+		hist.effByte = *operand;
+	}
+	/*
+	hist.output();
+	if (mainCPU.clocks > 3000) {
+		DebugBreak();
+	}
+	*/
+
 	traceHistory[traceNum++] = hist;
 	if (traceNum == 100) traceNum = 0;
 
@@ -169,7 +178,7 @@ void cpu6502_Step() {
 			// LDA (load accumulator)
 			mainCPU.A = *operand;
 			mainCPU.P =
-				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_NEG)) |			// keep flags
+				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR)) |						// keep flags
 				((mainCPU.A & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
 				((mainCPU.A == 0x00) ? ST_ZRO : 0);										// zero flag
 			break;
@@ -699,14 +708,16 @@ void cpu6502_SoftwareInterrupt(unsigned int vectorAddress) {
 }
 
 void cpu_instr_history::output() {
+	// output is set up to match fceux for easy comparison
+
 #if DEBUG
 	static bool showClocks = true;
 	if (showClocks) {
-		OutputLog(" c%- 12d", regs.clocks);
+		OutputLog("c%-11d", regs.clocks);
 	}
 	static bool showRegs = true;
 	if (showRegs) {
-		OutputLog(" A:%02X X:%02X Y:%02X S:%02X P:%s%su%s%s%s%s%s ",
+		OutputLog(" A:%02X X:%02X Y:%02X S:%02X P:%s%su%s%s%s%s%s  ",
 			regs.A,
 			regs.X,
 			regs.Y,
@@ -720,11 +731,17 @@ void cpu_instr_history::output() {
 			regs.P & ST_CRY ? "C" : "c");
 	}
 
-#define OPCODE_0W(op,str,clk,sz,spc) if (instr == op) OutputLog("$%04X " str "\n", regs.PC);
-#define OPCODE_1W(op,str,clk,sz,spc) if (instr == op) OutputLog("$%04X " str "  (eff:%04X)\n", regs.PC, data1, addr);
-#define OPCODE_2W(op,str,clk,sz,spc) if (instr == op) OutputLog("$%04X " str "  (eff:%04X)\n", regs.PC, data1 + (data2 << 8), addr);
+#define OPCODE_0W(op,str,clk,sz,spc) if (instr == op) OutputLog("$%04X:%02X        " str, regs.PC, instr);
+#define OPCODE_1W(op,str,clk,sz,spc) if (instr == op) OutputLog("$%04X:%02X %02X     " str, regs.PC, instr, data1, data1);
+#define OPCODE_2W(op,str,clk,sz,spc) if (instr == op) OutputLog("$%04X:%02X %02X %02X  " str, regs.PC, instr, data1, data2, data1 + (data2 << 8));
+#define OPCODE_REL(op,str,clk,sz,spc) if (instr == op) OutputLog("$%04X:%02X %02X     " str, regs.PC, instr, data1, regs.PC+2+((signed char)data1));
 #include "6502_opcodes.inl"
 #endif
+
+	if (modeTable[instr & 0x1F] != AM_None) {
+		OutputLog(" = #$%02X", effByte);
+	}
+	OutputLog("\n");
 }
 
 #if TRACE_INSTRUCTIONS

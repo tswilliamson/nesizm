@@ -123,6 +123,9 @@ void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
 	}
 
 	*latch = value;
+
+	// least significant bits previously written will end up in PPUSTATUS when read
+	PPUSTATUS = (PPUSTATUS & 0xE0) | (value & 0x1F);
 }
 
 unsigned char* ppu_resolveMemoryAddress(unsigned int address) {
