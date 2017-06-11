@@ -14,7 +14,7 @@ unsigned char* nes_cpu::getSpecial(unsigned int addr) {
 	}
 
 	static unsigned char specByte = 0;
-	DebugAssert(0);
+	//DebugAssert(0);
 	return &specByte;
 }
 
@@ -24,7 +24,7 @@ void nes_cpu::postSpecialRead(unsigned int addr) {
 		ppu_registers.postReadLatch();
 		return;
 	}
-	DebugAssert(0);
+	//DebugAssert(0);
 }
 
 unsigned char nes_cpu::readSpecial(unsigned int addr) {
@@ -40,7 +40,7 @@ void nes_cpu::writeSpecial(unsigned int addr, unsigned char value) {
 		ppu_registers.writeReg(addr & 0x07, value);
 		return;
 	}
-	DebugAssert(0);
+	//DebugAssert(0);
 }
 
 void nes_cpu::mapDefaults() {
@@ -70,20 +70,17 @@ void nes_cpu::reset() {
 		RAM[i + 7] = 255;
 	}
 
-	// set to interrupt
-	PC = read(0xFFFC) + (read(0xFFFD) << 8);
-
-	// stack pointer technically came from $0000
-	RAM[0x01FD] = 0;
-	RAM[0x01FC] = 2;
-	RAM[0x01FB] = 48;
-	SP = 0xFA;
-
 	// rest of the registers are 0
 	A = 0;
 	X = 0;
 	Y = 0;
-	P = 0;
+	P = 48;
 
-	clocks = 7;
+	PC = 0x0002;
+	SP = 0xFD;
+
+	clocks = 0;
+
+	// trigger reset interrupt
+	cpu6502_SoftwareInterrupt(0xFFFC);
 }

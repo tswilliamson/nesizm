@@ -58,13 +58,19 @@ struct cpu_instr_history {
 #define ST_NEG (1 << ST_NEG_BIT)
 #define ST_UNUSED (1 << 5)
 
-#if NES
-#include "nes_cpu.h"
-extern nes_cpu mainCPU;
-#endif
-
 // initalizes vars needed for 6502 simulation
 void cpu6502_Init();
 
 // this is done statically to obtain static addressing optimizations
 void cpu6502_Step();
+
+// runs device interrupt routine at the given vector address (if interrupt disable flag is 0)
+void cpu6502_DeviceInterrupt(unsigned int vectorAddress);
+
+// runs software interrupt routine at the given vector address (if interrupt disable flag is 0)
+void cpu6502_SoftwareInterrupt(unsigned int vectorAddress);
+
+#if NES
+#include "nes_cpu.h"
+extern nes_cpu mainCPU;
+#endif

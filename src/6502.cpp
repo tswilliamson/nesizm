@@ -6,7 +6,21 @@
 #define NES 1
 #include "6502.h"
 
+#if TARGET_WINSIM
 #define TRACE_INSTRUCTIONS 1
+#else
+#define TRACE_INSTRUCTIONS 0
+#endif
+
+#if DEBUG
+static unsigned int cpuBreakpoint = 0x0000;
+#endif
+
+#if TRACE_INSTRUCTIONS
+static cpu_instr_history traceHistory[100] = { 0 };
+static unsigned int traceNum;
+void HitBreakpoint();
+#endif
 
 #ifdef LITTLE_E
 #define PTR_TO_BYTE(x) ((unsigned char*) &x)
@@ -88,7 +102,12 @@ void cpu6502_Step() {
 			mainCPU.PC += 3;
 			break;
 		case AM_AbsoluteX:
-			effAddr = data1 + (data2 << 8) + (mainCPU.P & ST_CRY);
+			effAddr = data1 + (data2 << 8) + (mainCPU.X);
+			operand = mainCPU.getByte(effAddr, isSpecial);
+			mainCPU.PC += 3;
+			break;
+		case AM_AbsoluteY:
+			effAddr = data1 + (data2 << 8) + (mainCPU.Y);
 			operand = mainCPU.getByte(effAddr, isSpecial);
 			mainCPU.PC += 3;
 			break;
@@ -128,6 +147,12 @@ void cpu6502_Step() {
 	hist.data1 = data1;
 	hist.data2 = data2;
 	hist.addr = effAddr;
+	traceHistory[traceNum++] = hist;
+	if (traceNum == 100) traceNum = 0;
+
+	if (hist.regs.PC == cpuBreakpoint) {
+		HitBreakpoint();
+	}
 #endif
 
 	unsigned int result;	// used in some instructions
@@ -243,12 +268,13 @@ void cpu6502_Step() {
 
 		case 0x08:
 			// PHP (push processor status)
-			mainCPU.push(mainCPU.P | ST_UNUSED);
+			mainCPU.push(mainCPU.P | ST_UNUSED | ST_BRK);
 			break;
 
 		case 0x28:
-			// PLP (pop processor status)
-			mainCPU.P = mainCPU.pop();
+			// PLP (pop processor status ignoring bits 4 & 5)
+			mainCPU.P &= (ST_BRK | ST_UNUSED);
+			mainCPU.P |= mainCPU.pop() & ~(ST_BRK | ST_UNUSED);
 			break;
 
 		/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -516,7 +542,9 @@ void cpu6502_Step() {
 
 		case 0x40:
 			// RTI (return from interrupt)
-			mainCPU.P = mainCPU.pop();
+			// TODO : Non- delayed IRQ response behavior?
+			mainCPU.P &= (ST_BRK | ST_UNUSED);
+			mainCPU.P |= mainCPU.pop() & ~(ST_BRK | ST_UNUSED);
 			mainCPU.PC = mainCPU.pop() | (mainCPU.pop() << 8);
 			break;
 
@@ -583,6 +611,7 @@ void cpu6502_Step() {
 
 		case 0x58:
 			// CLI (clear interrupt)
+			// TODO : Delayed IRQ response behavior?
 			mainCPU.P &= ~ST_INT;
 			break;
 
@@ -610,9 +639,9 @@ void cpu6502_Step() {
 		// MISC
 
 		case 0x00:
-			// BRK : TODO (generic interrupt handler)
-			DebugAssert(false);
+			// BRK
 			mainCPU.PC++;
+			cpu6502_SoftwareInterrupt(0xFFFE);
 			break;
 
 		case 0xEA:
@@ -637,7 +666,40 @@ void cpu6502_Step() {
 	}
 }
 
+void cpu6502_DeviceInterrupt(unsigned int vectorAddress) {
+	if ((mainCPU.P & ST_INT) == 0) {
+		// interrupts are enabled
+
+		// push PC and P (without BRK) onto stack
+		mainCPU.push(mainCPU.PC >> 8);
+		mainCPU.push(mainCPU.PC & 0xFF);
+		mainCPU.push((mainCPU.P & ~ST_BRK) | ST_UNUSED);
+
+		// switch PC to vector address and disable interrupts 
+		mainCPU.PC = mainCPU.read(vectorAddress) | (mainCPU.read(vectorAddress+1) << 8);
+		mainCPU.P |= ST_INT;
+
+		// whole process takes 7 clocks
+		mainCPU.clocks += 7;
+	}
+}
+
+void cpu6502_SoftwareInterrupt(unsigned int vectorAddress) {
+	// push PC and P (with BRK) onto stack
+	mainCPU.push(mainCPU.PC >> 8);
+	mainCPU.push(mainCPU.PC & 0xFF);
+	mainCPU.push(mainCPU.P | ST_BRK | ST_UNUSED);
+
+	// switch PC to vector address and disable interrupts 
+	mainCPU.PC = mainCPU.read(vectorAddress) | (mainCPU.read(vectorAddress+1) << 8);
+	mainCPU.P |= ST_INT;
+
+	// whole process takes 7 clocks
+	mainCPU.clocks += 7;
+}
+
 void cpu_instr_history::output() {
+#if DEBUG
 	static bool showClocks = true;
 	if (showClocks) {
 		OutputLog(" c%- 12d", regs.clocks);
@@ -662,6 +724,20 @@ void cpu_instr_history::output() {
 #define OPCODE_1W(op,str,clk,sz,spc) if (instr == op) OutputLog("$%04X " str "  (eff:%04X)\n", regs.PC, data1, addr);
 #define OPCODE_2W(op,str,clk,sz,spc) if (instr == op) OutputLog("$%04X " str "  (eff:%04X)\n", regs.PC, data1 + (data2 << 8), addr);
 #include "6502_opcodes.inl"
-
-	int j = 1;
+#endif
 }
+
+#if TRACE_INSTRUCTIONS
+void HitBreakpoint() {
+	OutputLog("CPU Instruction Trace:\n");
+	for (int i = 99; i >= 0; i--) {
+		traceHistory[(traceNum - i + 100) % 100].output();
+	}
+	OutputLog("Hit breakpoint at %04x!\n", cpuBreakpoint);
+
+#if TARGET_WINSIM
+	DebugBreak();
+#endif
+}
+#endif
+

@@ -75,8 +75,8 @@ void ppu_registers_type::postReadLatch() {
 void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
 	switch (regNum) {
 		case 0x00:	// PPUCTRL
-			if ((PPUCTRL & 0x80) == 0 && (value & 0x80)) {
-				// TODO : activate NMI
+			if ((PPUCTRL & PPUCTRL_NMI) == 0 && (value & PPUCTRL_NMI) && (PPUSTATUS & PPUCTRL_NMI)) {
+				mainCPU.NMI();
 			}
 			latch = &PPUCTRL;
 			break;
@@ -187,8 +187,10 @@ void ppu_step() {
 	} else if (scanline == 242) {
 		// blank scanline area
 	} else if (scanline == 243) {
-		// TODO NMI support 
 		ppu_registers.PPUSTATUS |= PPUCTRL_NMI;
+		if (ppu_registers.PPUCTRL & PPUCTRL_NMI) {
+			mainCPU.NMI();
+		}
 		Bdisp_PutDisp_DD();
 	} else if (scanline < 263) {
 		// inside vblank
