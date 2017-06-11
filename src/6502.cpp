@@ -666,8 +666,8 @@ void cpu6502_Step() {
 	}
 }
 
-void cpu6502_DeviceInterrupt(unsigned int vectorAddress) {
-	if ((mainCPU.P & ST_INT) == 0) {
+void cpu6502_DeviceInterrupt(unsigned int vectorAddress, bool masked) {
+	if (!masked || (mainCPU.P & ST_INT) == 0) {
 		// interrupts are enabled
 
 		// push PC and P (without BRK) onto stack

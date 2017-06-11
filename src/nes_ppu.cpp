@@ -19,6 +19,8 @@ nes_mirror_type ppu_mirror = MT_UNSET;
 static int scanline = 1;	// scanline is 1-based... whatever!
 static unsigned int scanlineBuffer[256 + 16 * 2] = { 0 }; 
 
+static unsigned int frameCounter = 0;
+
 // pointer to function to render current scanline to scanline buffer (based on mirror mode)
 static void(*renderScanline)() = 0;
 void resolveScanline();		// resolves the current scanline buffer to the screen
@@ -188,15 +190,20 @@ void ppu_step() {
 		// blank scanline area
 	} else if (scanline == 243) {
 		ppu_registers.PPUSTATUS |= PPUCTRL_NMI;
-		if (ppu_registers.PPUCTRL & PPUCTRL_NMI) {
+		if ((ppu_registers.PPUCTRL & PPUCTRL_NMI) && (mainCPU.clocks > 140000)) {
 			mainCPU.NMI();
 		}
+		frameCounter++;
 		Bdisp_PutDisp_DD();
-	} else if (scanline < 263) {
+	} else if (scanline < 262) {
 		// inside vblank
 	} else {
 		// final scanline
 		scanline = 0;
+
+		// frame timing .. total ppu frame should be every 29780.5 ppu clocks
+		if (frameCounter & 1)
+			mainCPU.ppuClocks -= 1;
 	}
 
 	scanline++;

@@ -65,7 +65,7 @@ void cpu6502_Init();
 void cpu6502_Step();
 
 // runs device interrupt routine at the given vector address (if interrupt disable flag is 0)
-void cpu6502_DeviceInterrupt(unsigned int vectorAddress);
+void cpu6502_DeviceInterrupt(unsigned int vectorAddress, bool masked);
 
 // runs software interrupt routine at the given vector address (if interrupt disable flag is 0)
 void cpu6502_SoftwareInterrupt(unsigned int vectorAddress);

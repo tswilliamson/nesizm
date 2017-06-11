@@ -60,7 +60,7 @@ struct nes_cpu : public cpu_6502 {
 
 	// triggers CPU NMI interrupt
 	FORCE_INLINE void NMI() {
-		cpu6502_DeviceInterrupt(0xFFFA);
+		cpu6502_DeviceInterrupt(0xFFFA, false);
 	}
 
 	// map default memory for CPU (zero page, stack, RAM, mirrors, etc)

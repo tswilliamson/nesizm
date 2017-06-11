@@ -81,6 +81,9 @@ void nes_cpu::reset() {
 
 	clocks = 0;
 
+	// comparing to FCEUX we appear to be just slightly ahead on clocks
+	ppuClocks = 4;
+
 	// trigger reset interrupt
 	cpu6502_SoftwareInterrupt(0xFFFC);
 }
