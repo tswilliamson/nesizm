@@ -48,7 +48,7 @@ struct nes_nametable {
 // PPU
 
 #define PPUCTRL_FLIPXTBL    (1 << 0)		// flip the x axis nametable lookup? (doesn't matter for horizontal lookup)
-#define PPUCTRL_FLIPYTBL    (1 << 1)		// flip the y axix nametable lookup? (doesn't matter for vertical lookup)
+#define PPUCTRL_FLIPYTBL    (1 << 1)		// flip the y axis nametable lookup? (doesn't matter for vertical lookup)
 #define PPUCTRL_VRAMINC		(1 << 2)		// 0 = +1, 1 = +32
 #define PPUCTRL_OAMTABLE	(1 << 3)		// 1 = 0x1000
 #define PPUCTRL_BGDTABLE	(1 << 4)		// 1 = 0x1000

@@ -20,6 +20,7 @@ static unsigned int cpuBreakpoint = 0x0000;
 static cpu_instr_history traceHistory[100] = { 0 };
 static unsigned int traceNum;
 void HitBreakpoint();
+static bool enableDirectOutput = false;
 #endif
 
 #ifdef LITTLE_E
@@ -153,6 +154,10 @@ void cpu6502_Step() {
 
 	traceHistory[traceNum++] = hist;
 	if (traceNum == 100) traceNum = 0;
+
+	if (enableDirectOutput) {
+		hist.output();
+	}
 
 	if (hist.regs.PC == cpuBreakpoint) {
 		HitBreakpoint();
@@ -754,6 +759,22 @@ void HitBreakpoint() {
 #if TARGET_WINSIM
 	DebugBreak();
 #endif
+}
+
+void PPUBreakpoint() {
+	OutputLog("CPU Instruction Trace:\n");
+	for (int i = 99; i >= 0; i--) {
+		traceHistory[(traceNum - i + 100) % 100].output();
+	}
+	OutputLog("PPU Breakpoint!");
+
+#if TARGET_WINSIM
+	DebugBreak();
+#endif
+}
+#else
+void PPUBreakpoint() {
+
 }
 #endif
 
