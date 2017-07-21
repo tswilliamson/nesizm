@@ -313,7 +313,7 @@ void cpu6502_Step() {
 		case 0xE5: case 0xF5: case 0xED: case 0xFD: case 0xF9: case 0xE1: case 0xF1:
 			// SBC
 			// TODO : possibly move overflow calculation to flag resolve?
-			result = mainCPU.A - *operand - (mainCPU.P & ST_CRY);
+			result = mainCPU.A - *operand - 1 + (mainCPU.P & ST_CRY);
 			mainCPU.P =
 				(mainCPU.P & (ST_INT | ST_BRK | ST_BCD)) |									// keep flags
 				((result & 0x100) >> (8 - ST_CRY_BIT)) |									// carry

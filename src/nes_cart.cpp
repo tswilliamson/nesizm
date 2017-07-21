@@ -123,9 +123,7 @@ bool nes_cart::loadROM(const char* withFile) {
 
 	// expected size?
 	if (Bfile_GetFileSize_OS(file) != expectedSize) {
-		printf("Not expected file size based on format.");
-		Bfile_CloseFile_OS(file);
-		return false;
+		printf("Not expected file size based on format, will attempt to pad!");
 	}
 
 	// default memory mapping first
