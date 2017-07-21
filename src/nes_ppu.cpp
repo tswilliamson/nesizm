@@ -244,14 +244,15 @@ void renderScanline_HorzMirror() {
 		}
 
 		// pre-build attribute table lookup into one big 32 bit int
-		int attrX = (ppu_registers.SCROLLX >> 5);
+		// this is done backwards so the value is easily popped later
+		int attrX = ((ppu_registers.SCROLLX >> 5) + 7) & 7;
 		unsigned int attrPalette = 0;
 		if (ppu_registers.SCROLLX & 0x8) {
 			// odd scroll
 			for (int loop = 0; loop < 8; loop++) {
 				attrPalette <<= 4;
 				attrPalette |= ((attr[attrX] >> attrShift) & 0xC);
-				attrX = (attrX + 1) & 7;
+				attrX = (attrX + 7) & 7;
 				attrPalette |= ((attr[attrX] >> attrShift) & 0x3);
 			}
 		} else {
@@ -259,7 +260,7 @@ void renderScanline_HorzMirror() {
 			for (int loop = 0; loop < 8; loop++) {
 				attrPalette <<= 4;
 				attrPalette |= ((attr[attrX] >> attrShift) & 0xF);
-				attrX = (attrX + 1) & 7;
+				attrX = (attrX + 7) & 7;
 			}
 		}
 
