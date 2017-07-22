@@ -40,6 +40,9 @@ void nes_cpu::writeSpecial(unsigned int addr, unsigned char value) {
 		ppu_registers.writeReg(addr & 0x07, value);
 		return;
 	}
+	else if (addr == 0x4014) {
+		ppu_oamDMA(((int) value) << 8);
+	}
 	//DebugAssert(0);
 }
 

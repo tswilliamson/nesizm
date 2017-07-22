@@ -95,6 +95,10 @@ void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
 			break;
 		case 0x04:
 			latch = &ppu_oam[OAMADDR];
+			// force unused bits to be low when appropriate
+			if ((OAMADDR & 3) == 2) {
+				value = value & 0xE3;
+			}
 			OAMADDR++;	// writes to OAM data increment the OAM address
 			break;
 		case 0x05:  // SCROLLX/Y
@@ -129,6 +133,20 @@ void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
 
 	// least significant bits previously written will end up in PPUSTATUS when read
 	PPUSTATUS = (PPUSTATUS & 0xE0) | (value & 0x1F);
+}
+
+void ppu_oamDMA(unsigned int addr) {
+	// perform the oam DMA
+	for (int i = 0; i < 256; i++, addr++) {
+		ppu_oam[i] = mainCPU.read(addr);
+	}
+
+	// force unused attribute bits low
+	for (int i = 2; i < 256; i += 4) {
+		ppu_oam[i] &= 0xE3;
+	}
+
+	mainCPU.clocks += 513 + (mainCPU.clocks & 1);
 }
 
 unsigned char* ppu_resolveMemoryAddress(unsigned int address) {
@@ -180,7 +198,8 @@ void ppu_step() {
 	*/
 	if (scanline == 1) {
 		// inactive scanline with even/odd clock cycle thing
-		ppu_registers.PPUSTATUS &= ~PPUCTRL_NMI;			// clear vblank flag
+		ppu_registers.PPUSTATUS &= ~PPUSTAT_NMI;			// clear vblank flag
+		ppu_registers.PPUSTATUS &= ~PPUSTAT_SPRITE0;		// clear sprite 0 collision flag
 	} else if (scanline < 13) {
 		// non-resolved but active scanline (may cause sprite 0 collision)
 		// TODO : sprite 0 collision only render version?
@@ -217,6 +236,125 @@ void ppu_step() {
 	scanline++;
 }
 
+void renderOAM() {
+	if ((ppu_registers.PPUMASK & PPUMASK_SHOWLEFTBG) == 0) {
+		for (int i = 16; i < 24; i++) {
+			scanlineBuffer[i] = 0;
+		}
+	}
+
+	if (ppu_registers.PPUMASK & PPUMASK_SHOWOBJ) {
+		unsigned int oamBuffer[264];
+		unsigned int charBuffer[8];
+
+		// TODO : 8x16 mode
+		DebugAssert((ppu_registers.PPUCTRL & PPUCTRL_SPRSIZE) == 0);
+
+		// render objects to separate buffer
+		unsigned char* curObj = &ppu_oam[252];
+		unsigned char* patternTable = ppu_chrMap + ((ppu_registers.PPUCTRL & PPUCTRL_OAMTABLE) ? 0x1000 : 0x0000);
+		for (int i = 0; i < 64; i++, curObj -= 4) {
+			unsigned int yCoord = scanline - curObj[0] - 1;
+			if (yCoord < 8) {
+				unsigned char* tile = patternTable + (curObj[1] << 4);
+				if (curObj[2] & OAMATTR_VFLIP) yCoord = 8 - yCoord;
+				unsigned int x = curObj[3];
+
+				unsigned int loPlane = tile[yCoord];
+				unsigned int hiPlane = tile[yCoord + 8];
+
+				if (curObj[2] & OAMATTR_HFLIP) {
+					charBuffer[0] = ((hiPlane & 1) << 1) | (loPlane & 1); hiPlane >>= 1; loPlane >>= 1;
+					charBuffer[1] = ((hiPlane & 1) << 1) | (loPlane & 1); hiPlane >>= 1; loPlane >>= 1;
+					charBuffer[2] = ((hiPlane & 1) << 1) | (loPlane & 1); hiPlane >>= 1; loPlane >>= 1;
+					charBuffer[3] = ((hiPlane & 1) << 1) | (loPlane & 1); hiPlane >>= 1; loPlane >>= 1;
+					charBuffer[4] = ((hiPlane & 1) << 1) | (loPlane & 1); hiPlane >>= 1; loPlane >>= 1;
+					charBuffer[5] = ((hiPlane & 1) << 1) | (loPlane & 1); hiPlane >>= 1; loPlane >>= 1;
+					charBuffer[6] = ((hiPlane & 1) << 1) | (loPlane & 1); hiPlane >>= 1; loPlane >>= 1;
+					charBuffer[7] = ((hiPlane & 1) << 1) | (loPlane & 1);
+				} else {
+					charBuffer[7] = ((hiPlane & 1) << 1) | (loPlane & 1); hiPlane >>= 1; loPlane >>= 1;
+					charBuffer[6] = ((hiPlane & 1) << 1) | (loPlane & 1); hiPlane >>= 1; loPlane >>= 1;
+					charBuffer[5] = ((hiPlane & 1) << 1) | (loPlane & 1); hiPlane >>= 1; loPlane >>= 1;
+					charBuffer[4] = ((hiPlane & 1) << 1) | (loPlane & 1); hiPlane >>= 1; loPlane >>= 1;
+					charBuffer[3] = ((hiPlane & 1) << 1) | (loPlane & 1); hiPlane >>= 1; loPlane >>= 1;
+					charBuffer[2] = ((hiPlane & 1) << 1) | (loPlane & 1); hiPlane >>= 1; loPlane >>= 1;
+					charBuffer[1] = ((hiPlane & 1) << 1) | (loPlane & 1); hiPlane >>= 1; loPlane >>= 1;
+					charBuffer[0] = ((hiPlane & 1) << 1) | (loPlane & 1);
+				}
+
+				// only write unmasked pixels
+				unsigned int palette = ((curObj[2] & 3) << 2) + (curObj[2] & OAMATTR_PRIORITY) + 16;
+				for (int p = 0; p < 8; p++) {
+					if (charBuffer[p] & 3) {
+						oamBuffer[x + p] = palette + charBuffer[p];
+					}
+				}
+			}
+		}
+
+		// mask left 8 pixels
+		if ((ppu_registers.PPUMASK & PPUMASK_SHOWLEFTOBJ) == 0) {
+			for (int i = 0; i < 8; i++) {
+				oamBuffer[i] = 0;
+			}
+		}
+
+		// sprite 0 hit
+		if ((ppu_registers.PPUSTATUS & PPUSTAT_SPRITE0) == 0) {
+			// simulate the 8 bits from the write, but a little faster
+			unsigned int yCoord0 = scanline - ppu_oam[0] - 1;
+			if (yCoord0 < 8) {
+				unsigned char* tile = patternTable + (ppu_oam[1] << 4);
+				if (curObj[2] & OAMATTR_VFLIP) yCoord0 = 8 - yCoord0;
+				unsigned int x = curObj[3];
+
+				unsigned int plane = tile[yCoord0] | tile[yCoord0 + 8];
+
+				if (curObj[2] & OAMATTR_HFLIP) {
+					charBuffer[0] = plane & 1;
+					charBuffer[1] = plane & 2;
+					charBuffer[2] = plane & 4;
+					charBuffer[3] = plane & 8;
+					charBuffer[4] = plane & 16;
+					charBuffer[5] = plane & 32;
+					charBuffer[6] = plane & 64;
+					charBuffer[7] = plane & 128;
+				} else {
+					charBuffer[7] = plane & 1;
+					charBuffer[6] = plane & 2;
+					charBuffer[5] = plane & 4;
+					charBuffer[4] = plane & 8;
+					charBuffer[3] = plane & 16;
+					charBuffer[2] = plane & 32;
+					charBuffer[1] = plane & 64;
+					charBuffer[0] = plane & 128;
+				}
+
+				for (int p = 0; p < 8; p++) {
+					if (charBuffer[p] && scanlineBuffer[16+x+p] && (x+p != 255)) {
+						// TODO : this is approximate since it is at start of line!
+						// It could be exact by storing actual upcoming clocks here and filling
+						// PPUSTATUS when queried
+
+						ppu_registers.PPUSTATUS |= PPUSTAT_SPRITE0;
+					}
+				}
+			}
+		}
+
+		// resolve objects
+		unsigned int* targetPixel = &scanlineBuffer[16];
+		unsigned int* oamPixel = &oamBuffer[0];
+		for (int i = 0; i < 256; i++, oamPixel++, targetPixel++) {
+			if (*oamPixel & 3) {
+				if ((*oamPixel & OAMATTR_PRIORITY) == 0 || (*targetPixel & 3) == 0) {
+					*targetPixel = (*oamPixel & 0x1F);
+				}
+			}
+		}
+	}
+}
 
 void renderScanline_HorzMirror() {
 	DebugAssert(scanline >= 1 && scanline <= 240);
@@ -268,31 +406,33 @@ void renderScanline_HorzMirror() {
 		int x = 16 - (ppu_registers.SCROLLX & 15);
 		int tileX = (ppu_registers.SCROLLX >> 4) * 2;	// always start on an even numbered tile
 		int palColors[4];
-		palColors[0] = ppu_palette[0];
 		for (int loop = 0; loop < 17; loop++) {
 			// grab and rotate palette selection
 			int palette = (attrPalette & 0x03) << 2;
 			attrPalette = (attrPalette >> 2) | (attrPalette << 30);
-			palColors[1] = ppu_palette[palette + 1];
-			palColors[2] = ppu_palette[palette + 2];
-			palColors[3] = ppu_palette[palette + 3];
 
 			for (int twice = 0; twice < 2; twice++, x += 8)
 			{
 				int chr = nameTable[tileX++] << 4;
 				int loPlane = patternTable[chr];
 				int hiPlane = patternTable[chr + 8];
-				scanlineBuffer[x + 7] = palColors[((hiPlane & 1) << 1) | (loPlane & 1)]; hiPlane >>= 1; loPlane >>= 1;
-				scanlineBuffer[x + 6] = palColors[((hiPlane & 1) << 1) | (loPlane & 1)]; hiPlane >>= 1; loPlane >>= 1;
-				scanlineBuffer[x + 5] = palColors[((hiPlane & 1) << 1) | (loPlane & 1)]; hiPlane >>= 1; loPlane >>= 1;
-				scanlineBuffer[x + 4] = palColors[((hiPlane & 1) << 1) | (loPlane & 1)]; hiPlane >>= 1; loPlane >>= 1;
-				scanlineBuffer[x + 3] = palColors[((hiPlane & 1) << 1) | (loPlane & 1)]; hiPlane >>= 1; loPlane >>= 1;
-				scanlineBuffer[x + 2] = palColors[((hiPlane & 1) << 1) | (loPlane & 1)]; hiPlane >>= 1; loPlane >>= 1;
-				scanlineBuffer[x + 1] = palColors[((hiPlane & 1) << 1) | (loPlane & 1)]; hiPlane >>= 1; loPlane >>= 1;
-				scanlineBuffer[x + 0] = palColors[((hiPlane & 1) << 1) | (loPlane & 1)];
+				scanlineBuffer[x + 7] = palette + ((hiPlane & 1) << 1) | (loPlane & 1); hiPlane >>= 1; loPlane >>= 1;
+				scanlineBuffer[x + 6] = palette + ((hiPlane & 1) << 1) | (loPlane & 1); hiPlane >>= 1; loPlane >>= 1;
+				scanlineBuffer[x + 5] = palette + ((hiPlane & 1) << 1) | (loPlane & 1); hiPlane >>= 1; loPlane >>= 1;
+				scanlineBuffer[x + 4] = palette + ((hiPlane & 1) << 1) | (loPlane & 1); hiPlane >>= 1; loPlane >>= 1;
+				scanlineBuffer[x + 3] = palette + ((hiPlane & 1) << 1) | (loPlane & 1); hiPlane >>= 1; loPlane >>= 1;
+				scanlineBuffer[x + 2] = palette + ((hiPlane & 1) << 1) | (loPlane & 1); hiPlane >>= 1; loPlane >>= 1;
+				scanlineBuffer[x + 1] = palette + ((hiPlane & 1) << 1) | (loPlane & 1); hiPlane >>= 1; loPlane >>= 1;
+				scanlineBuffer[x + 0] = palette + ((hiPlane & 1) << 1) | (loPlane & 1);
 			}
 		}
+	} else {
+		for (int i = 0; i < 288; i++) {
+			scanlineBuffer[i] = 0;
+		}
 	}
+
+	renderOAM();
 }
 
 // TODO - Obviously don't convert this in real time
@@ -308,8 +448,8 @@ void resolveScanline() {
 
 	unsigned short* scanlineDest = ((unsigned short*)GetVRAMAddress()) + (scanline - 13) * 384 + 64;
 	unsigned int* scanlineSrc = &scanlineBuffer[16];	// with clipping
-	for (int i = 0; i < 256; i++) {
-		unsigned char* rgb = &rgbPalette[*(scanlineSrc++) * 3];
+	for (int i = 0; i < 256; i++, scanlineSrc++) {
+		unsigned char* rgb = &rgbPalette[ppu_palette[*scanlineSrc] * 3];
 		*(scanlineDest++) =
 			((rgb[0] & 0xF8) << 8) |
 			((rgb[1] & 0xFC) << 3) |

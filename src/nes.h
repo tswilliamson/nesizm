@@ -65,6 +65,15 @@ struct nes_nametable {
 #define PPUMASK_EMPHGREEN	(1 << 6)
 #define PPUMASK_EMPHBLUE	(1 << 7)
 
+#define PPUSTAT_OVERFLOW	(1 << 5)
+#define PPUSTAT_SPRITE0		(1 << 6)
+#define PPUSTAT_NMI			(1 << 7)
+
+#define OAMATTR_VFLIP		(1 << 7)
+#define OAMATTR_HFLIP		(1 << 6)
+#define OAMATTR_PRIORITY	(1 << 5)
+
+
 enum nes_mirror_type {
 	MT_UNSET,
 	MT_HORIZONTAL,
@@ -113,6 +122,9 @@ extern unsigned char ppu_palette[0x20];
 extern unsigned char* ppu_chrMap;
 
 extern void ppu_setMirrorType(nes_mirror_type withType);
+
+// perform an OAM dma from the given CPU memory address
+void ppu_oamDMA(unsigned int addr);
 
 // reading / writing
 extern unsigned char* ppu_resolveMemoryAddress(unsigned int addr);
