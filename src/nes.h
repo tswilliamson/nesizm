@@ -35,6 +35,9 @@ struct nes_cart {
 	// Loads a ROM from the given file path
 	bool loadROM(const char* withFile);
 
+	// unloads ROM if loaded
+	void unload();
+
 	// Sets up loaded ROM File with the selected mapper (returns false if unsupported)
 	bool setupMapper();
 
@@ -78,13 +81,14 @@ extern nes_cart nesCart;
 #define OAMATTR_HFLIP		(1 << 6)
 #define OAMATTR_PRIORITY	(1 << 5)
 
-
-enum nes_mirror_type {
-	MT_UNSET,
-	MT_HORIZONTAL,
-	MT_VERTICAL,
-	MT_4PANE
-};
+namespace nes_mirror_type {
+	enum {
+		MT_UNSET,
+		MT_HORIZONTAL,
+		MT_VERTICAL,
+		MT_4PANE
+	};
+}
 
 struct ppu_registers_type {
 	// registers (some of them map to $2000-$2007, but this is handled case by case)
@@ -126,7 +130,7 @@ extern unsigned char ppu_palette[0x20];
 // all 8 kb mapped for character memory at once (0x0000 - 0x2000)
 extern unsigned char* ppu_chrMap;
 
-extern void ppu_setMirrorType(nes_mirror_type withType);
+extern void ppu_setMirrorType(int withType);
 
 // perform an OAM dma from the given CPU memory address
 void ppu_oamDMA(unsigned int addr);
@@ -138,6 +142,8 @@ extern void ppu_step();
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // INPUT
+
+void input_Initialize();
 
 void input_writeStrobe(unsigned char value);
 

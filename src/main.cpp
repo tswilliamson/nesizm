@@ -7,6 +7,8 @@
 
 bool shouldExit = false;
 
+bool keyDown_fast(unsigned char keyCode);
+
 void shutdown() {
 }
 
@@ -28,6 +30,7 @@ int main(void) {
 	unsigned char stackBanks[NUM_CACHED_ROM_BANKS * 8192] ALIGN(256);
 	nesCart.allocateROMBanks(stackBanks);
 
+	input_Initialize();
 
 	const char* romFile = "\\\\fls0\\DonkeyKong.nes";
 	if (nesCart.loadROM(romFile)) {
@@ -41,9 +44,14 @@ int main(void) {
 		while (1) {
 			cpu6502_Step();
 
-			if (mainCPU.clocks >= mainCPU.ppuClocks)
+			if (mainCPU.clocks >= mainCPU.ppuClocks) {
 				ppu_step();
+				if (keyDown_fast(79)) // F1
+					break;
+			}
 		}
+
+		nesCart.unload();
 	} else {
 		int key = 0; 
 		GetKey(&key);

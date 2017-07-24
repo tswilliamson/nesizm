@@ -13,7 +13,7 @@ unsigned char ppu_oam[0x100] = { 0 };
 nes_nametable ppu_nameTables[4];
 unsigned char ppu_palette[0x20] = { 0 };
 unsigned char* ppu_chrMap = { 0 };
-nes_mirror_type ppu_mirror = MT_UNSET;
+int ppu_mirror = nes_mirror_type::MT_UNSET;
 
 // private to this file
 
@@ -29,20 +29,20 @@ void resolveScanline();		// resolves the current scanline buffer to the screen
 
 static void renderScanline_HorzMirror();
 
-void ppu_setMirrorType(nes_mirror_type withType) {
+void ppu_setMirrorType(int withType) {
 	if (ppu_mirror == withType) {
 		return;
 	}
 
 	ppu_mirror = withType;
 	switch (ppu_mirror) {
-		case MT_HORIZONTAL:
+		case nes_mirror_type::MT_HORIZONTAL:
 			renderScanline = renderScanline_HorzMirror;
 			break;
-		case MT_VERTICAL:
+		case nes_mirror_type::MT_VERTICAL:
 			DebugAssert(false);
 			break;
-		case MT_4PANE:
+		case nes_mirror_type::MT_4PANE:
 			DebugAssert(false);
 			break;
 	}
@@ -159,7 +159,7 @@ unsigned char* ppu_resolveMemoryAddress(unsigned int address) {
 		switch (ppu_mirror) {
 			case nes_mirror_type::MT_HORIZONTAL:
 				// $2400 = $2000, and $2c00 = $2800, so ignore bit 10:
-				address = address & 0x03FF | ((address & 0x800) >> 1);
+				address = (address & 0x03FF) | ((address & 0x800) >> 1);
 				break;
 			case nes_mirror_type::MT_VERTICAL:
 				// $2800 = $2000, and $2c00 = $2400, so ignore bit 11:
@@ -176,7 +176,7 @@ unsigned char* ppu_resolveMemoryAddress(unsigned int address) {
 		address &= 0x1F;
 		
 		// mirror background color between BG and OBJ types
-		if (address & 0x03 == 0)
+		if ((address & 0x03) == 0)
 			address &= 0x0F;
 
 		return &ppu_palette[address];
@@ -405,7 +405,7 @@ void renderScanline_HorzMirror() {
 		// we render 16 pixels at a time (easy attribute table lookup), 17 times and clip
 		int x = 16 - (ppu_registers.SCROLLX & 15);
 		int tileX = (ppu_registers.SCROLLX >> 4) * 2;	// always start on an even numbered tile
-		int palColors[4];
+
 		for (int loop = 0; loop < 17; loop++) {
 			// grab and rotate palette selection
 			int palette = (attrPalette & 0x03) << 2;
@@ -416,14 +416,14 @@ void renderScanline_HorzMirror() {
 				int chr = nameTable[tileX++] << 4;
 				int loPlane = patternTable[chr];
 				int hiPlane = patternTable[chr + 8];
-				scanlineBuffer[x + 7] = palette + ((hiPlane & 1) << 1) | (loPlane & 1); hiPlane >>= 1; loPlane >>= 1;
-				scanlineBuffer[x + 6] = palette + ((hiPlane & 1) << 1) | (loPlane & 1); hiPlane >>= 1; loPlane >>= 1;
-				scanlineBuffer[x + 5] = palette + ((hiPlane & 1) << 1) | (loPlane & 1); hiPlane >>= 1; loPlane >>= 1;
-				scanlineBuffer[x + 4] = palette + ((hiPlane & 1) << 1) | (loPlane & 1); hiPlane >>= 1; loPlane >>= 1;
-				scanlineBuffer[x + 3] = palette + ((hiPlane & 1) << 1) | (loPlane & 1); hiPlane >>= 1; loPlane >>= 1;
-				scanlineBuffer[x + 2] = palette + ((hiPlane & 1) << 1) | (loPlane & 1); hiPlane >>= 1; loPlane >>= 1;
-				scanlineBuffer[x + 1] = palette + ((hiPlane & 1) << 1) | (loPlane & 1); hiPlane >>= 1; loPlane >>= 1;
-				scanlineBuffer[x + 0] = palette + ((hiPlane & 1) << 1) | (loPlane & 1);
+				scanlineBuffer[x + 7] = palette + (((hiPlane & 1) << 1) | (loPlane & 1)); hiPlane >>= 1; loPlane >>= 1;
+				scanlineBuffer[x + 6] = palette + (((hiPlane & 1) << 1) | (loPlane & 1)); hiPlane >>= 1; loPlane >>= 1;
+				scanlineBuffer[x + 5] = palette + (((hiPlane & 1) << 1) | (loPlane & 1)); hiPlane >>= 1; loPlane >>= 1;
+				scanlineBuffer[x + 4] = palette + (((hiPlane & 1) << 1) | (loPlane & 1)); hiPlane >>= 1; loPlane >>= 1;
+				scanlineBuffer[x + 3] = palette + (((hiPlane & 1) << 1) | (loPlane & 1)); hiPlane >>= 1; loPlane >>= 1;
+				scanlineBuffer[x + 2] = palette + (((hiPlane & 1) << 1) | (loPlane & 1)); hiPlane >>= 1; loPlane >>= 1;
+				scanlineBuffer[x + 1] = palette + (((hiPlane & 1) << 1) | (loPlane & 1)); hiPlane >>= 1; loPlane >>= 1;
+				scanlineBuffer[x + 0] = palette + (((hiPlane & 1) << 1) | (loPlane & 1));
 			}
 		}
 	} else {

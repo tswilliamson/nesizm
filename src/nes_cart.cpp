@@ -63,11 +63,11 @@ bool nes_cart::loadROM(const char* withFile) {
 
 	// byte 6: flags (and lower mapper nibble which is used later)
 	if (header[6] & (1 << 3)) {
-		ppu_setMirrorType(MT_4PANE);
+		ppu_setMirrorType(nes_mirror_type::MT_4PANE);
 	} else if (header[6] & (1 << 0)) {
-		ppu_setMirrorType(MT_VERTICAL);
+		ppu_setMirrorType(nes_mirror_type::MT_VERTICAL);
 	} else {
-		ppu_setMirrorType(MT_HORIZONTAL);
+		ppu_setMirrorType(nes_mirror_type::MT_HORIZONTAL);
 	}
 	isBatteryBacked = header[6] & (1 << 1);
 
@@ -139,6 +139,13 @@ bool nes_cart::loadROM(const char* withFile) {
 		printf("Mapper %d : unsupported", mapper);
 		Bfile_CloseFile_OS(file);
 		return false;
+	}
+}
+
+void nes_cart::unload() {
+	if (handle) {
+		Bfile_CloseFile_OS(handle);
+		handle = 0;
 	}
 }
 
