@@ -574,7 +574,7 @@ void cpu6502_Step() {
 			// CMP
 			mainCPU.P =
 				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR)) |						// keep flags
-				((*operand < mainCPU.A) ? ST_CRY : 0) |									// carry flag
+				((*operand <= mainCPU.A) ? ST_CRY : 0) |								// carry flag
 				((*operand == mainCPU.A) ? ST_ZRO : 0) |								// zero flag
 				(((mainCPU.A - *operand) & 0x80) >> (7 - ST_NEG_BIT));					// negative (sign) flag
 			break;
@@ -587,7 +587,7 @@ void cpu6502_Step() {
 			// CPX
 			mainCPU.P =
 				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR)) |						// keep flags
-				((*operand < mainCPU.X) ? ST_CRY : 0) |									// carry flag
+				((*operand <= mainCPU.X) ? ST_CRY : 0) |									// carry flag
 				((*operand == mainCPU.X) ? ST_ZRO : 0) |								// zero flag
 				(((mainCPU.X - *operand) & 0x80) >> (7 - ST_NEG_BIT));					// negative (sign) flag
 			break;
@@ -600,7 +600,7 @@ void cpu6502_Step() {
 			// CPY
 			mainCPU.P =
 				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR)) |						// keep flags
-				((*operand < mainCPU.Y) ? ST_CRY : 0) |									// carry flag
+				((*operand <= mainCPU.Y) ? ST_CRY : 0) |									// carry flag
 				((*operand == mainCPU.Y) ? ST_ZRO : 0) |								// zero flag
 				(((mainCPU.Y - *operand) & 0x80) >> (7 - ST_NEG_BIT));					// negative (sign) flag
 			break;

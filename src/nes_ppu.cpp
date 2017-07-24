@@ -254,7 +254,7 @@ void renderOAM() {
 		unsigned char* curObj = &ppu_oam[252];
 		unsigned char* patternTable = ppu_chrMap + ((ppu_registers.PPUCTRL & PPUCTRL_OAMTABLE) ? 0x1000 : 0x0000);
 		for (int i = 0; i < 64; i++, curObj -= 4) {
-			unsigned int yCoord = scanline - curObj[0] - 1;
+			unsigned int yCoord = scanline - curObj[0] - 2;
 			if (yCoord < 8) {
 				unsigned char* tile = patternTable + (curObj[1] << 4);
 				if (curObj[2] & OAMATTR_VFLIP) yCoord = 8 - yCoord;
@@ -303,7 +303,7 @@ void renderOAM() {
 		// sprite 0 hit
 		if ((ppu_registers.PPUSTATUS & PPUSTAT_SPRITE0) == 0) {
 			// simulate the 8 bits from the write, but a little faster
-			unsigned int yCoord0 = scanline - ppu_oam[0] - 1;
+			unsigned int yCoord0 = scanline - ppu_oam[0] - 2;
 			if (yCoord0 < 8) {
 				unsigned char* tile = patternTable + (ppu_oam[1] << 4);
 				if (curObj[2] & OAMATTR_VFLIP) yCoord0 = 8 - yCoord0;

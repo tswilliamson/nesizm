@@ -6,6 +6,9 @@
 #define NES 1
 #include "6502.h"
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// CART
+
 #define NUM_CACHED_ROM_BANKS 20
 
 // specifications about the cart, rom file, mapper, etc
@@ -43,6 +46,8 @@ struct nes_nametable {
 	unsigned char table[960];
 	unsigned char attr[64];
 };
+
+extern nes_cart nesCart;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // PPU
@@ -131,4 +136,11 @@ extern unsigned char* ppu_resolveMemoryAddress(unsigned int addr);
 
 extern void ppu_step();
 
-extern nes_cart nesCart;
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// INPUT
+
+void input_writeStrobe(unsigned char value);
+
+unsigned char input_readController1();
+
+unsigned char input_readController2();

@@ -77,6 +77,9 @@
     <ClCompile Include="..\src\6502.cpp">
       <Filter>Source Files\6502</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\nes_input.cpp">
+      <Filter>Source Files\nes</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\main.h">

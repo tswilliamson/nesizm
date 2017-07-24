@@ -11,10 +11,25 @@ unsigned char* nes_cpu::getSpecial(unsigned int addr) {
 	if (addr < 0x4000) {
 		DebugAssert(addr >= 0x2000);	// assumed to be PPU register then
 		return ppu_registers.latchReg(addr & 0x07);
-	}
+	} 
 
 	static unsigned char specByte = 0;
-	//DebugAssert(0);
+
+	if (addr < 0x4020) {
+		// APU and IO registers
+		switch (addr - 0x4000) {
+			case 0x16:
+				specByte = input_readController1();
+				break;
+			case 0x17:
+				specByte = input_readController2();
+				break;
+			default:
+				// UNMAPPED! NO DATA!
+				specByte = 0;
+		}
+	}
+
 	return &specByte;
 }
 
@@ -39,11 +54,21 @@ void nes_cpu::writeSpecial(unsigned int addr, unsigned char value) {
 		DebugAssert(addr >= 0x2000);	// assumed to be PPU register then
 		ppu_registers.writeReg(addr & 0x07, value);
 		return;
+	} else if (addr < 0x4020) {
+		// APU and IO registers
+		switch (addr - 0x4000) {
+			case 0x14:
+				// perform OAM dma
+				ppu_oamDMA(((int) value) << 8);
+				break;
+			case 0x16:
+				input_writeStrobe(value);
+				break;
+			default:
+				// UNMAPPED! WILL DO NOTHING
+				break;
+		}
 	}
-	else if (addr == 0x4014) {
-		ppu_oamDMA(((int) value) << 8);
-	}
-	//DebugAssert(0);
 }
 
 void nes_cpu::mapDefaults() {
