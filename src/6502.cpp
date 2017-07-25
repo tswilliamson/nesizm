@@ -14,6 +14,7 @@
 
 #if DEBUG
 static unsigned int cpuBreakpoint = 0x0000;
+static unsigned int memWriteBreakpoint = 0xffff;
 #endif
 
 #if TRACE_INSTRUCTIONS
@@ -316,7 +317,7 @@ void cpu6502_Step() {
 			result = mainCPU.A - *operand - 1 + (mainCPU.P & ST_CRY);
 			mainCPU.P =
 				(mainCPU.P & (ST_INT | ST_BRK | ST_BCD)) |									// keep flags
-				((result & 0x100) >> (8 - ST_CRY_BIT)) |									// carry
+				((~result & 0x100) >> (8 - ST_CRY_BIT)) |									// carry
 				((result & 0xFF) == 0 ? ST_ZRO : 0) |										// zero
 				(((mainCPU.A^result)&((~(*operand))^result) & 0x80) >> (7 - ST_OVR_BIT)) |	// overflow (http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html)
 				((result & 0x80) >> (7 - ST_NEG_BIT));										// negative (sign)
@@ -669,6 +670,12 @@ void cpu6502_Step() {
 		} else {
 			*operand = result;
 		}
+
+#if TRACE_INSTRUCTIONS
+		if (effAddr == memWriteBreakpoint) {
+			HitBreakpoint();
+		}
+#endif
 	} else if (isSpecial) {
 		DebugAssert(effAddr != 0xFFFFFFFF);
 		mainCPU.postSpecialRead(effAddr);
@@ -751,7 +758,7 @@ void cpu_instr_history::output() {
 #if TRACE_INSTRUCTIONS
 void HitBreakpoint() {
 	OutputLog("CPU Instruction Trace:\n");
-	for (int i = 99; i >= 0; i--) {
+	for (int i = 99; i > 0; i--) {
 		traceHistory[(traceNum - i + 100) % 100].output();
 	}
 	OutputLog("Hit breakpoint at %04x!\n", cpuBreakpoint);
