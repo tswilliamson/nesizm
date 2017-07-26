@@ -3,12 +3,11 @@
 
 #include "platform.h"
 #include "debug.h"
-#include "nes.h"
-
-#include "../../calctype/calctype.h"
-#include "../../calctype/fonts/arial_small/arial_small.h"		
+#include "nes.h"	
 
 extern void PPUBreakpoint();
+
+#define USE_DMA TARGET_PRIZM
 
 // ppu statics
 ppu_registers_type ppu_registers;
@@ -17,40 +16,44 @@ nes_nametable ppu_nameTables[4];
 unsigned char ppu_palette[0x20] = { 0 };
 unsigned char* ppu_chrMap = { 0 };
 int ppu_mirror = nes_mirror_type::MT_UNSET;
+unsigned int ppu_scanline = 1;
+unsigned int ppu_frameCounter = 0;
 
-// private to this file
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Scanline handling
 
-// current scanline and scanline buffer with padding to allow fast rendering with clipping
-static int scanline = 1;	// scanline is 1-based... whatever!
-static unsigned int scanlineBuffer[256 + 16 * 2] = { 0 }; 
-static unsigned int oamBuffer[264] = { 0 };
-
-static unsigned int frameCounter = 0;
+// scanline buffers with padding to allow fast rendering with clipping
+static unsigned int ppu_oamBuffer[256 + 8] = { 0 }; 
 
 // pointer to function to render current scanline to scanline buffer (based on mirror mode)
 static void(*renderScanline)() = 0;
-void resolveScanline();		// resolves the current scanline buffer to the screen
 
-static void renderScanline_HorzMirror();
+// different resolve/frame techniques (based on device and build settings)
+#if USE_DMA
+void resolveScanline_DMA();		
+void finishFrame_DMA();		
+#else
+void resolveScanline_VRAM();		
+void finishFrame_VRAM();		
+#endif
 
-void ppu_setMirrorType(int withType) {
-	if (ppu_mirror == withType) {
-		return;
-	}
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Palette
 
-	ppu_mirror = withType;
-	switch (ppu_mirror) {
-		case nes_mirror_type::MT_HORIZONTAL:
-			renderScanline = renderScanline_HorzMirror;
-			break;
-		case nes_mirror_type::MT_VERTICAL:
-			DebugAssert(false);
-			break;
-		case nes_mirror_type::MT_4PANE:
-			DebugAssert(false);
-			break;
-	}
-}
+// TODO : handle emphasis bits
+static unsigned short ppu_rgbPalette[64] = {
+	0x5AAB, 0x010F, 0x0892, 0x3011, 0x480D, 0x6006, 0x5820, 0x40C0, 
+	0x2160, 0x09E0, 0x0200, 0x01E0, 0x01A8, 0x0000, 0x0000, 0x0000, 
+	0x9CD3, 0x0A79, 0x31BE, 0x611D, 0x88B6, 0xA0AD, 0x9924, 0x79E0, 
+	0x5AE0, 0x2BA0, 0x0BE0, 0x03C5, 0x034F, 0x0000, 0x0000, 0x0000, 
+	0xF79E, 0x54FE, 0x7BFE, 0xB33E, 0xEABE, 0xF2D7, 0xF36D, 0xDC44, 
+	0xA560, 0x7E20, 0x5684, 0x3E6E, 0x3DBA, 0x41E8, 0x0000, 0x0000, 
+	0xF79E, 0xAE7E, 0xC5FE, 0xDDBE, 0xF59E, 0xF59B, 0xF5B6, 0xEE32, 
+	0xD6AF, 0xBF0F, 0xAF32, 0x9F37, 0xA6DD, 0xA534, 0x0000, 0x0000
+};
+
+unsigned short* ppu_rgbPalettePtr = ppu_rgbPalette;
+
 
 unsigned char* ppu_registers_type::latchReg(unsigned int regNum) {
 	switch (regNum) {
@@ -190,70 +193,86 @@ unsigned char* ppu_resolveMemoryAddress(unsigned int address) {
 // TODO : scanline check faster to do with table or function ptr?
 void ppu_step() {
 	// cpu time for next scanline
-	mainCPU.ppuClocks += (341 / 3) + (scanline % 3 != 0 ? 1 : 0);
+	mainCPU.ppuClocks += (341 / 3) + (ppu_scanline % 3 != 0 ? 1 : 0);
 
 	// TODO: we should be able to render 224 via DMA
-
+	#define FRAME_SKIP 1
+	const bool skipFrame = (ppu_frameCounter % (FRAME_SKIP + 1) == 0);
+    
 	/*
 		262 scanlines, we render 13-228 (middle 216 screen lines)
 
 		The idea is to render each scanline at the beginning of its line, and then
 		to get sprite 0 timing right use a different ppuClocks value / update function
 	*/
-	if (scanline == 1) {
+	if (ppu_scanline == 1) {
 		// inactive scanline with even/odd clock cycle thing
 		ppu_registers.PPUSTATUS &= ~PPUSTAT_NMI;			// clear vblank flag
 		ppu_registers.PPUSTATUS &= ~PPUSTAT_SPRITE0;		// clear sprite 0 collision flag
-	} else if (scanline < 13) {
+	} else if (ppu_scanline < 13) {
 		// non-resolved but active scanline (may cause sprite 0 collision)
 		// TODO : sprite 0 collision only render version?
-		renderScanline();
-	} else if (scanline < 229) {
+		if (!skipFrame) {
+			renderScanline();
+		}
+	} else if (ppu_scanline < 229) {
 		// rendered scanline
-		renderScanline();
-		resolveScanline();
-	} else if (scanline < 241) {
+		if (!skipFrame) {
+			renderScanline();
+
+#if USE_DMA
+			resolveScanline_DMA();
+#else
+			resolveScanline_VRAM();
+#endif
+		}
+
+	} else if (ppu_scanline < 241) {
 		// non-resolved scanline
-		renderScanline();
-	} else if (scanline == 242) {
+		if (!skipFrame) {
+			renderScanline();
+		}
+	} else if (ppu_scanline == 242) {
 		// blank scanline area
-	} else if (scanline == 243) {
+	} else if (ppu_scanline == 243) {
 		if (mainCPU.clocks > 30000) {
 			ppu_registers.PPUSTATUS |= PPUCTRL_NMI;
 		}
 		if ((ppu_registers.PPUCTRL & PPUCTRL_NMI) && (mainCPU.clocks > 140000)) {
 			mainCPU.NMI();
 		}
-		frameCounter++;
 
-#if DEBUG
-		char buffer[32];
-		sprintf(buffer, "%d   ", frameCounter);
-		int x = 2;
-		int y = 200;
-		for (int y1 = y; y1 < y + 10; y1++) {
-			unsigned short* scanlineDest = ((unsigned short*)GetVRAMAddress()) + y1 * 384;
-			for (int x1 = 0; x1 < 60; x1++) {
-				scanlineDest[x1] = 0;
-			}
-		}
-		CalcType_Draw(&arial_small, buffer, x, y, COLOR_WHITE, 0, 0);
+		if (!skipFrame) {
+#if USE_DMA
+			finishFrame_DMA();
+#else
+			finishFrame_VRAM();
 #endif
+		}
 
-		Bdisp_PutDisp_DD();
-	} else if (scanline < 262) {
+		ppu_frameCounter++;
+
+		bool keyDown_fast(unsigned char keyCode);
+		if (keyDown_fast(79)) // F1 
+		{
+			extern bool shouldExit;
+			shouldExit = true;
+		}
+	} else if (ppu_scanline < 262) {
 		// inside vblank
 	} else {
 		// final scanline
-		scanline = 0;
+		ppu_scanline = 0;
 
 		// frame timing .. total ppu frame should be every 29780.5 ppu clocks
-		if (frameCounter & 1)
-			mainCPU.ppuClocks -= 1;
+		mainCPU.ppuClocks -= 1;
 	}
 
-	scanline++;
+	ppu_scanline++;
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Scanline Rendering (to buffer)
 
 // Credit to Stanford bit twiddling hacks
 static const unsigned short MortonTable[256] = 
@@ -295,7 +314,7 @@ static const unsigned short MortonTable[256] =
 void renderOAM() {
 	if ((ppu_registers.PPUMASK & PPUMASK_SHOWLEFTBG) == 0) {
 		for (int i = 16; i < 24; i++) {
-			scanlineBuffer[i] = 0;
+			ppu_scanlineBuffer[i] = 0;
 		}
 	}
 
@@ -308,35 +327,35 @@ void renderOAM() {
 		unsigned char* curObj = &ppu_oam[252];
 		unsigned char* patternTable = ppu_chrMap + ((ppu_registers.PPUCTRL & PPUCTRL_OAMTABLE) ? 0x1000 : 0x0000);
 		for (int i = 0; i < 64; i++) {
-			unsigned int yCoord = scanline - curObj[0] - 2;
+			unsigned int yCoord = ppu_scanline - curObj[0] - 2;
 			if (yCoord < 8) {
 				hadSprite = true;
 				unsigned char* tile = patternTable + (curObj[1] << 4);
 				if (curObj[2] & OAMATTR_VFLIP) yCoord = 8 - yCoord;
 				unsigned int x = curObj[3];
 
-				// interleave the but planes and assign to char buffer (only unmapped pixels)
+				// interleave the bit planes and assign to char buffer (only unmapped pixels)
 				unsigned int bitPlane = MortonTable[tile[yCoord]] | (MortonTable[tile[yCoord + 8]] << 1);
 				unsigned int palette = ((curObj[2] & 3) << 2) + (curObj[2] & OAMATTR_PRIORITY) + 16;
 
 				if (curObj[2] & OAMATTR_HFLIP) {
-										if (bitPlane & 3) oamBuffer[x + 0] = palette + (bitPlane & 3);
-					bitPlane >>= 2;		if (bitPlane & 3) oamBuffer[x + 1] = palette + (bitPlane & 3);
-					bitPlane >>= 2;		if (bitPlane & 3) oamBuffer[x + 2] = palette + (bitPlane & 3);
-					bitPlane >>= 2;		if (bitPlane & 3) oamBuffer[x + 3] = palette + (bitPlane & 3);
-					bitPlane >>= 2;		if (bitPlane & 3) oamBuffer[x + 4] = palette + (bitPlane & 3);
-					bitPlane >>= 2;		if (bitPlane & 3) oamBuffer[x + 5] = palette + (bitPlane & 3);
-					bitPlane >>= 2;		if (bitPlane & 3) oamBuffer[x + 6] = palette + (bitPlane & 3);
-					bitPlane >>= 2;		if (bitPlane & 3) oamBuffer[x + 7] = palette + (bitPlane & 3);
+										if (bitPlane & 3) ppu_oamBuffer[x + 0] = palette + (bitPlane & 3);
+					bitPlane >>= 2;		if (bitPlane & 3) ppu_oamBuffer[x + 1] = palette + (bitPlane & 3);
+					bitPlane >>= 2;		if (bitPlane & 3) ppu_oamBuffer[x + 2] = palette + (bitPlane & 3);
+					bitPlane >>= 2;		if (bitPlane & 3) ppu_oamBuffer[x + 3] = palette + (bitPlane & 3);
+					bitPlane >>= 2;		if (bitPlane & 3) ppu_oamBuffer[x + 4] = palette + (bitPlane & 3);
+					bitPlane >>= 2;		if (bitPlane & 3) ppu_oamBuffer[x + 5] = palette + (bitPlane & 3);
+					bitPlane >>= 2;		if (bitPlane & 3) ppu_oamBuffer[x + 6] = palette + (bitPlane & 3);
+					bitPlane >>= 2;		if (bitPlane & 3) ppu_oamBuffer[x + 7] = palette + (bitPlane & 3);
 				} else {
-										if (bitPlane & 3) oamBuffer[x + 7] = palette + (bitPlane & 3);
-					bitPlane >>= 2;		if (bitPlane & 3) oamBuffer[x + 6] = palette + (bitPlane & 3);
-					bitPlane >>= 2;		if (bitPlane & 3) oamBuffer[x + 5] = palette + (bitPlane & 3);
-					bitPlane >>= 2;		if (bitPlane & 3) oamBuffer[x + 4] = palette + (bitPlane & 3);
-					bitPlane >>= 2;		if (bitPlane & 3) oamBuffer[x + 3] = palette + (bitPlane & 3);
-					bitPlane >>= 2;		if (bitPlane & 3) oamBuffer[x + 2] = palette + (bitPlane & 3);
-					bitPlane >>= 2;		if (bitPlane & 3) oamBuffer[x + 1] = palette + (bitPlane & 3);
-					bitPlane >>= 2;		if (bitPlane & 3) oamBuffer[x + 0] = palette + (bitPlane & 3);
+										if (bitPlane & 3) ppu_oamBuffer[x + 7] = palette + (bitPlane & 3);
+					bitPlane >>= 2;		if (bitPlane & 3) ppu_oamBuffer[x + 6] = palette + (bitPlane & 3);
+					bitPlane >>= 2;		if (bitPlane & 3) ppu_oamBuffer[x + 5] = palette + (bitPlane & 3);
+					bitPlane >>= 2;		if (bitPlane & 3) ppu_oamBuffer[x + 4] = palette + (bitPlane & 3);
+					bitPlane >>= 2;		if (bitPlane & 3) ppu_oamBuffer[x + 3] = palette + (bitPlane & 3);
+					bitPlane >>= 2;		if (bitPlane & 3) ppu_oamBuffer[x + 2] = palette + (bitPlane & 3);
+					bitPlane >>= 2;		if (bitPlane & 3) ppu_oamBuffer[x + 1] = palette + (bitPlane & 3);
+					bitPlane >>= 2;		if (bitPlane & 3) ppu_oamBuffer[x + 0] = palette + (bitPlane & 3);
 				}
 			}
 			
@@ -347,7 +366,7 @@ void renderOAM() {
 			// mask left 8 pixels
 			if ((ppu_registers.PPUMASK & PPUMASK_SHOWLEFTOBJ) == 0) {
 				for (int i = 0; i < 8; i++) {
-					oamBuffer[i] = 0;
+					ppu_oamBuffer[i] = 0;
 				}
 			}
 
@@ -356,7 +375,7 @@ void renderOAM() {
 				unsigned int charBuffer[8];
 
 				// simulate the 8 bits from the write, but a little faster
-				unsigned int yCoord0 = scanline - ppu_oam[0] - 2;
+				unsigned int yCoord0 = ppu_scanline - ppu_oam[0] - 2;
 				if (yCoord0 < 8) {
 					unsigned char* tile = patternTable + (ppu_oam[1] << 4);
 					if (curObj[2] & OAMATTR_VFLIP) yCoord0 = 8 - yCoord0;
@@ -385,7 +404,7 @@ void renderOAM() {
 					}
 
 					for (int p = 0; p < 8; p++) {
-						if (charBuffer[p] && scanlineBuffer[16+x+p] && (x+p != 255)) {
+						if (charBuffer[p] && ppu_scanlineBuffer[16+x+p] && (x+p != 255)) {
 							// TODO : this is approximate since it is at start of line!
 							// It could be exact by storing actual upcoming clocks here and filling
 							// PPUSTATUS when queried
@@ -397,8 +416,8 @@ void renderOAM() {
 			}
 
 			// resolve objects
-			unsigned int* targetPixel = &scanlineBuffer[16];
-			unsigned int* oamPixel = &oamBuffer[0];
+			unsigned int* targetPixel = &ppu_scanlineBuffer[16];
+			unsigned int* oamPixel = &ppu_oamBuffer[0];
 			for (int i = 0; i < 256; i++, oamPixel++, targetPixel++) {
 				if (*oamPixel & 3) {
 					if ((*oamPixel & OAMATTR_PRIORITY) == 0 || (*targetPixel & 3) == 0) {
@@ -412,9 +431,9 @@ void renderOAM() {
 }
 
 void renderScanline_HorzMirror() {
-	DebugAssert(scanline >= 1 && scanline <= 240);
+	DebugAssert(ppu_scanline >= 1 && ppu_scanline <= 240);
 	if (ppu_registers.PPUMASK & PPUMASK_SHOWBG) {
-		int line = scanline + ppu_registers.SCROLLY - 1;
+		int line = ppu_scanline + ppu_registers.SCROLLY - 1;
 		int tileLine = line >> 3;
 
 		// determine base addresses
@@ -471,43 +490,40 @@ void renderScanline_HorzMirror() {
 				int chr = nameTable[tileX++] << 4;
 
 				int bitPlane = MortonTable[patternTable[chr]] | (MortonTable[patternTable[chr + 8]] << 1);
-				scanlineBuffer[x + 7] = palette + (bitPlane & 3); bitPlane >>= 2;
-				scanlineBuffer[x + 6] = palette + (bitPlane & 3); bitPlane >>= 2;
-				scanlineBuffer[x + 5] = palette + (bitPlane & 3); bitPlane >>= 2;
-				scanlineBuffer[x + 4] = palette + (bitPlane & 3); bitPlane >>= 2;
-				scanlineBuffer[x + 3] = palette + (bitPlane & 3); bitPlane >>= 2;
-				scanlineBuffer[x + 2] = palette + (bitPlane & 3); bitPlane >>= 2;
-				scanlineBuffer[x + 1] = palette + (bitPlane & 3); bitPlane >>= 2;
-				scanlineBuffer[x + 0] = palette + (bitPlane & 3);
+				ppu_scanlineBuffer[x + 7] = palette + (bitPlane & 3); bitPlane >>= 2;
+				ppu_scanlineBuffer[x + 6] = palette + (bitPlane & 3); bitPlane >>= 2;
+				ppu_scanlineBuffer[x + 5] = palette + (bitPlane & 3); bitPlane >>= 2;
+				ppu_scanlineBuffer[x + 4] = palette + (bitPlane & 3); bitPlane >>= 2;
+				ppu_scanlineBuffer[x + 3] = palette + (bitPlane & 3); bitPlane >>= 2;
+				ppu_scanlineBuffer[x + 2] = palette + (bitPlane & 3); bitPlane >>= 2;
+				ppu_scanlineBuffer[x + 1] = palette + (bitPlane & 3); bitPlane >>= 2;
+				ppu_scanlineBuffer[x + 0] = palette + (bitPlane & 3);
 			}
 		}
 	} else {
 		for (int i = 0; i < 288; i++) {
-			scanlineBuffer[i] = 0;
+			ppu_scanlineBuffer[i] = 0;
 		}
 	}
 
 	renderOAM();
 }
 
-// TODO : handle emphasis bits
-static unsigned short rgbPalette[64] = {
-	0x5AAB, 0x010F, 0x0892, 0x3011, 0x480D, 0x6006, 0x5820, 0x40C0, 
-	0x2160, 0x09E0, 0x0200, 0x01E0, 0x01A8, 0x0000, 0x0000, 0x0000, 
-	0x9CD3, 0x0A79, 0x31BE, 0x611D, 0x88B6, 0xA0AD, 0x9924, 0x79E0, 
-	0x5AE0, 0x2BA0, 0x0BE0, 0x03C5, 0x034F, 0x0000, 0x0000, 0x0000, 
-	0xF79E, 0x54FE, 0x7BFE, 0xB33E, 0xEABE, 0xF2D7, 0xF36D, 0xDC44, 
-	0xA560, 0x7E20, 0x5684, 0x3E6E, 0x3DBA, 0x41E8, 0x0000, 0x0000, 
-	0xF79E, 0xAE7E, 0xC5FE, 0xDDBE, 0xF59E, 0xF59B, 0xF5B6, 0xEE32, 
-	0xD6AF, 0xBF0F, 0xAF32, 0x9F37, 0xA6DD, 0xA534, 0x0000, 0x0000
-};
+void ppu_setMirrorType(int withType) {
+	if (ppu_mirror == withType) {
+		return;
+	}
 
-void resolveScanline() {
-	DebugAssert(scanline >= 13 && scanline <= 228);
-
-	unsigned short* scanlineDest = ((unsigned short*)GetVRAMAddress()) + (scanline - 13) * 384 + 64;
-	unsigned int* scanlineSrc = &scanlineBuffer[16];	// with clipping
-	for (int i = 0; i < 256; i++, scanlineSrc++) {
-		*(scanlineDest++) = rgbPalette[ppu_palette[*scanlineSrc]];
+	ppu_mirror = withType;
+	switch (ppu_mirror) {
+		case nes_mirror_type::MT_HORIZONTAL:
+			renderScanline = renderScanline_HorzMirror;
+			break;
+		case nes_mirror_type::MT_VERTICAL:
+			DebugAssert(false);
+			break;
+		case nes_mirror_type::MT_4PANE:
+			DebugAssert(false);
+			break;
 	}
 }

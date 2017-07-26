@@ -140,6 +140,18 @@ extern unsigned char* ppu_resolveMemoryAddress(unsigned int addr);
 
 extern void ppu_step();
 
+// current scanline (0 = prerender line, 1 = first real scanline)
+extern unsigned int ppu_scanline;
+
+// curent frame
+extern unsigned int ppu_frameCounter;
+
+// pointer to buffer representing palette entries for current scanline
+extern unsigned int* ppu_scanlineBuffer;
+
+// pointer to current 565 color palette (can change due to emphasis bits)
+extern unsigned short* ppu_rgbPalettePtr;
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // INPUT
 

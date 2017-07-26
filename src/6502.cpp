@@ -76,7 +76,7 @@ static int modeTable[32] = {
 	AM_None,		// 1F (unused)
 };
 
-void cpu6502_Step() {
+inline void cpu6502_PerformInstruction() {
 #if TRACE_INSTRUCTIONS
 	cpu_instr_history hist;
 	memcpy(&hist.regs, &mainCPU, sizeof(cpu_6502));
@@ -679,6 +679,12 @@ void cpu6502_Step() {
 	} else if (isSpecial) {
 		DebugAssert(effAddr != 0xFFFFFFFF);
 		mainCPU.postSpecialRead(effAddr);
+	}
+}
+
+void cpu6502_Step() {
+	for (; mainCPU.clocks < mainCPU.ppuClocks;) {
+		cpu6502_PerformInstruction();
 	}
 }
 

@@ -1,13 +1,12 @@
 #include "platform.h"
 #include "nes.h"
+#include "ptune2_simple/Ptune2_direct.h"
 
 #include "../../calctype/calctype.inl"
 #include "../../calctype/fonts/arial_small/arial_small.c"		// For Menus
 // #include "../../calctype/fonts/consolas_intl/consolas_intl.c"	// for FAQS
 
 bool shouldExit = false;
-
-bool keyDown_fast(unsigned char keyCode);
 
 void shutdown() {
 }
@@ -20,6 +19,8 @@ int main(void) {
 	// prepare for full color mode
 	Bdisp_EnableColor(1);
 	EnableStatusArea(3);
+
+	Ptune2_LoadSetting(PT2_DOUBLE);
 
 	reset_printf();
 	memset(GetVRAMAddress(), 0, LCD_HEIGHT_PX * LCD_WIDTH_PX * 2);
@@ -41,14 +42,9 @@ int main(void) {
 		cpu6502_Init();
 		mainCPU.reset();
 
-		while (1) {
+		while (!shouldExit) {
 			cpu6502_Step();
-
-			if (mainCPU.clocks >= mainCPU.ppuClocks) {
-				ppu_step();
-				if (keyDown_fast(79)) // F1
-					break;
-			}
+			ppu_step();
 		}
 
 		nesCart.unload();
@@ -56,6 +52,8 @@ int main(void) {
 		int key = 0; 
 		GetKey(&key);
 	}
+
+	Ptune2_LoadSetting(PT2_DEFAULT);
 
 	return 0;
 }

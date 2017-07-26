@@ -66,6 +66,8 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='WindowsSim|x64'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='WindowsSim|Win32'">false</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="..\src\scanline_dma.cpp" />
+    <ClCompile Include="..\src\scanline_vram.cpp" />
     <None Include="..\..\calctype\calctype.inl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='WindowsSim|Win32'">true</ExcludedFromBuild>
     </None>

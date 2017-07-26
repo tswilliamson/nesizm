@@ -80,6 +80,12 @@
     <ClCompile Include="..\src\nes_input.cpp">
       <Filter>Source Files\nes</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\scanline_vram.cpp">
+      <Filter>Source Files\nes</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\scanline_dma.cpp">
+      <Filter>Source Files\nes</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\main.h">
