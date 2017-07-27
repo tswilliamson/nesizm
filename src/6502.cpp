@@ -18,10 +18,11 @@ static unsigned int memWriteBreakpoint = 0xffff;
 #endif
 
 #if TRACE_INSTRUCTIONS
-static cpu_instr_history traceHistory[100] = { 0 };
+#define NUM_TRACED 100
+static cpu_instr_history traceHistory[NUM_TRACED] = { 0 };
 static unsigned int traceNum;
 void HitBreakpoint();
-static bool enableDirectOutput = false;
+static int traceLineRemaining = 0;
 #endif
 
 #ifdef LITTLE_E
@@ -32,13 +33,8 @@ static bool enableDirectOutput = false;
 
 unsigned int clockTable[256] = { 0 };
 
-void cpu6502_Init() {
-	#define OPCODE(op,str,clk,sz,spc) clockTable[op] = clk;
-	#include "6502_opcodes.inl"
-}
-
 // the low 5 bits of the opcode determines the addressing mode with only 5 instruction exceptions (noted)
-static int modeTable[32] = {
+const static int modeTableSmall[32] = {
 	AM_None,		// 00
 	AM_IndirectX,	// 01
 	AM_None,		// 02 (mostly unused)
@@ -76,6 +72,22 @@ static int modeTable[32] = {
 	AM_None,		// 1F (unused)
 };
 
+static int modeTable[256];
+
+void cpu6502_Init() {
+	#define OPCODE(op,str,clk,sz,spc) clockTable[op] = clk;
+	#include "6502_opcodes.inl"
+
+	for (int i = 0; i < 256; i++) {
+		modeTable[i] = modeTableSmall[i & 0x1F];
+	}
+	// exceptions
+	modeTable[0x96] = AM_ZeroY;
+	modeTable[0xB6] = AM_ZeroY;
+	modeTable[0xBE] = AM_AbsoluteY;
+}
+
+
 inline void cpu6502_PerformInstruction() {
 #if TRACE_INSTRUCTIONS
 	cpu_instr_history hist;
@@ -97,7 +109,7 @@ inline void cpu6502_PerformInstruction() {
 	mainCPU.clocks += clockTable[instr];
 
 	// TODO : perf (try labels here)
-	switch (modeTable[instr & 0x1F]) {
+	switch (modeTable[instr]) {
 		case AM_Absolute:
 			effAddr = data1 + (data2 << 8);
 			operand = mainCPU.getByte(effAddr, isSpecial);
@@ -138,8 +150,13 @@ inline void cpu6502_PerformInstruction() {
 			operand = &mainCPU.RAM[effAddr];
 			mainCPU.PC += 2;
 			break;
+		case AM_ZeroY:
+			effAddr = (data1 + mainCPU.Y) & 0xFF;
+			operand = &mainCPU.RAM[effAddr];
+			mainCPU.PC += 2;
+			break;
 		default:
-			DebugAssert(modeTable[instr & 0x1F] == AM_None);
+			DebugAssert(modeTable[instr] == AM_None);
 			mainCPU.PC += 1;
 			break;
 	}
@@ -154,10 +171,11 @@ inline void cpu6502_PerformInstruction() {
 	}
 
 	traceHistory[traceNum++] = hist;
-	if (traceNum == 100) traceNum = 0;
+	if (traceNum == NUM_TRACED) traceNum = 0;
 
-	if (enableDirectOutput) {
+	if (traceLineRemaining) {
 		hist.output();
+		traceLineRemaining--;
 	}
 
 	if (hist.regs.PC == cpuBreakpoint) {
@@ -338,7 +356,7 @@ inline void cpu6502_PerformInstruction() {
 			// INC
 			result = (*operand + 1) & 0xFF;
 			mainCPU.P =
-				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR )) |					// keep flags
+				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_CRY )) |			// keep flags
 				((result & 0x80) >> (7 - ST_NEG_BIT)) |									// sign flag
 				(result == 0x00 ? ST_ZRO : 0);											// zero flag
 			isWrite = 1;
@@ -730,7 +748,7 @@ void cpu_instr_history::output() {
 	}
 	static bool showRegs = true;
 	if (showRegs) {
-		OutputLog("A:%02X X:%02X Y:%02X S:%02X P:%s%su%s%s%s%s%s  ",
+		OutputLog("A:%02X X:%02X Y:%02X S:%02X P:%s%s%s%s%s%s%s  ",
 			regs.A,
 			regs.X,
 			regs.Y,
@@ -764,8 +782,8 @@ void cpu_instr_history::output() {
 #if TRACE_INSTRUCTIONS
 void HitBreakpoint() {
 	OutputLog("CPU Instruction Trace:\n");
-	for (int i = 99; i > 0; i--) {
-		traceHistory[(traceNum - i + 100) % 100].output();
+	for (int i = NUM_TRACED - 1; i > 0; i--) {
+		traceHistory[(traceNum - i + NUM_TRACED) % NUM_TRACED].output();
 	}
 	OutputLog("Hit breakpoint at %04x!\n", cpuBreakpoint);
 
@@ -776,8 +794,8 @@ void HitBreakpoint() {
 
 void PPUBreakpoint() {
 	OutputLog("CPU Instruction Trace:\n");
-	for (int i = 99; i >= 0; i--) {
-		traceHistory[(traceNum - i + 100) % 100].output();
+	for (int i = NUM_TRACED - 1; i > 0; i--) {
+		traceHistory[(traceNum - i + NUM_TRACED) % NUM_TRACED].output();
 	}
 	OutputLog("PPU Breakpoint!");
 

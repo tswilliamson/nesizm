@@ -124,7 +124,7 @@ void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
 			break;
 		case 0x07:
 			unsigned int address = (ADDRHI << 8) | ADDRLO;
-
+			
 			latch = ppu_resolveMemoryAddress(address);
 			if (PPUCTRL & PPUCTRL_VRAMINC) {
 				address += 32;
@@ -197,7 +197,7 @@ void ppu_step() {
 
 	// TODO: we should be able to render 224 via DMA
 	#define FRAME_SKIP 1
-	const bool skipFrame = (ppu_frameCounter % (FRAME_SKIP + 1) == 0);
+	const bool skipFrame = (ppu_frameCounter % (FRAME_SKIP + 1) != 0);
     
 	/*
 		262 scanlines, we render 13-228 (middle 216 screen lines)
@@ -311,6 +311,7 @@ static const unsigned short MortonTable[256] =
   0x5540, 0x5541, 0x5544, 0x5545, 0x5550, 0x5551, 0x5554, 0x5555
 };
 
+template<bool sprite16,int spriteSize>
 void renderOAM() {
 	if ((ppu_registers.PPUMASK & PPUMASK_SHOWLEFTBG) == 0) {
 		for (int i = 16; i < 24; i++) {
@@ -319,19 +320,26 @@ void renderOAM() {
 	}
 
 	if (ppu_registers.PPUMASK & PPUMASK_SHOWOBJ) {
-		// TODO : 8x16 mode
-		DebugAssert((ppu_registers.PPUCTRL & PPUCTRL_SPRSIZE) == 0);
-
 		// render objects to separate buffer
 		bool hadSprite = false;
 		unsigned char* curObj = &ppu_oam[252];
-		unsigned char* patternTable = ppu_chrMap + ((ppu_registers.PPUCTRL & PPUCTRL_OAMTABLE) ? 0x1000 : 0x0000);
+		unsigned char* patternTable = ppu_chrMap + ((!sprite16 && (ppu_registers.PPUCTRL & PPUCTRL_OAMTABLE)) ? 0x1000 : 0x0000);
 		for (int i = 0; i < 64; i++) {
 			unsigned int yCoord = ppu_scanline - curObj[0] - 2;
-			if (yCoord < 8) {
+			if (yCoord < spriteSize) {
 				hadSprite = true;
-				unsigned char* tile = patternTable + (curObj[1] << 4);
-				if (curObj[2] & OAMATTR_VFLIP) yCoord = 8 - yCoord;
+
+				if (curObj[2] & OAMATTR_VFLIP) yCoord = spriteSize - yCoord;
+
+				// determine tile index
+				unsigned char* tile;
+				if (sprite16) {
+					tile = patternTable + ((((curObj[1] & 1) << 8) + (curObj[1] & 0xFE)) << 4) + ((yCoord & 8) << 1);
+					yCoord &= 7;
+				} else {
+					tile = patternTable + (curObj[1] << 4);
+				}
+
 				unsigned int x = curObj[3];
 
 				// interleave the bit planes and assign to char buffer (only unmapped pixels)
@@ -376,14 +384,23 @@ void renderOAM() {
 
 				// simulate the 8 bits from the write, but a little faster
 				unsigned int yCoord0 = ppu_scanline - ppu_oam[0] - 2;
-				if (yCoord0 < 8) {
-					unsigned char* tile = patternTable + (ppu_oam[1] << 4);
-					if (curObj[2] & OAMATTR_VFLIP) yCoord0 = 8 - yCoord0;
-					unsigned int x = curObj[3];
+				if (yCoord0 < spriteSize) {
+					if (ppu_oam[2] & OAMATTR_VFLIP) yCoord0 = spriteSize - yCoord0;
+
+					// determine tile index
+					unsigned char* tile;
+					if (sprite16) {
+						tile = patternTable + ((((ppu_oam[1] & 1) << 8) + (ppu_oam[1] & 0xFE)) << 4) + ((yCoord0 & 8) << 1);
+						yCoord0 &= 7;
+					} else {
+						tile = patternTable + (ppu_oam[1] << 4);
+					}
+
+					unsigned int x = ppu_oam[3];
 
 					unsigned int plane = tile[yCoord0] | tile[yCoord0 + 8];
 
-					if (curObj[2] & OAMATTR_HFLIP) {
+					if (ppu_oam[2] & OAMATTR_HFLIP) {
 						charBuffer[0] = plane & 1;
 						charBuffer[1] = plane & 2;
 						charBuffer[2] = plane & 4;
@@ -485,8 +502,7 @@ void renderScanline_HorzMirror() {
 			int palette = (attrPalette & 0x03) << 2;
 			attrPalette = (attrPalette >> 2) | (attrPalette << 30);
 
-			for (int twice = 0; twice < 2; twice++, x += 8)
-			{
+			for (int twice = 0; twice < 2; twice++, x += 8) {
 				int chr = nameTable[tileX++] << 4;
 
 				int bitPlane = MortonTable[patternTable[chr]] | (MortonTable[patternTable[chr + 8]] << 1);
@@ -506,7 +522,94 @@ void renderScanline_HorzMirror() {
 		}
 	}
 
-	renderOAM();
+	if ((ppu_registers.PPUCTRL & PPUCTRL_SPRSIZE) == 0) {
+		renderOAM<false, 8>();
+	} else {
+		renderOAM<true, 16>();
+	}
+}
+
+void renderScanline_VertMirror() {
+	DebugAssert(ppu_scanline >= 1 && ppu_scanline <= 240);
+	if (ppu_registers.PPUMASK & PPUMASK_SHOWBG) {
+		int line = ppu_scanline + ppu_registers.SCROLLY - 1;
+		int tileLine = line >> 3;
+		int scrollX = ppu_registers.SCROLLX;
+
+		// determine base addresses
+		unsigned char* nameTable;
+		unsigned char* attr;
+		int attrShift = (tileLine & 2) << 1;	// 4 bit shift for bottom row of attribute
+		unsigned char* patternTable = ppu_chrMap + ((ppu_registers.PPUCTRL & PPUCTRL_BGDTABLE) << 8) + (line & 7);
+
+		if (ppu_registers.PPUCTRL & PPUCTRL_FLIPXTBL) scrollX += 256;
+
+		// we render 16 pixels at a time (easy attribute table lookup), 17 times and clip
+		int x = 16 - (scrollX & 15);
+		int tileX = ((scrollX >> 4) * 2) & 0x3F;	// always start on an even numbered tile
+		int nameTableIndex = (tileX & 0x20) >> 5;
+		
+		nameTable = &ppu_nameTables[nameTableIndex].table[tileLine << 5];
+		attr = &ppu_nameTables[nameTableIndex].attr[(tileLine >> 2) << 3];
+
+		// render tileX up to the end of the current nametable
+		int curTileX = tileX & 0x1F;
+		while (curTileX < 32) {
+			// grab and rotate palette selection
+			int attrPalette = (attr[(curTileX >> 2)] >> attrShift) >> (curTileX & 2);
+			int palette = (attrPalette & 0x03) << 2;
+
+			for (int twice = 0; twice < 2; twice++, x += 8) {
+				int chr = nameTable[curTileX++] << 4;
+
+				int bitPlane = MortonTable[patternTable[chr]] | (MortonTable[patternTable[chr + 8]] << 1);
+				ppu_scanlineBuffer[x + 7] = palette + (bitPlane & 3); bitPlane >>= 2;
+				ppu_scanlineBuffer[x + 6] = palette + (bitPlane & 3); bitPlane >>= 2;
+				ppu_scanlineBuffer[x + 5] = palette + (bitPlane & 3); bitPlane >>= 2;
+				ppu_scanlineBuffer[x + 4] = palette + (bitPlane & 3); bitPlane >>= 2;
+				ppu_scanlineBuffer[x + 3] = palette + (bitPlane & 3); bitPlane >>= 2;
+				ppu_scanlineBuffer[x + 2] = palette + (bitPlane & 3); bitPlane >>= 2;
+				ppu_scanlineBuffer[x + 1] = palette + (bitPlane & 3); bitPlane >>= 2;
+				ppu_scanlineBuffer[x + 0] = palette + (bitPlane & 3);
+			}
+		}
+
+		// now render the other nametable until scanline is complete
+		curTileX = 0;
+		nameTableIndex = 1 - nameTableIndex;
+		nameTable = &ppu_nameTables[nameTableIndex].table[tileLine << 5];
+		attr = &ppu_nameTables[nameTableIndex].attr[(tileLine >> 2) << 3];
+
+		while (x < 256 + 16) {
+			// grab and rotate palette selection
+			int attrPalette = (attr[(curTileX >> 2)] >> attrShift) >> (curTileX & 2);
+			int palette = (attrPalette & 0x03) << 2;
+
+			for (int twice = 0; twice < 2; twice++, x += 8) {
+				int chr = nameTable[curTileX++] << 4;
+
+				int bitPlane = MortonTable[patternTable[chr]] | (MortonTable[patternTable[chr + 8]] << 1);
+				ppu_scanlineBuffer[x + 7] = palette + (bitPlane & 3); bitPlane >>= 2;
+				ppu_scanlineBuffer[x + 6] = palette + (bitPlane & 3); bitPlane >>= 2;
+				ppu_scanlineBuffer[x + 5] = palette + (bitPlane & 3); bitPlane >>= 2;
+				ppu_scanlineBuffer[x + 4] = palette + (bitPlane & 3); bitPlane >>= 2;
+				ppu_scanlineBuffer[x + 3] = palette + (bitPlane & 3); bitPlane >>= 2;
+				ppu_scanlineBuffer[x + 2] = palette + (bitPlane & 3); bitPlane >>= 2;
+				ppu_scanlineBuffer[x + 1] = palette + (bitPlane & 3); bitPlane >>= 2;
+				ppu_scanlineBuffer[x + 0] = palette + (bitPlane & 3);
+			}
+		}
+	} else {
+		for (int i = 0; i < 288; i++) {
+			ppu_scanlineBuffer[i] = 0;
+		}
+	}
+
+	if ((ppu_registers.PPUCTRL & PPUCTRL_SPRSIZE) == 0) {
+		renderOAM<false, 8>();
+	} else {
+		renderOAM<true, 16>();
+	}
 }
 
 void ppu_setMirrorType(int withType) {
@@ -520,7 +623,7 @@ void ppu_setMirrorType(int withType) {
 			renderScanline = renderScanline_HorzMirror;
 			break;
 		case nes_mirror_type::MT_VERTICAL:
-			DebugAssert(false);
+			renderScanline = renderScanline_VertMirror;
 			break;
 		case nes_mirror_type::MT_4PANE:
 			DebugAssert(false);
