@@ -168,6 +168,8 @@ void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
 			break;
 		case 0x06:  // ADDRHI/LO
 			if (latch == &ADDRHI) {
+				// TODO : write PPUCTRL bits? should use the ppu scroll v/t stuff
+				PPUCTRL = (PPUCTRL & 0xFC) | ((value & 0x0C) >> 2);
 				latch = &ADDRLO;
 			} else {
 				latch = &ADDRHI;
