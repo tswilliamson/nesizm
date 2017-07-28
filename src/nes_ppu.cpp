@@ -106,6 +106,15 @@ unsigned char* ppu_registers_type::latchReg(unsigned int regNum) {
 				ppuReadRegister[curPPURead] = *ppu_resolveMemoryAddress(address, true);
 			}
 
+			// auto increment
+			if (PPUCTRL & PPUCTRL_VRAMINC) {
+				address += 32;
+			} else {
+				address += 1;
+			}
+			ADDRHI = (address & 0xFF00) >> 8;
+			ADDRLO = (address & 0xFF);
+
 			break;
 		}
 		// the rest are write only registers, simply return current latch
@@ -166,21 +175,19 @@ void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
 			break;
 		case 0x07:
 			unsigned int address = (ADDRHI << 8) | ADDRLO;
-			
-			latch = ppu_resolveMemoryAddress(address, false);
 
-			if (address >= 0x3F00) {
+			if (address > 0x3F00) {
 				// dirty palette
 				ppu_workingPalette[0] = -1;
 			}
-			
+
+			// address has already been auto incremented.. do some magic:
 			if (PPUCTRL & PPUCTRL_VRAMINC) {
-				address += 32;
+				latch = ppu_resolveMemoryAddress(address - 32, false);
 			} else {
-				address += 1;
+				latch = ppu_resolveMemoryAddress(address - 1, false);
 			}
-			ADDRHI = (address & 0xFF00) >> 8;
-			ADDRLO = (address & 0xFF);
+
 			break;
 	}
 
