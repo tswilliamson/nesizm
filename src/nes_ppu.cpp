@@ -14,6 +14,7 @@ ppu_registers_type ppu_registers;
 unsigned char ppu_oam[0x100] = { 0 };
 nes_nametable ppu_nameTables[4];
 unsigned char ppu_palette[0x20] = { 0 };
+int ppu_workingPalette[0x20] = { 0 };
 unsigned char* ppu_chrMap = { 0 };
 int ppu_mirror = nes_mirror_type::MT_UNSET;
 unsigned int ppu_scanline = 1;
@@ -64,8 +65,24 @@ unsigned char* ppu_registers_type::latchReg(unsigned int regNum) {
 			latch = &ppu_oam[OAMADDR];
 			break;
 		case 0x07:
-			latch = ppu_resolveMemoryAddress((ADDRHI << 8) | ADDRLO);
+		{
+			unsigned int address = (ADDRHI << 8) | ADDRLO;
+
+			// single read-behind register for ppu reading
+			static unsigned char ppuReadRegister[2] = { 0, 0 };
+			static int curPPURead = 1;
+			if (address < 0x3F00) {
+				latch = &ppuReadRegister[curPPURead];
+				curPPURead = 1 - curPPURead;
+				ppuReadRegister[curPPURead] = *ppu_resolveMemoryAddress(address, false);
+			} else {
+				// palette special case
+				latch = ppu_resolveMemoryAddress(address, false);
+				ppuReadRegister[curPPURead] = *ppu_resolveMemoryAddress(address, true);
+			}
+
 			break;
+		}
 		// the rest are write only registers, simply return current latch
 		// case 0x00:  PPUCTRL
 		// case 0x01:  PPUMASK
@@ -125,7 +142,13 @@ void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
 		case 0x07:
 			unsigned int address = (ADDRHI << 8) | ADDRLO;
 			
-			latch = ppu_resolveMemoryAddress(address);
+			latch = ppu_resolveMemoryAddress(address, false);
+
+			if (address >= 0x3F00) {
+				// dirty palette
+				ppu_workingPalette[0] = -1;
+			}
+			
 			if (PPUCTRL & PPUCTRL_VRAMINC) {
 				address += 32;
 			} else {
@@ -156,12 +179,22 @@ void ppu_oamDMA(unsigned int addr) {
 	mainCPU.clocks += 513 + (mainCPU.clocks & 1);
 }
 
-unsigned char* ppu_resolveMemoryAddress(unsigned int address) {
+inline void ppu_resolveWorkingPalette() {
+	for (int i = 0; i < 0x20; i++) {
+		if (i & 3) {
+			ppu_workingPalette[i] = ppu_palette[i];
+		} else {
+			ppu_workingPalette[i] = ppu_palette[0];
+		}
+	}
+}
+
+inline unsigned char* ppu_resolveMemoryAddress(unsigned int address, bool mirrorBehindPalette) {
 	address &= 0x3FFF;
 	if (address < 0x2000) {
 		// pattern table memory
 		return &ppu_chrMap[address];
-	} else if (address < 0x3F00) {
+	} else if (address < 0x3F00 || mirrorBehindPalette) {
 		// name table memory
 		switch (ppu_mirror) {
 			case nes_mirror_type::MT_HORIZONTAL:
@@ -219,6 +252,10 @@ void ppu_step() {
 		// rendered scanline
 		if (!skipFrame) {
 			renderScanline();
+
+			if (ppu_workingPalette[0] < 0) {
+				ppu_resolveWorkingPalette();
+			}
 
 #if USE_DMA
 			resolveScanline_DMA();

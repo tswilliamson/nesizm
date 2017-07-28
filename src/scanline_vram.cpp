@@ -19,7 +19,7 @@ void resolveScanline_VRAM() {
 	unsigned short* scanlineDest = ((unsigned short*)GetVRAMAddress()) + (ppu_scanline - 13) * 384 + 64;
 	unsigned int* scanlineSrc = &ppu_scanlineBuffer[16];	// with clipping
 	for (int i = 0; i < 256; i++, scanlineSrc++) {
-		*(scanlineDest++) = ppu_rgbPalettePtr[ppu_palette[*scanlineSrc]];
+		*(scanlineDest++) = ppu_rgbPalettePtr[ppu_workingPalette[*scanlineSrc]];
 	}
 }
 

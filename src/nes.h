@@ -127,6 +127,9 @@ extern nes_nametable ppu_nameTables[4];
 // palette ram (first 16 bytes are BG, second are OBJ palettes)
 extern unsigned char ppu_palette[0x20];
 
+// working palette ram (accounts for background color mirroring). Index 0 set to -1 when dirty
+extern int ppu_workingPalette[0x20];
+
 // all 8 kb mapped for character memory at once (0x0000 - 0x2000)
 extern unsigned char* ppu_chrMap;
 
@@ -136,7 +139,7 @@ extern void ppu_setMirrorType(int withType);
 void ppu_oamDMA(unsigned int addr);
 
 // reading / writing
-extern unsigned char* ppu_resolveMemoryAddress(unsigned int addr);
+extern unsigned char* ppu_resolveMemoryAddress(unsigned int addr, bool mirrorBehindPalette);
 
 extern void ppu_step();
 

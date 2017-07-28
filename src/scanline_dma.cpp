@@ -84,7 +84,7 @@ void resolveScanline_DMA() {
 
 			unsigned int* scanlineSrc = &ppu_scanlineBuffer[16];	// with clipping
 			for (int i = 0; i < 256; i++, scanlineSrc++) {
-				*(scanlineDest++) = ppu_rgbPalettePtr[ppu_palette[*scanlineSrc]];
+				*(scanlineDest++) = ppu_rgbPalettePtr[ppu_workingPalette[*scanlineSrc]];
 			}
 
 			ppu_scanlineBuffer += 256 + 16 * 2;
