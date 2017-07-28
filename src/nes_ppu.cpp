@@ -257,6 +257,34 @@ inline unsigned char* ppu_resolveMemoryAddress(unsigned int address, bool mirror
 	}
 }
 
+void fastSprite0() {
+	// super fast sprite 0 routine for skipped frames (simply marks as collided the first row that sprite 0 has data on)
+	if ((ppu_registers.PPUSTATUS & PPUSTAT_SPRITE0) == 0 && (ppu_registers.PPUMASK & PPUMASK_SHOWOBJ) && (ppu_registers.PPUMASK & PPUMASK_SHOWBG)) {
+
+		// simulate the 8 bits from the write, but a little faster
+		unsigned int yCoord0 = ppu_scanline - ppu_oam[0] - 2;
+		unsigned int spriteSize = ((ppu_registers.PPUCTRL & PPUCTRL_SPRSIZE) == 0) ? 8 : 16;
+		if (yCoord0 < spriteSize) {
+			if (ppu_oam[2] & OAMATTR_VFLIP) yCoord0 = spriteSize - yCoord0;
+
+			unsigned char* patternTable = ppu_chrMap + ((spriteSize == 8 && (ppu_registers.PPUCTRL & PPUCTRL_OAMTABLE)) ? 0x1000 : 0x0000);
+
+			// determine tile index
+			unsigned char* tile;
+			if (spriteSize == 16) {
+				tile = patternTable + ((((ppu_oam[1] & 1) << 8) + (ppu_oam[1] & 0xFE)) << 4) + ((yCoord0 & 8) << 1);
+				yCoord0 &= 7;
+			} else {
+				tile = patternTable + (ppu_oam[1] << 4);
+			}
+
+			if (tile[yCoord0] | tile[yCoord0 + 8]) {
+				ppu_registers.PPUSTATUS |= PPUSTAT_SPRITE0;
+			}
+		}
+	}
+}
+
 // TODO : scanline check faster to do with table or function ptr?
 void ppu_step() {
 	// cpu time for next scanline
@@ -281,6 +309,8 @@ void ppu_step() {
 		// TODO : sprite 0 collision only render version?
 		if (!skipFrame) {
 			renderScanline();
+		} else {
+			fastSprite0();
 		}
 	} else if (ppu_scanline < 229) {
 		// rendered scanline
@@ -296,12 +326,16 @@ void ppu_step() {
 #else
 			resolveScanline_VRAM();
 #endif
+		} else {
+			fastSprite0();
 		}
 
 	} else if (ppu_scanline < 241) {
 		// non-resolved scanline
 		if (!skipFrame) {
 			renderScanline();
+		} else {
+			fastSprite0();
 		}
 	} else if (ppu_scanline == 242) {
 		// blank scanline area
