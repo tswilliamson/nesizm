@@ -106,7 +106,6 @@ struct ppu_registers_type {
 	unsigned char* latch;			// cur latch pointer (to the registers above)
 
 	unsigned char* latchReg(unsigned int regNum);
-	void postReadLatch();
 	void writeReg(unsigned int regNum, unsigned char value);
 
 	ppu_registers_type() {

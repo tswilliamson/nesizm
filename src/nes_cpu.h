@@ -11,9 +11,8 @@ struct nes_cpu : public cpu_6502 {
 	// clocks for next PPU update
 	unsigned int ppuClocks;
 
-	FORCE_INLINE unsigned char* getByte(unsigned int addr, unsigned int& isSpecial) {
+	FORCE_INLINE unsigned char* getByte(unsigned int addr) {
 		if (addr >= 0x2000 && addr <= 0x401F) {
-			isSpecial = 1;
 			return getSpecial(addr);
 		} else {
 			return map[addr >> 8] + (addr & 0xFF);
@@ -26,6 +25,10 @@ struct nes_cpu : public cpu_6502 {
 			return readSpecial(addr);
 		else
 			return map[addr >> 8][addr & 0xFF];
+	}
+
+	FORCE_INLINE unsigned char readNonIO(unsigned int addr) {
+		return map[addr >> 8][addr & 0xFF];
 	}
 
 	FORCE_INLINE void write(unsigned int addr, unsigned char value) {
@@ -48,9 +51,6 @@ struct nes_cpu : public cpu_6502 {
 
 	// returns pointer to data for special address but does not perform a "read" operation if it effects it
 	unsigned char* getSpecial(unsigned int addr);
-
-	// performs read operation on byte (in case memory is effected)
-	void postSpecialRead(unsigned int addr);
 
 	// combined special read (for off cpu ops) 
 	unsigned char readSpecial(unsigned int addr);

@@ -83,9 +83,16 @@ unsigned short* ppu_rgbPalettePtr = ppu_rgbPalette;
 
 unsigned char* ppu_registers_type::latchReg(unsigned int regNum) {
 	switch (regNum) {
-		case 0x02:  
-			latch = &PPUSTATUS;
+		case 0x02: 
+		{
+			static unsigned char latchedStatus;
+			latchedStatus = PPUSTATUS;
+			latch = &latchedStatus;
+
+			// vblank flag cleared after read
+			PPUSTATUS &= ~PPUCTRL_NMI;
 			break;
+		}
 		case 0x04:
 			latch = &ppu_oam[OAMADDR];
 			break;
@@ -125,13 +132,6 @@ unsigned char* ppu_registers_type::latchReg(unsigned int regNum) {
 		// case 0x06:  ADDRHI/LO
 	}
 	return latch;
-}
-
-void ppu_registers_type::postReadLatch() {
-	if (latch == &PPUSTATUS) {
-		// vblank flag cleared after read
-		PPUSTATUS &= ~PPUCTRL_NMI;
-	}
 }
 
 void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {

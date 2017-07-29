@@ -33,19 +33,9 @@ unsigned char* nes_cpu::getSpecial(unsigned int addr) {
 	return &specByte;
 }
 
-void nes_cpu::postSpecialRead(unsigned int addr) {
-	if (addr < 0x4000) {
-		DebugAssert(addr >= 0x2000);	// assumed to be PPU register then
-		ppu_registers.postReadLatch();
-		return;
-	}
-	//DebugAssert(0);
-}
-
 unsigned char nes_cpu::readSpecial(unsigned int addr) {
 	unsigned char *spec = getSpecial(addr);
 	unsigned char ret = *spec;
-	postSpecialRead(addr);
 	return ret;
 }
 

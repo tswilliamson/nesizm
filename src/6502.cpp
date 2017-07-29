@@ -7,17 +7,15 @@
 #include "6502.h"
 
 #if TARGET_WINSIM
-#define TRACE_INSTRUCTIONS 1
+#define TRACE_DEBUG 1
 #else
-#define TRACE_INSTRUCTIONS 0
+#define TRACE_DEBUG 0
 #endif
 
-#if DEBUG
+#if TRACE_DEBUG
 static unsigned int cpuBreakpoint = 0x0000;
 static unsigned int memWriteBreakpoint = 0xffff;
-#endif
 
-#if TRACE_INSTRUCTIONS
 #define NUM_TRACED 100
 static cpu_instr_history traceHistory[NUM_TRACED] = { 0 };
 static unsigned int traceNum;
@@ -89,21 +87,19 @@ void cpu6502_Init() {
 
 
 inline void cpu6502_PerformInstruction() {
-#if TRACE_INSTRUCTIONS
+#if TRACE_DEBUG
 	cpu_instr_history hist;
 	memcpy(&hist.regs, &mainCPU, sizeof(cpu_6502));
 #endif
 
 	// TODO : cache into single read (with instruction overlap in bank pages)
-	unsigned int instr = mainCPU.read(mainCPU.PC);
-	unsigned int data1 = mainCPU.read(mainCPU.PC + 1);
-	unsigned int data2 = mainCPU.read(mainCPU.PC + 2);
+	unsigned int instr = mainCPU.readNonIO(mainCPU.PC);
+	unsigned int data1 = mainCPU.readNonIO(mainCPU.PC + 1);
+	unsigned int data2 = mainCPU.readNonIO(mainCPU.PC + 2);
 
 	// effective address
 	unsigned int effAddr = 0;
 	unsigned char* operand;
-	unsigned int isSpecial = 0;
-	unsigned int isWrite = 0;
 
 	// instruction base clocks
 	mainCPU.clocks += clockTable[instr];
@@ -112,31 +108,31 @@ inline void cpu6502_PerformInstruction() {
 	switch (modeTable[instr]) {
 		case AM_Absolute:
 			effAddr = data1 + (data2 << 8);
-			operand = mainCPU.getByte(effAddr, isSpecial);
+			operand = mainCPU.getByte(effAddr);
 			mainCPU.PC += 3;
 			break;
 		case AM_AbsoluteX:
 			effAddr = data1 + (data2 << 8) + (mainCPU.X);
-			operand = mainCPU.getByte(effAddr, isSpecial);
+			operand = mainCPU.getByte(effAddr);
 			mainCPU.PC += 3;
 			break;
 		case AM_AbsoluteY:
 			effAddr = data1 + (data2 << 8) + (mainCPU.Y);
-			operand = mainCPU.getByte(effAddr, isSpecial);
+			operand = mainCPU.getByte(effAddr);
 			mainCPU.PC += 3;
 			break;
 		case AM_IndirectX:
 		{
 			int target = (data1 + mainCPU.X) & 0xFF;
 			effAddr = mainCPU.RAM[target] + (mainCPU.RAM[(target + 1) & 0xFF] << 8);
-			operand = mainCPU.getByte(effAddr, isSpecial);
+			operand = mainCPU.getByte(effAddr);
 			mainCPU.PC += 2;
 			break;
 		}
 		case AM_IndirectY:
 		{
 			effAddr = mainCPU.RAM[data1] + (mainCPU.RAM[(data1 + 1) & 0xFF] << 8) + mainCPU.Y;
-			operand = mainCPU.getByte(effAddr, isSpecial);
+			operand = mainCPU.getByte(effAddr);
 			mainCPU.PC += 2;
 			break;
 		}
@@ -161,7 +157,7 @@ inline void cpu6502_PerformInstruction() {
 			break;
 	}
 
-#if TRACE_INSTRUCTIONS
+#if TRACE_DEBUG
 	hist.instr = instr;
 	hist.data1 = data1;
 	hist.data2 = data2;
@@ -231,20 +227,17 @@ inline void cpu6502_PerformInstruction() {
 		case 0x85: case 0x95: case 0x8D: case 0x9D: case 0x99: case 0x81: case 0x91:
 			// STA (store accumulator)
 			result = mainCPU.A;
-			isWrite = 1;
-			break;
+			goto writeData;
 
 		case 0x86: case 0x96: case 0x8E:
 			// STX (store X)
 			result = mainCPU.X;
-			isWrite = 1;
-			break;
+			goto writeData;
 
 		case 0x84: case 0x94: case 0x8C:
 			// STY (store Y)
 			result = mainCPU.Y;
-			isWrite = 1;
-			break;
+			goto writeData;
 
 		case 0xAA:
 			// TAX (A -> X)
@@ -349,8 +342,7 @@ inline void cpu6502_PerformInstruction() {
 				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_CRY)) |			// keep flags
 				((result & 0x80) >> (7 - ST_NEG_BIT)) |									// sign flag
 				(result == 0x00 ? ST_ZRO : 0);											// zero flag
-			isWrite = 1;
-			break;
+			goto writeData;
 
 		case 0xE6: case 0xF6: case 0xEE: case 0xFE:
 			// INC
@@ -359,8 +351,7 @@ inline void cpu6502_PerformInstruction() {
 				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_CRY )) |			// keep flags
 				((result & 0x80) >> (7 - ST_NEG_BIT)) |									// sign flag
 				(result == 0x00 ? ST_ZRO : 0);											// zero flag
-			isWrite = 1;
-			break;
+			goto writeData;
 
 		case 0xCA: 
 			// TODO (perf) (try -= 2 and skip flags and break?)
@@ -453,8 +444,7 @@ inline void cpu6502_PerformInstruction() {
 				(((*operand & 0x7F) == 0) ? ST_ZRO : 0) |								// zero
 				((*operand & 0x40) << (ST_NEG_BIT - 6));								// negative (sign)
 			result = (*operand << 1) & 0xFF;
-			isWrite = 1;
-			break;
+			goto writeData;
 			
 		case 0x4A:
 			// LSR A
@@ -467,8 +457,7 @@ inline void cpu6502_PerformInstruction() {
 				(((*operand & 0xFE) == 0) ? ST_ZRO : 0) |								// zero
 				0;																		// negative (sign) always cleared
 			result = *operand >> 1;
-			isWrite = 1;
-			break;
+			goto writeData;
 
 		case 0x2A:
 			// ROL A
@@ -481,8 +470,7 @@ inline void cpu6502_PerformInstruction() {
 				((result & 0x100) >> (8 - ST_CRY_BIT)) |								// carry
 				(((result & 0xFF) == 0) ? ST_ZRO : 0) |									// zero
 				((result & 0x80) >> (7 - ST_NEG_BIT));									// negative (sign)
-			isWrite = 1;
-			break;
+			goto writeData;
 
 		case 0x6A:
 			// ROR A
@@ -494,8 +482,7 @@ inline void cpu6502_PerformInstruction() {
 				((*operand & 0x01) >> (0 - ST_CRY_BIT)) |								// carry
 				((result == 0) ? ST_ZRO : 0) |											// zero
 				((result & 0x80) >> (7 - ST_NEG_BIT));									// negative (sign)
-			isWrite = 1;
-			break;
+			goto writeData;
 
 		case 0x24: case 0x2C:
 			// BIT
@@ -676,27 +663,25 @@ inline void cpu6502_PerformInstruction() {
 			// NOP
 			break;
 
+		writeData:
+			// DebugAssert((result & 0xFF) == result && effAddr != 0xFFFFFFFF);
+			if (effAddr >= 0x2000) {
+				mainCPU.writeSpecial(effAddr, result);
+			} else {
+				*operand = result;
+			}
+
+#if TRACE_DEBUG
+			if (effAddr == memWriteBreakpoint) {
+				HitBreakpoint();
+			}
+#endif
+			break;
+
+
 		default:
 			// unhandled instruction
 			DebugAssert(false);
-	}
-
-	if (isWrite) {
-		// DebugAssert((result & 0xFF) == result && effAddr != 0xFFFFFFFF);
-		if (effAddr >= 0x2000) {
-			mainCPU.writeSpecial(effAddr, result);
-		} else {
-			*operand = result;
-		}
-
-#if TRACE_INSTRUCTIONS
-		if (effAddr == memWriteBreakpoint) {
-			HitBreakpoint();
-		}
-#endif
-	} else if (isSpecial) {
-		DebugAssert(effAddr != 0xFFFFFFFF);
-		mainCPU.postSpecialRead(effAddr);
 	}
 }
 
@@ -781,7 +766,7 @@ void cpu_instr_history::output() {
 	OutputLog("\n");
 }
 
-#if TRACE_INSTRUCTIONS
+#if TRACE_DEBUG
 void HitBreakpoint() {
 	OutputLog("CPU Instruction Trace:\n");
 	for (int i = NUM_TRACED - 1; i > 0; i--) {
@@ -789,9 +774,7 @@ void HitBreakpoint() {
 	}
 	OutputLog("Hit breakpoint at %04x!\n", cpuBreakpoint);
 
-#if TARGET_WINSIM
 	DebugBreak();
-#endif
 }
 
 void PPUBreakpoint() {
@@ -801,9 +784,7 @@ void PPUBreakpoint() {
 	}
 	OutputLog("PPU Breakpoint!");
 
-#if TARGET_WINSIM
 	DebugBreak();
-#endif
 }
 #else
 void PPUBreakpoint() {
