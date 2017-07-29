@@ -71,6 +71,8 @@ inline void flushScanBuffer(int startX, int endX, int startY, int endY, int scan
 }
 
 void resolveScanline_DMA() {
+	TIME_SCOPE();
+
 
 	const int bufferLines = 6;	// 512 bytes * 6 lines = 3072
 	const int scanBufferSize = bufferLines * 256 * 2;
@@ -104,6 +106,8 @@ void resolveScanline_DMA() {
 }
 
 void finishFrame_DMA() {
+	TIME_SCOPE();
+
 	// frame end.. kill DMA operations to make sure they stay in sync
 	DmaWaitNext();
 	*((volatile unsigned*)MSTPCR0) &= ~(1 << 21);//Clear bit 21

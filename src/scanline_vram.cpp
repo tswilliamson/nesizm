@@ -14,6 +14,8 @@ static unsigned int ppu_scanlineBufferMem[256 + 16 * 2] = { 0 };
 unsigned int* ppu_scanlineBuffer = ppu_scanlineBufferMem;
 
 void resolveScanline_VRAM() {
+	TIME_SCOPE();
+
 	DebugAssert(ppu_scanline >= 13 && ppu_scanline <= 228);
 
 	unsigned short* scanlineDest = ((unsigned short*)GetVRAMAddress()) + (ppu_scanline - 13) * 384 + 64;
@@ -24,6 +26,8 @@ void resolveScanline_VRAM() {
 }
 
 void finishFrame_VRAM() {
+	TIME_SCOPE();
+
 #if DEBUG
 	char buffer[32];
 	sprintf(buffer, "%d   ", ppu_frameCounter);

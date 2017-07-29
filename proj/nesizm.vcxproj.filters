@@ -30,6 +30,9 @@
     <Filter Include="Source Files\6502">
       <UniqueIdentifier>{268dc9a3-d68e-4ebf-b976-dd986bb9eb57}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Dependencies\scope_timer">
+      <UniqueIdentifier>{fe587b97-6634-4fa8-bcf9-7321d0135ae4}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\main.cpp">
@@ -86,6 +89,9 @@
     <ClCompile Include="..\src\scanline_dma.cpp">
       <Filter>Source Files\nes</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\scope_timer\scope_timer.cpp">
+      <Filter>Dependencies\scope_timer</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\main.h">
@@ -117,6 +123,9 @@
     </ClInclude>
     <ClInclude Include="..\src\nes_cpu.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\scope_timer\scope_timer.h">
+      <Filter>Dependencies\scope_timer</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

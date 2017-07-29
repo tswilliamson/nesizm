@@ -287,6 +287,8 @@ void fastSprite0() {
 
 // TODO : scanline check faster to do with table or function ptr?
 void ppu_step() {
+	TIME_SCOPE();
+
 	// cpu time for next scanline
 	mainCPU.ppuClocks += (341 / 3) + (ppu_scanline % 3 != 0 ? 1 : 0);
 
@@ -363,6 +365,11 @@ void ppu_step() {
 			extern bool shouldExit;
 			shouldExit = true;
 		}
+
+		if (keyDown_fast(69)) // F2
+		{
+			ScopeTimer::DisplayTimes();
+		}
 	} else if (ppu_scanline < 262) {
 		// inside vblank
 	} else {
@@ -418,6 +425,8 @@ static const unsigned short MortonTable[256] =
 
 template<bool sprite16,int spriteSize>
 void renderOAM() {
+	TIME_SCOPE();
+
 	if ((ppu_registers.PPUMASK & PPUMASK_SHOWLEFTBG) == 0) {
 		for (int i = 16; i < 24; i++) {
 			ppu_scanlineBuffer[i] = 0;
@@ -553,6 +562,8 @@ void renderOAM() {
 }
 
 void renderScanline_HorzMirror() {
+	TIME_SCOPE();
+
 	DebugAssert(ppu_scanline >= 1 && ppu_scanline <= 240);
 	if (ppu_registers.PPUMASK & PPUMASK_SHOWBG) {
 		int line = ppu_scanline + ppu_registers.SCROLLY - 1;
@@ -635,6 +646,8 @@ void renderScanline_HorzMirror() {
 }
 
 void renderScanline_VertMirror() {
+	TIME_SCOPE();
+
 	DebugAssert(ppu_scanline >= 1 && ppu_scanline <= 240);
 	if (ppu_registers.PPUMASK & PPUMASK_SHOWBG) {
 		int line = ppu_scanline + ppu_registers.SCROLLY - 1;

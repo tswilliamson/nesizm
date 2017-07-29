@@ -68,6 +68,7 @@
     </ClCompile>
     <ClCompile Include="..\src\scanline_dma.cpp" />
     <ClCompile Include="..\src\scanline_vram.cpp" />
+    <ClCompile Include="..\src\scope_timer\scope_timer.cpp" />
     <None Include="..\..\calctype\calctype.inl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='WindowsSim|Win32'">true</ExcludedFromBuild>
     </None>
@@ -87,6 +88,7 @@
     <ClInclude Include="..\src\ptune2_simple\SH7305_CPG_BSC.h" />
     <ClInclude Include="..\src\main.h" />
     <ClInclude Include="..\src\platform.h" />
+    <ClInclude Include="..\src\scope_timer\scope_timer.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Makefile" />

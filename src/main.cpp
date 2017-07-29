@@ -1,6 +1,7 @@
 #include "platform.h"
 #include "nes.h"
 #include "ptune2_simple/Ptune2_direct.h"
+#include "scope_timer/scope_timer.h"
 
 #include "../../calctype/calctype.inl"
 #include "../../calctype/fonts/arial_small/arial_small.c"		// For Menus
@@ -27,13 +28,15 @@ int main(void) {
 	printf("NESizm Initializing...");
 	DrawFrame(0x0000);
 
+	ScopeTimer::InitSystem();
+
 	// allocate nes_carts on stack
 	unsigned char stackBanks[NUM_CACHED_ROM_BANKS * 8192] ALIGN(256);
 	nesCart.allocateROMBanks(stackBanks);
 
 	input_Initialize();
 
-	const char* romFile = "\\\\fls0\\DonkeyKong.nes";
+	const char* romFile = "\\\\fls0\\SMB.nes";
 	if (nesCart.loadROM(romFile)) {
 		Bdisp_PutDisp_DD();
 
@@ -54,6 +57,8 @@ int main(void) {
 	}
 
 	Ptune2_LoadSetting(PT2_DEFAULT);
+
+	ScopeTimer::Shutdown();
 
 	return 0;
 }

@@ -701,6 +701,8 @@ inline void cpu6502_PerformInstruction() {
 }
 
 void cpu6502_Step() {
+	TIME_SCOPE();
+
 	for (; mainCPU.clocks < mainCPU.ppuClocks;) {
 		cpu6502_PerformInstruction();
 	}

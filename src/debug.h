@@ -2,6 +2,8 @@
 
 #if DEBUG
 
+#include "scope_timer\scope_timer.h"
+
 #if TARGET_WINSIM
 #include <Windows.h>
 
