@@ -86,14 +86,16 @@ void cpu6502_Init() {
 }
 
 void resolveToP() {
-	mainCPU.P = (mainCPU.P & (~ST_ZRO & ~ST_NEG)) |
+	mainCPU.P = (mainCPU.P & (~ST_ZRO & ~ST_NEG & ~ST_CRY)) |
 		((mainCPU.zeroResult == 0) ? ST_ZRO : 0) |
+		(mainCPU.carryResult ? ST_CRY : 0) |
 		(mainCPU.negativeResult & ST_NEG);
 }
 
 void resolveFromP() {
 	mainCPU.zeroResult = (~mainCPU.P & ST_ZRO);
 	mainCPU.negativeResult = (mainCPU.P & ST_NEG);
+	mainCPU.carryResult = (mainCPU.P & ST_CRY);
 }
 
 inline void cpu6502_PerformInstruction() {
@@ -309,12 +311,12 @@ inline void cpu6502_PerformInstruction() {
 		case 0x65: case 0x75: case 0x6D: case 0x7D: case 0x79: case 0x61: case 0x71:
 			// ADC
 			// TODO : possibly move overflow calculation to flag resolve?
-			result = mainCPU.A + *operand + (mainCPU.P & ST_CRY);
+			result = mainCPU.A + *operand + (mainCPU.carryResult ? 1 : 0);
 			mainCPU.P =
 				(mainCPU.P & (ST_INT | ST_BRK | ST_BCD)) |								// keep flags
-				((result & 0x100) >> (8 - ST_CRY_BIT)) |								// carry
 				(((mainCPU.A^result)&(*operand^result) & 0x80) >> (7 - ST_OVR_BIT));	// overflow (http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html)
 			mainCPU.A = result & 0xFF;
+			mainCPU.carryResult = result & 0x100;
 			mainCPU.zeroResult = mainCPU.A;
 			mainCPU.negativeResult = mainCPU.A;
 			break;
@@ -326,12 +328,12 @@ inline void cpu6502_PerformInstruction() {
 		case 0xE5: case 0xF5: case 0xED: case 0xFD: case 0xF9: case 0xE1: case 0xF1:
 			// SBC
 			// TODO : possibly move overflow calculation to flag resolve?
-			result = mainCPU.A - *operand - 1 + (mainCPU.P & ST_CRY);
+			result = mainCPU.A - *operand - (mainCPU.carryResult ? 0 : 1);
 			mainCPU.P =
 				(mainCPU.P & (ST_INT | ST_BRK | ST_BCD)) |									// keep flags
-				((~result & 0x100) >> (8 - ST_CRY_BIT)) |									// carry
 				(((mainCPU.A^result)&((~(*operand))^result) & 0x80) >> (7 - ST_OVR_BIT));	// overflow (http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html)
 			mainCPU.A = result & 0xFF;
+			mainCPU.carryResult = ~result & 0x100;
 			mainCPU.zeroResult = mainCPU.A;
 			mainCPU.negativeResult = mainCPU.A;
 			break;
@@ -421,9 +423,7 @@ inline void cpu6502_PerformInstruction() {
 			operand = PTR_TO_BYTE(mainCPU.A);
 		case 0x06: case 0x16: case 0x0E: case 0x1E:
 			// ASL
-			mainCPU.P =
-				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR)) |						// keep flags
-				((*operand & 0x80) >> (7 - ST_CRY_BIT));								// carry
+			mainCPU.carryResult = (*operand & 0x80);
 			result = (*operand << 1) & 0xFF;
 			mainCPU.zeroResult = result;
 			mainCPU.negativeResult = result;
@@ -434,9 +434,7 @@ inline void cpu6502_PerformInstruction() {
 			operand = PTR_TO_BYTE(mainCPU.A);
 		case 0x46: case 0x56: case 0x4E: case 0x5E:
 			// LSR
-			mainCPU.P =
-				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR)) |						// keep flags
-				((*operand & 0x01) >> (0 - ST_CRY_BIT));								// carry
+			mainCPU.carryResult = (*operand & 0x01);
 			result = *operand >> 1;
 			mainCPU.zeroResult = result;
 			mainCPU.negativeResult = 0;
@@ -447,10 +445,8 @@ inline void cpu6502_PerformInstruction() {
 			operand = PTR_TO_BYTE(mainCPU.A);
 		case 0x26: case 0x36: case 0x2E: case 0x3E:
 			// ROL 
-			result = (*operand << 1) | (mainCPU.P & ST_CRY);
-			mainCPU.P =
-				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR)) |						// keep flags
-				((result & 0x100) >> (8 - ST_CRY_BIT));									// carry
+			result = (*operand << 1) | (mainCPU.carryResult ? 0x01 : 0);
+			mainCPU.carryResult = result & 0x100;
 			mainCPU.zeroResult = result & 0xFF;
 			mainCPU.negativeResult = result;
 			goto writeData;
@@ -459,10 +455,8 @@ inline void cpu6502_PerformInstruction() {
 			// ROR A
 			operand = PTR_TO_BYTE(mainCPU.A);
 		case 0x66: case 0x76: case 0x6E: case 0x7E:
-			result = (*operand >> 1) | ((mainCPU.P & ST_CRY) << (7 - ST_CRY_BIT));
-			mainCPU.P =
-				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR)) |						// keep flags
-				((*operand & 0x01) >> (0 - ST_CRY_BIT));								// carry
+			result = (*operand >> 1) | (mainCPU.carryResult ? 0x80 : 0);
+			mainCPU.carryResult = *operand & 0x01;
 			mainCPU.zeroResult = result;
 			mainCPU.negativeResult = result;
 			goto writeData;
@@ -471,7 +465,7 @@ inline void cpu6502_PerformInstruction() {
 			// BIT
 			mainCPU.P =
 				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_CRY)) |						// keep flags
-				(*operand & (ST_OVR | ST_NEG));											// these are copied in (bits 6-7)
+				(*operand & (ST_OVR));													// these are copied in (bits 6-7)
 			mainCPU.zeroResult = (*operand & mainCPU.A);
 			mainCPU.negativeResult = *operand;
 			break;
@@ -497,11 +491,11 @@ inline void cpu6502_PerformInstruction() {
 			goto finishBranch;
 		case 0x90:
 			// BCC
-			result = (~mainCPU.P) & ST_CRY;
+			result = mainCPU.carryResult == 0;
 			goto finishBranch;
 		case 0xB0:
 			// BCS
-			result = mainCPU.P & ST_CRY;
+			result = mainCPU.carryResult;
 			goto finishBranch;
 		case 0xD0:
 			// BNE
@@ -563,9 +557,7 @@ inline void cpu6502_PerformInstruction() {
 			operand = PTR_TO_BYTE(data1);
 		case 0xC5: case 0xD5: case 0xCD: case 0xDD: case 0xD9: case 0xC1: case 0xD1:
 			// CMP
-			mainCPU.P =
-				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR)) |						// keep flags
-				((*operand <= mainCPU.A) ? ST_CRY : 0);									// carry flag
+			mainCPU.carryResult = (*operand <= mainCPU.A);
 			mainCPU.zeroResult = (mainCPU.A - *operand);
 			mainCPU.negativeResult = mainCPU.zeroResult;
 			break;
@@ -576,9 +568,7 @@ inline void cpu6502_PerformInstruction() {
 			operand = PTR_TO_BYTE(data1);
 		case 0xE4: case 0xEC:
 			// CPX
-			mainCPU.P =
-				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR)) |						// keep flags
-				((*operand <= mainCPU.X) ? ST_CRY : 0);									// carry flag
+			mainCPU.carryResult = (*operand <= mainCPU.X);
 			mainCPU.zeroResult = (mainCPU.X - *operand);
 			mainCPU.negativeResult = mainCPU.zeroResult;
 			break;
@@ -589,9 +579,7 @@ inline void cpu6502_PerformInstruction() {
 			operand = PTR_TO_BYTE(data1);
 		case 0xC4: case 0xCC:
 			// CPY
-			mainCPU.P =
-				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR)) |						// keep flags
-				((*operand <= mainCPU.Y) ? ST_CRY : 0);									// carry flag
+			mainCPU.carryResult = (*operand <= mainCPU.Y);
 			mainCPU.zeroResult = (mainCPU.Y - *operand);
 			mainCPU.negativeResult = mainCPU.zeroResult;
 			break;
@@ -601,12 +589,12 @@ inline void cpu6502_PerformInstruction() {
 
 		case 0x18:
 			// CLC (clear carry)
-			mainCPU.P &= ~ST_CRY;
+			mainCPU.carryResult = 0;
 			break;
 
 		case 0x38:
 			// SEC (set carry)
-			mainCPU.P |= ST_CRY;
+			mainCPU.carryResult = 1;
 			break;
 
 		case 0x58:
