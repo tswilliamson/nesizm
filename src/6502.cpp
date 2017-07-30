@@ -85,6 +85,16 @@ void cpu6502_Init() {
 	modeTable[0xBE] = AM_AbsoluteY;
 }
 
+void resolveToP() {
+	mainCPU.P = (mainCPU.P & (~ST_ZRO & ~ST_NEG)) |
+		((mainCPU.zeroResult == 0) ? ST_ZRO : 0) |
+		(mainCPU.negativeResult & ST_NEG);
+}
+
+void resolveFromP() {
+	mainCPU.zeroResult = (~mainCPU.P & ST_ZRO);
+	mainCPU.negativeResult = (mainCPU.P & ST_NEG);
+}
 
 inline void cpu6502_PerformInstruction() {
 #if TRACE_DEBUG
@@ -158,6 +168,7 @@ inline void cpu6502_PerformInstruction() {
 	}
 
 #if TRACE_DEBUG
+	resolveToP();
 	hist.instr = instr;
 	hist.data1 = data1;
 	hist.data2 = data2;
@@ -192,10 +203,8 @@ inline void cpu6502_PerformInstruction() {
 		case 0xA5: case 0xB5: case 0xAD: case 0xBD: case 0xB9: case 0xA1: case 0xB1:
 			// LDA (load accumulator)
 			mainCPU.A = *operand;
-			mainCPU.P =
-				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_CRY)) |			// keep flags
-				((mainCPU.A & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
-				((mainCPU.A == 0x00) ? ST_ZRO : 0);										// zero flag
+			mainCPU.zeroResult = mainCPU.A;
+			mainCPU.negativeResult = mainCPU.A;
 			break;
 
 		case 0xA2:
@@ -205,10 +214,8 @@ inline void cpu6502_PerformInstruction() {
 		case 0xA6: case 0xB6: case 0xAE: case 0xBE:
 			// LDX (load X)
 			mainCPU.X = *operand;
-			mainCPU.P =
-				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_CRY)) |			// keep flags
-				((mainCPU.X & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
-				((mainCPU.X == 0x00) ? ST_ZRO : 0);										// zero flag
+			mainCPU.zeroResult = mainCPU.X;
+			mainCPU.negativeResult = mainCPU.X;
 			break;
 
 		case 0xA0:
@@ -218,10 +225,8 @@ inline void cpu6502_PerformInstruction() {
 		case 0xA4: case 0xB4: case 0xAC: case 0xBC:
 			// LDY (load Y)
 			mainCPU.Y = *operand;
-			mainCPU.P =
-				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_CRY)) |			// keep flags
-				((mainCPU.Y & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
-				((mainCPU.Y == 0x00) ? ST_ZRO : 0);										// zero flag
+			mainCPU.zeroResult = mainCPU.Y;
+			mainCPU.negativeResult = mainCPU.Y;
 			break;
 
 		case 0x85: case 0x95: case 0x8D: case 0x9D: case 0x99: case 0x81: case 0x91:
@@ -255,10 +260,8 @@ inline void cpu6502_PerformInstruction() {
 			// TYA (Y -> A)
 			mainCPU.A = mainCPU.Y;
 		trxFlags:
-			mainCPU.P =
-				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_CRY)) |			// keep flags
-				((mainCPU.A & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
-				((mainCPU.A == 0x00) ? ST_ZRO : 0);										// zero flag
+			mainCPU.zeroResult = mainCPU.A;
+			mainCPU.negativeResult = mainCPU.A;
 			break;
 
 		case 0xBA:
@@ -267,10 +270,8 @@ inline void cpu6502_PerformInstruction() {
 		case 0x9A:
 			// TXS (X -> SP)
 			mainCPU.SP = mainCPU.X;
-			mainCPU.P =
-				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_CRY)) |			// keep flags
-				((mainCPU.X & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
-				((mainCPU.X == 0x00) ? ST_ZRO : 0);										// zero flag
+			mainCPU.zeroResult = mainCPU.X;
+			mainCPU.negativeResult = mainCPU.X;
 			break;
 
 		case 0x48:
@@ -281,14 +282,13 @@ inline void cpu6502_PerformInstruction() {
 		case 0x68:
 			// PLA (pull A)
 			mainCPU.A = mainCPU.pop();
-			mainCPU.P =	
-				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_CRY)) |			// keep flags
-				((mainCPU.A & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
-				((mainCPU.A == 0x00) ? ST_ZRO : 0);										// zero flag
+			mainCPU.zeroResult = mainCPU.A;
+			mainCPU.negativeResult = mainCPU.A;
 			break;
 
 		case 0x08:
 			// PHP (push processor status)
+			resolveToP();
 			mainCPU.push(mainCPU.P | ST_UNUSED | ST_BRK);
 			break;
 
@@ -296,6 +296,7 @@ inline void cpu6502_PerformInstruction() {
 			// PLP (pop processor status ignoring bits 4 & 5)
 			mainCPU.P &= (ST_BRK | ST_UNUSED);
 			mainCPU.P |= mainCPU.pop() & ~(ST_BRK | ST_UNUSED);
+			resolveFromP();
 			break;
 
 		/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -312,10 +313,10 @@ inline void cpu6502_PerformInstruction() {
 			mainCPU.P =
 				(mainCPU.P & (ST_INT | ST_BRK | ST_BCD)) |								// keep flags
 				((result & 0x100) >> (8 - ST_CRY_BIT)) |								// carry
-				((result & 0xFF) == 0 ? ST_ZRO : 0) |									// zero
-				(((mainCPU.A^result)&(*operand^result) & 0x80) >> (7 - ST_OVR_BIT)) |	// overflow (http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html)
-				((result & 0x80) >> (7 - ST_NEG_BIT));									// negative (sign)
+				(((mainCPU.A^result)&(*operand^result) & 0x80) >> (7 - ST_OVR_BIT));	// overflow (http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html)
 			mainCPU.A = result & 0xFF;
+			mainCPU.zeroResult = mainCPU.A;
+			mainCPU.negativeResult = mainCPU.A;
 			break;
 			
 		case 0xE9:
@@ -329,66 +330,54 @@ inline void cpu6502_PerformInstruction() {
 			mainCPU.P =
 				(mainCPU.P & (ST_INT | ST_BRK | ST_BCD)) |									// keep flags
 				((~result & 0x100) >> (8 - ST_CRY_BIT)) |									// carry
-				((result & 0xFF) == 0 ? ST_ZRO : 0) |										// zero
-				(((mainCPU.A^result)&((~(*operand))^result) & 0x80) >> (7 - ST_OVR_BIT)) |	// overflow (http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html)
-				((result & 0x80) >> (7 - ST_NEG_BIT));										// negative (sign)
+				(((mainCPU.A^result)&((~(*operand))^result) & 0x80) >> (7 - ST_OVR_BIT));	// overflow (http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html)
 			mainCPU.A = result & 0xFF;
+			mainCPU.zeroResult = mainCPU.A;
+			mainCPU.negativeResult = mainCPU.A;
 			break;
 
 		case 0xC6: case 0xD6: case 0xCE: case 0xDE:
 			// DEC
 			result = (*operand - 1) & 0xFF;
-			mainCPU.P =
-				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_CRY)) |			// keep flags
-				((result & 0x80) >> (7 - ST_NEG_BIT)) |									// sign flag
-				(result == 0x00 ? ST_ZRO : 0);											// zero flag
+			mainCPU.zeroResult = result;
+			mainCPU.negativeResult = result;
 			goto writeData;
 
 		case 0xE6: case 0xF6: case 0xEE: case 0xFE:
 			// INC
 			result = (*operand + 1) & 0xFF;
-			mainCPU.P =
-				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_CRY )) |			// keep flags
-				((result & 0x80) >> (7 - ST_NEG_BIT)) |									// sign flag
-				(result == 0x00 ? ST_ZRO : 0);											// zero flag
+			mainCPU.zeroResult = result;
+			mainCPU.negativeResult = result;
 			goto writeData;
 
 		case 0xCA: 
 			// TODO (perf) (try -= 2 and skip flags and break?)
 			// DEX (decrement X)
 			mainCPU.X = (mainCPU.X - 1) & 0xFF;
-			mainCPU.P =
-				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_CRY)) |			// keep flags
-				((mainCPU.X & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
-				((mainCPU.X == 0x00) ? ST_ZRO : 0);										// zero flag
+			mainCPU.zeroResult = mainCPU.X;
+			mainCPU.negativeResult = mainCPU.X;
 			break;
 
 		case 0xE8: 
 			// INX (increment X)
 			mainCPU.X = (mainCPU.X + 1) & 0xFF;
-			mainCPU.P =
-				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_CRY)) |			// keep flags
-				((mainCPU.X & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
-				((mainCPU.X == 0x00) ? ST_ZRO : 0);										// zero flag
+			mainCPU.zeroResult = mainCPU.X;
+			mainCPU.negativeResult = mainCPU.X;
 			break;
 
 		case 0x88: 
 			// DEY (decrement Y)
 			// TODO (perf) (try -= 2 and skip flags and break?)
 			mainCPU.Y = (mainCPU.Y - 1) & 0xFF;
-			mainCPU.P =
-				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_CRY)) |			// keep flags
-				((mainCPU.Y & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
-				((mainCPU.Y == 0x00) ? ST_ZRO : 0);										// zero flag
+			mainCPU.zeroResult = mainCPU.Y;
+			mainCPU.negativeResult = mainCPU.Y;
 			break;
 
 		case 0xC8: 
 			// INY (increment Y)
 			mainCPU.Y = (mainCPU.Y + 1) & 0xFF;
-			mainCPU.P =
-				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR | ST_CRY)) |			// keep flags
-				((mainCPU.Y & 0x80) >> (7 - ST_NEG_BIT)) |								// sign flag
-				((mainCPU.Y == 0x00) ? ST_ZRO : 0);										// zero flag
+			mainCPU.zeroResult = mainCPU.Y;
+			mainCPU.negativeResult = mainCPU.Y;
 			break;
 
 		/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -401,10 +390,8 @@ inline void cpu6502_PerformInstruction() {
 		case 0x05: case 0x15: case 0x0D: case 0x1D: case 0x19: case 0x01: case 0x11: 
 			// ORA
 			mainCPU.A = mainCPU.A | *operand;
-			mainCPU.P = 
-				(mainCPU.P & (ST_CRY | ST_INT | ST_BCD | ST_BRK | ST_OVR)) |			// keep flags
-				((mainCPU.A == 0) ? ST_ZRO : 0) |										// zero
-				((mainCPU.A & 0x80) >> (7 - ST_NEG_BIT));								// negative (sign)
+			mainCPU.zeroResult = mainCPU.A;
+			mainCPU.negativeResult = mainCPU.A;
 			break;
 
 		case 0x29:
@@ -414,10 +401,8 @@ inline void cpu6502_PerformInstruction() {
 		case 0x25: case 0x35: case 0x2D: case 0x3D: case 0x39: case 0x21: case 0x31: 
 			// AND
 			mainCPU.A = mainCPU.A & *operand;
-			mainCPU.P = 
-				(mainCPU.P & (ST_CRY | ST_INT | ST_BCD | ST_BRK | ST_OVR)) |			// keep flags
-				((mainCPU.A == 0) ? ST_ZRO : 0) |										// zero
-				((mainCPU.A & 0x80) >> (7 - ST_NEG_BIT));								// negative (sign)
+			mainCPU.zeroResult = mainCPU.A;
+			mainCPU.negativeResult = mainCPU.A;
 			break;
 
 		case 0x49:
@@ -427,10 +412,8 @@ inline void cpu6502_PerformInstruction() {
 		case 0x45: case 0x55: case 0x4D: case 0x5D: case 0x59: case 0x41: case 0x51: 
 			// EOR
 			mainCPU.A = mainCPU.A ^ *operand;
-			mainCPU.P = 
-				(mainCPU.P & (ST_CRY | ST_INT | ST_BCD | ST_BRK | ST_OVR)) |			// keep flags
-				((mainCPU.A == 0) ? ST_ZRO : 0) |										// zero
-				((mainCPU.A & 0x80) >> (7 - ST_NEG_BIT));								// negative (sign)
+			mainCPU.zeroResult = mainCPU.A;
+			mainCPU.negativeResult = mainCPU.A;
 			break;
 
 		case 0x0A:
@@ -440,10 +423,10 @@ inline void cpu6502_PerformInstruction() {
 			// ASL
 			mainCPU.P =
 				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR)) |						// keep flags
-				((*operand & 0x80) >> (7 - ST_CRY_BIT)) |								// carry
-				(((*operand & 0x7F) == 0) ? ST_ZRO : 0) |								// zero
-				((*operand & 0x40) << (ST_NEG_BIT - 6));								// negative (sign)
+				((*operand & 0x80) >> (7 - ST_CRY_BIT));								// carry
 			result = (*operand << 1) & 0xFF;
+			mainCPU.zeroResult = result;
+			mainCPU.negativeResult = result;
 			goto writeData;
 			
 		case 0x4A:
@@ -453,10 +436,10 @@ inline void cpu6502_PerformInstruction() {
 			// LSR
 			mainCPU.P =
 				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR)) |						// keep flags
-				((*operand & 0x01) >> (0 - ST_CRY_BIT)) |								// carry
-				(((*operand & 0xFE) == 0) ? ST_ZRO : 0) |								// zero
-				0;																		// negative (sign) always cleared
+				((*operand & 0x01) >> (0 - ST_CRY_BIT));								// carry
 			result = *operand >> 1;
+			mainCPU.zeroResult = result;
+			mainCPU.negativeResult = 0;
 			goto writeData;
 
 		case 0x2A:
@@ -467,9 +450,9 @@ inline void cpu6502_PerformInstruction() {
 			result = (*operand << 1) | (mainCPU.P & ST_CRY);
 			mainCPU.P =
 				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR)) |						// keep flags
-				((result & 0x100) >> (8 - ST_CRY_BIT)) |								// carry
-				(((result & 0xFF) == 0) ? ST_ZRO : 0) |									// zero
-				((result & 0x80) >> (7 - ST_NEG_BIT));									// negative (sign)
+				((result & 0x100) >> (8 - ST_CRY_BIT));									// carry
+			mainCPU.zeroResult = result & 0xFF;
+			mainCPU.negativeResult = result;
 			goto writeData;
 
 		case 0x6A:
@@ -479,17 +462,18 @@ inline void cpu6502_PerformInstruction() {
 			result = (*operand >> 1) | ((mainCPU.P & ST_CRY) << (7 - ST_CRY_BIT));
 			mainCPU.P =
 				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR)) |						// keep flags
-				((*operand & 0x01) >> (0 - ST_CRY_BIT)) |								// carry
-				((result == 0) ? ST_ZRO : 0) |											// zero
-				((result & 0x80) >> (7 - ST_NEG_BIT));									// negative (sign)
+				((*operand & 0x01) >> (0 - ST_CRY_BIT));								// carry
+			mainCPU.zeroResult = result;
+			mainCPU.negativeResult = result;
 			goto writeData;
 
 		case 0x24: case 0x2C:
 			// BIT
 			mainCPU.P =
 				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_CRY)) |						// keep flags
-				(((*operand & mainCPU.A) == 0) ? ST_ZRO : 0) |							// zero flag
 				(*operand & (ST_OVR | ST_NEG));											// these are copied in (bits 6-7)
+			mainCPU.zeroResult = (*operand & mainCPU.A);
+			mainCPU.negativeResult = *operand;
 			break;
 
 		/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -497,11 +481,11 @@ inline void cpu6502_PerformInstruction() {
 
 		case 0x10:	
 			// BPL
-			result = (~mainCPU.P) & ST_NEG;
+			result = (~mainCPU.negativeResult) & ST_NEG;
 			goto finishBranch;
 		case 0x30:
 			// BMI
-			result = mainCPU.P & ST_NEG;
+			result = mainCPU.negativeResult & ST_NEG;
 			goto finishBranch;
 		case 0x50:
 			// BVC
@@ -521,11 +505,11 @@ inline void cpu6502_PerformInstruction() {
 			goto finishBranch;
 		case 0xD0:
 			// BNE
-			result = (~mainCPU.P) & ST_ZRO;
+			result = mainCPU.zeroResult;
 			goto finishBranch;
 		case 0xF0:
 			// BEQ
-			result = mainCPU.P & ST_ZRO;
+			result = mainCPU.zeroResult == 0;
 		finishBranch:
 			mainCPU.PC++;
 			if (result) {
@@ -561,6 +545,7 @@ inline void cpu6502_PerformInstruction() {
 			mainCPU.P &= (ST_BRK | ST_UNUSED);
 			mainCPU.P |= mainCPU.pop() & ~(ST_BRK | ST_UNUSED);
 			mainCPU.PC = mainCPU.pop() | (mainCPU.pop() << 8);
+			resolveFromP();
 			break;
 
 		case 0x60:
@@ -580,9 +565,9 @@ inline void cpu6502_PerformInstruction() {
 			// CMP
 			mainCPU.P =
 				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR)) |						// keep flags
-				((*operand <= mainCPU.A) ? ST_CRY : 0) |								// carry flag
-				((*operand == mainCPU.A) ? ST_ZRO : 0) |								// zero flag
-				(((mainCPU.A - *operand) & 0x80) >> (7 - ST_NEG_BIT));					// negative (sign) flag
+				((*operand <= mainCPU.A) ? ST_CRY : 0);									// carry flag
+			mainCPU.zeroResult = (mainCPU.A - *operand);
+			mainCPU.negativeResult = mainCPU.zeroResult;
 			break;
 
 		case 0xE0:
@@ -593,9 +578,9 @@ inline void cpu6502_PerformInstruction() {
 			// CPX
 			mainCPU.P =
 				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR)) |						// keep flags
-				((*operand <= mainCPU.X) ? ST_CRY : 0) |									// carry flag
-				((*operand == mainCPU.X) ? ST_ZRO : 0) |								// zero flag
-				(((mainCPU.X - *operand) & 0x80) >> (7 - ST_NEG_BIT));					// negative (sign) flag
+				((*operand <= mainCPU.X) ? ST_CRY : 0);									// carry flag
+			mainCPU.zeroResult = (mainCPU.X - *operand);
+			mainCPU.negativeResult = mainCPU.zeroResult;
 			break;
 			
 		case 0xC0:
@@ -606,9 +591,9 @@ inline void cpu6502_PerformInstruction() {
 			// CPY
 			mainCPU.P =
 				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_OVR)) |						// keep flags
-				((*operand <= mainCPU.Y) ? ST_CRY : 0) |									// carry flag
-				((*operand == mainCPU.Y) ? ST_ZRO : 0) |								// zero flag
-				(((mainCPU.Y - *operand) & 0x80) >> (7 - ST_NEG_BIT));					// negative (sign) flag
+				((*operand <= mainCPU.Y) ? ST_CRY : 0);									// carry flag
+			mainCPU.zeroResult = (mainCPU.Y - *operand);
+			mainCPU.negativeResult = mainCPU.zeroResult;
 			break;
 
 		/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -698,6 +683,7 @@ void cpu6502_DeviceInterrupt(unsigned int vectorAddress, bool masked) {
 		// interrupts are enabled
 
 		// push PC and P (without BRK) onto stack
+		resolveToP();
 		mainCPU.push(mainCPU.PC >> 8);
 		mainCPU.push(mainCPU.PC & 0xFF);
 		mainCPU.push((mainCPU.P & ~ST_BRK) | ST_UNUSED);
@@ -713,6 +699,7 @@ void cpu6502_DeviceInterrupt(unsigned int vectorAddress, bool masked) {
 
 void cpu6502_SoftwareInterrupt(unsigned int vectorAddress) {
 	// push PC and P (with BRK) onto stack
+	resolveToP();
 	mainCPU.push(mainCPU.PC >> 8);
 	mainCPU.push(mainCPU.PC & 0xFF);
 	mainCPU.push(mainCPU.P | ST_BRK | ST_UNUSED);

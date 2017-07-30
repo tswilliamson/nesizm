@@ -27,6 +27,10 @@ struct cpu_6502 {
 	unsigned int Y;
 	unsigned int P;		// processor status flags, 8-bit
 
+	// Zero and negative flags are stored as their results only until they need to be resolved
+	unsigned int zeroResult;			// Z if 0
+	unsigned int negativeResult;		// N if 0x80 is set
+
 	// clock cycle counter
 	unsigned int clocks;
 };		
