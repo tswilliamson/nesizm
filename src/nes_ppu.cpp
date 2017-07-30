@@ -7,8 +7,6 @@
 
 extern void PPUBreakpoint();
 
-#define USE_DMA TARGET_PRIZM
-
 // ppu statics
 ppu_registers_type ppu_registers;
 unsigned char ppu_oam[0x100] = { 0 };
@@ -42,7 +40,7 @@ void finishFrame_VRAM();
 // Palette
 
 // TODO : handle emphasis bits
-static unsigned short ppu_rgbPalette[64] = {
+static unsigned int ppu_rgbPalette[64] = {
 	/*
 	Blargg 2C02 palette
 	0x5AAB, 0x010F, 0x0892, 0x3011, 0x480D, 0x6006, 0x5820, 0x40C0, 
@@ -78,7 +76,20 @@ static unsigned short ppu_rgbPalette[64] = {
 	0xFF34, 0xE7F4, 0xAF98, 0xB7FA, 0xA7FE, 0xCE39, 0x0000, 0x0000
 };
 
-unsigned short* ppu_rgbPalettePtr = ppu_rgbPalette;
+static unsigned int ppu_rgbPaletteShifted[64] = {
+	// FCEUX palette
+	0x7BAF0000, 0x28D20000, 0x00150000, 0x48140000, 0x900F0000, 0xA8020000, 0xA8000000, 0x80400000, 
+	0x41600000, 0x02200000, 0x02800000, 0x01E30000, 0x19EC0000, 0x00000000, 0x00000000, 0x00000000, 
+	0xC5F80000, 0x039E0000, 0x21DE0000, 0x801E0000, 0xC0180000, 0xE80B0000, 0xD9400000, 0xCA620000, 
+	0x8B800000, 0x04A00000, 0x05400000, 0x04870000, 0x04110000, 0x00000000, 0x00000000, 0x00000000, 
+	0xFFFF0000, 0x45FF0000, 0x64BF0000, 0xD45F0000, 0xFBDF0000, 0xFBB70000, 0xFBAC0000, 0xFCC70000, 
+	0xF5E80000, 0x86820000, 0x56E90000, 0x5FD30000, 0x075B0000, 0x7BCF0000, 0x00000000, 0x00000000, 
+	0xFFFF0000, 0xAF3F0000, 0xCEBF0000, 0xDE5F0000, 0xFE3F0000, 0xFE3B0000, 0xFDF60000, 0xFED50000, 
+	0xFF340000, 0xE7F40000, 0xAF980000, 0xB7FA0000, 0xA7FE0000, 0xCE390000, 0x00000000, 0x00000000
+};
+
+unsigned int* ppu_rgbPalettePtr = ppu_rgbPalette;
+unsigned int* ppu_rgbPalettePtrShifted = ppu_rgbPaletteShifted;
 
 
 unsigned char* ppu_registers_type::latchReg(unsigned int regNum) {

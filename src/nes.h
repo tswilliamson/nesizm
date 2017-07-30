@@ -114,6 +114,8 @@ struct ppu_registers_type {
 	}
 };
 
+#define USE_DMA TARGET_PRIZM
+
 // main ppu registers (2000-2007 and emulated latch)
 extern ppu_registers_type ppu_registers;
 
@@ -152,7 +154,8 @@ extern unsigned int ppu_frameCounter;
 extern unsigned int* ppu_scanlineBuffer;
 
 // pointer to current 565 color palette (can change due to emphasis bits)
-extern unsigned short* ppu_rgbPalettePtr;
+extern unsigned int* ppu_rgbPalettePtr;
+extern unsigned int* ppu_rgbPalettePtrShifted;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // INPUT

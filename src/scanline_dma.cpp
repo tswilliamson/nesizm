@@ -17,12 +17,13 @@
 #define DMA0_DAR_0	(volatile unsigned*)0xFE008024
 #define DMA0_TCR_0	(volatile unsigned*)0xFE008028
 
-// resolved line buffer in on chip mem 1
-#define scanGroup ((unsigned char*) 0xE5007000)
+// resolved line buffer in on chip mem
+static unsigned short* scanGroup[2] = { (unsigned short*) 0xE5007000, (unsigned short*) 0xE5017000 };
 static int curDMABuffer = 0;
 
 // scanline buffer goes in on chip mem 2
-unsigned int* ppu_scanlineBuffer = ((unsigned int*)0xE5017000);
+unsigned int ppu_scanlineBufferPtr[256 + 16 * 2];
+unsigned int* ppu_scanlineBuffer = ppu_scanlineBufferPtr;
 
 static int curScan = 0;
 
@@ -64,7 +65,7 @@ inline void flushScanBuffer(int startX, int endX, int startY, int endY, int scan
 	Bdisp_DefineDMARange(startX, endX, startY, endY);
 	Bdisp_DDRegisterSelect(LCD_GRAM);
 
-	DmaDrawStrip(&scanGroup[curDMABuffer * scanBufferSize], scanBufferSize);
+	DmaDrawStrip(scanGroup[curDMABuffer], scanBufferSize);
 	curDMABuffer = 1 - curDMABuffer;
 
 	curScan = 0;
@@ -73,35 +74,20 @@ inline void flushScanBuffer(int startX, int endX, int startY, int endY, int scan
 void resolveScanline_DMA() {
 	TIME_SCOPE();
 
-
-	const int bufferLines = 6;	// 512 bytes * 6 lines = 3072
+	const int bufferLines = 16;	// 512 bytes * 16 lines = 8192
 	const int scanBufferSize = bufferLines * 256 * 2;
+
+	// resolve le line
+	unsigned int* scanlineSrc = &ppu_scanlineBuffer[16];	// with clipping
+	unsigned int* scanlineDest = (unsigned int*) (scanGroup[curDMABuffer] + 256 * curScan);
+	for (int i = 0; i < 128; i++, scanlineSrc += 2) {
+		*(scanlineDest++) = (ppu_rgbPalettePtrShifted[ppu_workingPalette[scanlineSrc[0]]]) | ppu_rgbPalettePtr[ppu_workingPalette[scanlineSrc[1]]];
+	}
 
 	curScan++;
 	if (curScan == bufferLines) {
-		// we've rendered as much as we can buffer, resolve to pixels and DMA it:
-		ppu_scanlineBuffer = ((unsigned int*)0xE5017000);
-		unsigned short* scanlineDest = (unsigned short*)&scanGroup[curDMABuffer*scanBufferSize];
-		for (int i = 0; i < bufferLines; i++) {
-
-			unsigned int* scanlineSrc = &ppu_scanlineBuffer[16];	// with clipping
-			for (int i = 0; i < 256; i++, scanlineSrc++) {
-				*(scanlineDest++) = ppu_rgbPalettePtr[ppu_workingPalette[*scanlineSrc]];
-			}
-
-			ppu_scanlineBuffer += 256 + 16 * 2;
-
-			// condSoundUpdate();
-		}
-
 		// send DMA
 		flushScanBuffer(64, 319, ppu_scanline - 13 - bufferLines + 1, ppu_scanline - 13, scanBufferSize);
-
-		// move line buffer to front
-		ppu_scanlineBuffer = ((unsigned int*)0xE5017000);
-	} else {
-		// move line buffer down a line
-		ppu_scanlineBuffer += 256 + 16 * 2;
 	}
 }
 
