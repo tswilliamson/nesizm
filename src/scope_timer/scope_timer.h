@@ -7,12 +7,11 @@
 #define GetCycles() REG_TMU_TCNT_2
 #else
 #include <windows.h>
-extern unsigned int ScopeTimer_Frequency;
 extern LONGLONG ScopeTimer_Start;
 inline unsigned int GetCycles() {
 	LARGE_INTEGER result;
 	if (QueryPerformanceCounter(&result) != 0) {
-		return (unsigned int) ((result.QuadPart - ScopeTimer_Start) / ScopeTimer_Frequency);
+		return (unsigned int) (ScopeTimer_Start - result.QuadPart);
 	}
 
 	return 0;
@@ -25,6 +24,7 @@ struct ScopeTimer {
 
 	const char* funcName;
 	int line;
+	static int fpsValue;
 
 	ScopeTimer* nextTimer;
 
@@ -38,6 +38,7 @@ struct ScopeTimer {
 	static ScopeTimer* firstTimer;
 	static char debugString[128];			// per application debug string (placed on last row), usually FPS or similar
 	static void InitSystem();
+	static void ReportFrame();
 	static void DisplayTimes();
 	static void Shutdown();
 };
@@ -50,11 +51,7 @@ struct TimedInstance {
 	}
 
 	inline ~TimedInstance() {
-#if TARGET_WINSIM
-		int elapsed = (int)(GetCycles() - start);
-#else
 		int elapsed = (int)(start - GetCycles());
-#endif
 
 		if (elapsed >= 0) {
 			myTimer->AddTime(elapsed);

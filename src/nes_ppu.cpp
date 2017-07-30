@@ -357,6 +357,8 @@ void ppu_step() {
 #endif
 		}
 
+		ScopeTimer::ReportFrame();
+
 		ppu_frameCounter++;
 
 		bool keyDown_fast(unsigned char keyCode);
