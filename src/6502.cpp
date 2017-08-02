@@ -493,15 +493,11 @@ inline void ORA(unsigned int data) {
 }
 
 inline void ORA_MEM(unsigned int address) {
-	mainCPU.A = mainCPU.A | mainCPU.read(address);
-	mainCPU.zeroResult = mainCPU.A;
-	mainCPU.negativeResult = mainCPU.A;
+	ORA(mainCPU.read(address));
 }
 
 inline void ORA_ZERO(unsigned int address) {
-	mainCPU.A = mainCPU.A | mainCPU.RAM[address];
-	mainCPU.zeroResult = mainCPU.A;
-	mainCPU.negativeResult = mainCPU.A;
+	ORA(mainCPU.RAM[address]);
 }
 
 inline void AND(unsigned int data) {
@@ -511,15 +507,11 @@ inline void AND(unsigned int data) {
 }
 
 inline void AND_MEM(unsigned int address) {
-	mainCPU.A = mainCPU.A & mainCPU.read(address);
-	mainCPU.zeroResult = mainCPU.A;
-	mainCPU.negativeResult = mainCPU.A;
+	AND(mainCPU.read(address));
 }
 
 inline void AND_ZERO(unsigned int address) {
-	mainCPU.A = mainCPU.A & mainCPU.RAM[address];
-	mainCPU.zeroResult = mainCPU.A;
-	mainCPU.negativeResult = mainCPU.A;
+	AND(mainCPU.RAM[address]);
 }
 
 inline void EOR(unsigned int data) {
@@ -529,15 +521,11 @@ inline void EOR(unsigned int data) {
 }
 
 inline void EOR_MEM(unsigned int address) {
-	mainCPU.A = mainCPU.A ^ mainCPU.read(address);
-	mainCPU.zeroResult = mainCPU.A;
-	mainCPU.negativeResult = mainCPU.A;
+	EOR(mainCPU.read(address));
 }
 
 inline void EOR_ZERO(unsigned int address) {
-	mainCPU.A = mainCPU.A ^ mainCPU.RAM[address];
-	mainCPU.zeroResult = mainCPU.A;
-	mainCPU.negativeResult = mainCPU.A;
+	EOR(mainCPU.RAM[address]);
 }
 
 inline void ASL() {
@@ -660,9 +648,7 @@ inline void ROR_ZERO(unsigned int address) {
 	writeZero(address, result);
 }
 
-inline void BIT_MEM(unsigned int address) {
-	unsigned int data = mainCPU.read(address);
-
+inline void BIT(unsigned int data) {
 	mainCPU.P =
 		(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_CRY)) |					// keep flags
 		(data & (ST_OVR));													// these are copied in (bits 6-7)
@@ -670,14 +656,12 @@ inline void BIT_MEM(unsigned int address) {
 	mainCPU.negativeResult = data;
 }
 
-inline void BIT_ZERO(unsigned int address) {
-	unsigned int data = mainCPU.RAM[address];
+inline void BIT_MEM(unsigned int address) {
+	BIT(mainCPU.read(address));
+}
 
-	mainCPU.P =
-		(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_CRY)) |					// keep flags
-		(data & (ST_OVR));													// these are copied in (bits 6-7)
-	mainCPU.zeroResult = (data & mainCPU.A);
-	mainCPU.negativeResult = data;
+inline void BIT_ZERO(unsigned int address) {
+	BIT(mainCPU.RAM[address]);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -722,6 +706,7 @@ inline void SED() {
 inline void cpu6502_PerformInstruction() {
 #if TRACE_DEBUG
 	cpu_instr_history hist;
+	resolveToP();
 	memcpy(&hist.regs, &mainCPU, sizeof(cpu_6502));
 	int effAddr = -1;
 #define EFF_ADDR
@@ -750,8 +735,8 @@ inline void cpu6502_PerformInstruction() {
 		  mainCPU.PC += sz;
 
 #define OPCODE_END(spc) \
-		spc \
-		break; }
+		  spc \
+		  break; }
 
 #define OPCODE_NON(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) name(); OPCODE_END(spc) 
 #define OPCODE_IMM(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) name(data1); OPCODE_END(spc) 
@@ -771,7 +756,6 @@ inline void cpu6502_PerformInstruction() {
 	};
 
 #if TRACE_DEBUG
-	resolveToP();
 	hist.instr = instr;
 	hist.data1 = data1;
 	hist.data2 = data2;
