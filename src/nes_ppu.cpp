@@ -189,7 +189,7 @@ void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
 		case 0x07:
 			unsigned int address = (ADDRHI << 8) | ADDRLO;
 
-			if (address > 0x3F00) {
+			if (address >= 0x3F00) {
 				// dirty palette
 				ppu_workingPalette[0] = -1;
 			}
@@ -304,7 +304,11 @@ void ppu_step() {
 	mainCPU.ppuClocks += (341 / 3) + (ppu_scanline % 3 != 0 ? 1 : 0);
 
 	// TODO: we should be able to render 224 via DMA
+#if TARGET_PRIZM
 	#define FRAME_SKIP 1
+#else
+	#define FRAME_SKIP 0
+#endif
 	const bool skipFrame = (ppu_frameCounter % (FRAME_SKIP + 1) != 0);
     
 	/*

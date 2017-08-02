@@ -31,6 +31,10 @@ struct nes_cpu : public cpu_6502 {
 		return map[addr >> 8][addr & 0xFF];
 	}
 
+	FORCE_INLINE unsigned char* getNonIOMem(unsigned int addr) {
+		return &map[addr >> 8][addr & 0xFF];
+	}
+
 	FORCE_INLINE void write(unsigned int addr, unsigned char value) {
 		if (addr >= 0x2000) {
 			writeSpecial(addr, value);

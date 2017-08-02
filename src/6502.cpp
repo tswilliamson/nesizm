@@ -16,20 +16,12 @@
 static unsigned int cpuBreakpoint = 0x0000;
 static unsigned int memWriteBreakpoint = 0xffff;
 
-#define NUM_TRACED 100
+#define NUM_TRACED 300
 static cpu_instr_history traceHistory[NUM_TRACED] = { 0 };
 static unsigned int traceNum;
 void HitBreakpoint();
 static int traceLineRemaining = 0;
 #endif
-
-#ifdef LITTLE_E
-#define PTR_TO_BYTE(x) ((unsigned char*) &x)
-#else
-#define PTR_TO_BYTE(x) (((unsigned char*) &x) + 3)
-#endif
-
-unsigned int clockTable[256] = { 0 };
 
 // the low 5 bits of the opcode determines the addressing mode with only 5 instruction exceptions (noted)
 const static int modeTableSmall[32] = {
@@ -73,9 +65,6 @@ const static int modeTableSmall[32] = {
 static int modeTable[256];
 
 void cpu6502_Init() {
-	#define OPCODE(op,str,clk,sz,spc) clockTable[op] = clk;
-	#include "6502_opcodes.inl"
-
 	for (int i = 0; i < 256; i++) {
 		modeTable[i] = modeTableSmall[i & 0x1F];
 	}
@@ -98,76 +87,688 @@ void resolveFromP() {
 	mainCPU.carryResult = (mainCPU.P & ST_CRY);
 }
 
+inline void writeAddr(unsigned int addr, unsigned int result) {
+	mainCPU.write(addr, result);
+
+#if TRACE_DEBUG
+	if (addr == memWriteBreakpoint) {
+		HitBreakpoint();
+	}
+#endif
+}
+
+inline void latchWriteAddr(unsigned int addr, unsigned int result) {
+	mainCPU.read(addr);
+	writeAddr(addr, result);
+}
+
+inline void writeZero(unsigned int addr, unsigned int result) {
+	mainCPU.RAM[addr] = result;
+
+#if TRACE_DEBUG
+	if (addr == memWriteBreakpoint) {
+		HitBreakpoint();
+	}
+#endif
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// STORE / LOAD
+
+// LDA #$NN (load A immediate)
+inline void LDA(unsigned int data) {
+	mainCPU.A = data;
+	mainCPU.zeroResult = mainCPU.A;
+	mainCPU.negativeResult = mainCPU.A;
+}
+
+inline void LDA_MEM(unsigned int address) {
+	LDA(mainCPU.read(address));
+}
+
+inline void LDA_ZERO(unsigned int address) {
+	LDA(mainCPU.RAM[address]);
+}
+
+inline void LDX(unsigned int data) {
+	mainCPU.X = data;
+	mainCPU.zeroResult = mainCPU.X;
+	mainCPU.negativeResult = mainCPU.X;
+}
+
+inline void LDX_MEM(unsigned int address) {
+	LDX(mainCPU.read(address));
+}
+
+inline void LDX_ZERO(unsigned int address) {
+	LDX(mainCPU.RAM[address]);
+}
+
+inline void LDY(unsigned int data) {
+	mainCPU.Y = data;
+	mainCPU.zeroResult = mainCPU.Y;
+	mainCPU.negativeResult = mainCPU.Y;
+}
+
+inline void LDY_MEM(unsigned int address) {
+	LDY(mainCPU.read(address));
+}
+
+inline void LDY_ZERO(unsigned int address) {
+	LDY(mainCPU.RAM[address]);
+}
+
+inline void STA_MEM(unsigned int address) {
+	latchWriteAddr(address, mainCPU.A);
+}
+
+inline void STA_ZERO(unsigned int address) {
+	writeZero(address, mainCPU.A);
+}
+
+inline void STX_MEM(unsigned int address) {
+	latchWriteAddr(address, mainCPU.X);
+}
+
+inline void STX_ZERO(unsigned int address) {
+	writeZero(address, mainCPU.X);
+}
+
+inline void STY_MEM(unsigned int address) {
+	latchWriteAddr(address, mainCPU.Y);
+}
+
+inline void STY_ZERO(unsigned int address) {
+	writeZero(address, mainCPU.Y);
+}
+
+inline void TAX() {
+	mainCPU.X = mainCPU.A;
+	mainCPU.zeroResult = mainCPU.A;
+	mainCPU.negativeResult = mainCPU.A;
+}
+
+inline void TXA() {
+	mainCPU.A = mainCPU.X;
+	mainCPU.zeroResult = mainCPU.A;
+	mainCPU.negativeResult = mainCPU.A;
+}
+
+inline void TAY() {
+	mainCPU.Y = mainCPU.A;
+	mainCPU.zeroResult = mainCPU.A;
+	mainCPU.negativeResult = mainCPU.A;
+}
+
+inline void TYA() {
+	mainCPU.A = mainCPU.Y;
+	mainCPU.zeroResult = mainCPU.A;
+	mainCPU.negativeResult = mainCPU.A;
+}
+
+inline void TSX() {
+	mainCPU.X = mainCPU.SP;
+	mainCPU.zeroResult = mainCPU.X;
+	mainCPU.negativeResult = mainCPU.X;
+}
+
+inline void TXS() {
+	mainCPU.SP = mainCPU.X;
+	mainCPU.zeroResult = mainCPU.X;
+	mainCPU.negativeResult = mainCPU.X;
+}
+
+inline void PHA() {
+	mainCPU.push(mainCPU.A);
+}
+
+inline void PLA() {
+	mainCPU.A = mainCPU.pop();
+	mainCPU.zeroResult = mainCPU.A;
+	mainCPU.negativeResult = mainCPU.A;
+}
+
+inline void PHP() {
+	resolveToP();
+	mainCPU.push(mainCPU.P | ST_UNUSED | ST_BRK);
+}
+
+// PLP (pop processor status ignoring bits 4 & 5)
+inline void PLP() {
+	mainCPU.P &= (ST_BRK | ST_UNUSED);
+	mainCPU.P |= mainCPU.pop() & ~(ST_BRK | ST_UNUSED);
+	resolveFromP();
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// BRANCH / JUMP
+
+inline void takeBranch(unsigned int data) {
+	unsigned int oldPC = mainCPU.PC;
+	mainCPU.PC += (char) (data);
+	mainCPU.clocks += 1 + ((oldPC & 0xFF00) != (mainCPU.PC & 0xFF00) ? 1 : 0);
+}
+
+inline void BPL(unsigned int data) {
+	if ((~mainCPU.negativeResult) & ST_NEG) {
+		takeBranch(data);
+	}
+}
+
+inline void BMI(unsigned int data) {
+	if (mainCPU.negativeResult & ST_NEG) {
+		takeBranch(data);
+	}
+}
+
+inline void BVC(unsigned int data) {
+	if ((~mainCPU.P) & ST_OVR) {
+		takeBranch(data);
+	}
+}
+
+inline void BVS(unsigned int data) {
+	if (mainCPU.P & ST_OVR) {
+		takeBranch(data);
+	}
+}
+
+inline void BCC(unsigned int data) {
+	if (mainCPU.carryResult == 0) {
+		takeBranch(data);
+	}
+}
+
+inline void BCS(unsigned int data) {
+	if (mainCPU.carryResult) {
+		takeBranch(data);
+	}
+}
+
+inline void BNE(unsigned int data) {
+	if (mainCPU.zeroResult) {
+		takeBranch(data);
+	}
+}
+
+inline void BEQ(unsigned int data) {
+	if (!mainCPU.zeroResult) {
+		takeBranch(data);
+	}
+}
+
+inline void JMP_MEM(unsigned int addr) {
+	// common infinite loop
+	if (mainCPU.PC == addr + 3) {
+		mainCPU.clocks = mainCPU.ppuClocks;
+	}
+
+	mainCPU.PC = addr;
+}
+
+inline void JSR_MEM(unsigned int addr) {
+	// JSR (subroutine)
+	mainCPU.push(mainCPU.PC >> 8);
+	mainCPU.push(mainCPU.PC & 0xFF);
+
+	mainCPU.PC = addr;
+}
+
+inline void RTI() {
+	// RTI (return from interrupt)
+	// TODO : Non- delayed IRQ response behavior?
+	mainCPU.P &= (ST_BRK | ST_UNUSED);
+	mainCPU.P |= mainCPU.pop() & ~(ST_BRK | ST_UNUSED);
+	mainCPU.PC = mainCPU.pop() | (mainCPU.pop() << 8);
+	resolveFromP();
+}
+			
+inline void RTS() {
+	// RTS
+	mainCPU.PC = mainCPU.pop() | (mainCPU.pop() << 8);
+	mainCPU.PC++;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// ALU
+
+inline void ADC(unsigned int data) {
+	unsigned int result = mainCPU.A + data + (mainCPU.carryResult ? 1 : 0);
+	mainCPU.P =
+		(mainCPU.P & (ST_INT | ST_BRK | ST_BCD)) |								// keep flags
+		(((mainCPU.A^result)&(data^result) & 0x80) >> (7 - ST_OVR_BIT));		// overflow (http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html)
+	mainCPU.A = result & 0xFF;
+	mainCPU.carryResult = result & 0x100;
+	mainCPU.zeroResult = mainCPU.A;
+	mainCPU.negativeResult = mainCPU.A;
+}
+
+inline void ADC_MEM(unsigned int address) {
+	ADC(mainCPU.read(address));
+}
+
+inline void ADC_ZERO(unsigned int address) {
+	ADC(mainCPU.RAM[address]);
+}
+
+inline void SBC(unsigned int data) {
+	// TODO : possibly move overflow calculation to flag resolve?
+	unsigned int result = mainCPU.A - data - (mainCPU.carryResult ? 0 : 1);
+	mainCPU.P =
+		(mainCPU.P & (ST_INT | ST_BRK | ST_BCD)) |									// keep flags
+		(((mainCPU.A^result)&((~(data)) ^ result) & 0x80) >> (7 - ST_OVR_BIT));	// overflow (http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html)
+	mainCPU.A = result & 0xFF;
+	mainCPU.carryResult = ~result & 0x100;
+	mainCPU.zeroResult = mainCPU.A;
+	mainCPU.negativeResult = mainCPU.A;
+}
+
+inline void SBC_MEM(unsigned int address) {
+	SBC(mainCPU.read(address));
+}
+
+inline void SBC_ZERO(unsigned int address) {
+	SBC(mainCPU.RAM[address]);
+}
+
+inline void DEC_MEM(unsigned int address) {
+	unsigned int result = (mainCPU.read(address) - 1) & 0xFF;
+	mainCPU.zeroResult = result;
+	mainCPU.negativeResult = result;
+	writeAddr(address, result);
+}
+
+inline void DEC_ZERO(unsigned int address) {
+	unsigned int result = (mainCPU.RAM[address] - 1) & 0xFF;
+	mainCPU.zeroResult = result;
+	mainCPU.negativeResult = result;
+	writeZero(address, result);
+}
+
+inline void INC_MEM(unsigned int address) {
+	unsigned int result = (mainCPU.read(address) + 1) & 0xFF;
+	mainCPU.zeroResult = result;
+	mainCPU.negativeResult = result;
+	writeAddr(address, result);
+}
+
+inline void INC_ZERO(unsigned int address) {
+	unsigned int result = (mainCPU.RAM[address] + 1) & 0xFF;
+	mainCPU.zeroResult = result;
+	mainCPU.negativeResult = result;
+	writeZero(address, result);
+}
+
+inline void DEX() {
+	// DEX (decrement X)
+	mainCPU.X = (mainCPU.X - 1) & 0xFF;
+	mainCPU.zeroResult = mainCPU.X;
+	mainCPU.negativeResult = mainCPU.X;
+}
+
+inline void INX() {
+	// INX (increment X)
+	mainCPU.X = (mainCPU.X + 1) & 0xFF;
+	mainCPU.zeroResult = mainCPU.X;
+	mainCPU.negativeResult = mainCPU.X;
+}
+
+inline void DEY() {
+	// DEY (decrement Y)
+	mainCPU.Y = (mainCPU.Y - 1) & 0xFF;
+	mainCPU.zeroResult = mainCPU.Y;
+	mainCPU.negativeResult = mainCPU.Y;
+}
+
+inline void INY() {
+	// INY (increment Y)
+	mainCPU.Y = (mainCPU.Y + 1) & 0xFF;
+	mainCPU.zeroResult = mainCPU.Y;
+	mainCPU.negativeResult = mainCPU.Y;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// COMPARE / TEST
+
+inline void CMP(unsigned int data) {
+	mainCPU.carryResult = (data <= mainCPU.A);
+	mainCPU.zeroResult = (mainCPU.A - data);
+	mainCPU.negativeResult = mainCPU.zeroResult;
+}
+
+inline void CMP_MEM(unsigned int addr) {
+	CMP(mainCPU.read(addr));
+}
+
+inline void CMP_ZERO(unsigned int addr) {
+	CMP(mainCPU.RAM[addr]);
+}
+
+inline void CPX(unsigned int data) {
+	mainCPU.carryResult = (data <= mainCPU.X);
+	mainCPU.zeroResult = (mainCPU.X - data);
+	mainCPU.negativeResult = mainCPU.zeroResult;
+}
+
+inline void CPX_MEM(unsigned int addr) {
+	CPX(mainCPU.read(addr));
+}
+
+inline void CPX_ZERO(unsigned int addr) {
+	CPX(mainCPU.RAM[addr]);
+}
+
+inline void CPY(unsigned int data) {
+	mainCPU.carryResult = (data <= mainCPU.Y);
+	mainCPU.zeroResult = (mainCPU.Y - data);
+	mainCPU.negativeResult = mainCPU.zeroResult;
+}
+
+inline void CPY_MEM(unsigned int addr) {
+	CPY(mainCPU.read(addr));
+}
+
+inline void CPY_ZERO(unsigned int addr) {
+	CPY(mainCPU.RAM[addr]);
+}
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// MISC
+
+inline void BRK() {
+	// BRK moves forward an instruction
+	mainCPU.PC++;
+	cpu6502_SoftwareInterrupt(0xFFFE);
+}
+
+inline void NOP() {
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// BITWISE
+
+inline void ORA(unsigned int data) {
+	mainCPU.A = mainCPU.A | data;
+	mainCPU.zeroResult = mainCPU.A;
+	mainCPU.negativeResult = mainCPU.A;
+}
+
+inline void ORA_MEM(unsigned int address) {
+	mainCPU.A = mainCPU.A | mainCPU.read(address);
+	mainCPU.zeroResult = mainCPU.A;
+	mainCPU.negativeResult = mainCPU.A;
+}
+
+inline void ORA_ZERO(unsigned int address) {
+	mainCPU.A = mainCPU.A | mainCPU.RAM[address];
+	mainCPU.zeroResult = mainCPU.A;
+	mainCPU.negativeResult = mainCPU.A;
+}
+
+inline void AND(unsigned int data) {
+	mainCPU.A = mainCPU.A & data;
+	mainCPU.zeroResult = mainCPU.A;
+	mainCPU.negativeResult = mainCPU.A;
+}
+
+inline void AND_MEM(unsigned int address) {
+	mainCPU.A = mainCPU.A & mainCPU.read(address);
+	mainCPU.zeroResult = mainCPU.A;
+	mainCPU.negativeResult = mainCPU.A;
+}
+
+inline void AND_ZERO(unsigned int address) {
+	mainCPU.A = mainCPU.A & mainCPU.RAM[address];
+	mainCPU.zeroResult = mainCPU.A;
+	mainCPU.negativeResult = mainCPU.A;
+}
+
+inline void EOR(unsigned int data) {
+	mainCPU.A = mainCPU.A ^ data;
+	mainCPU.zeroResult = mainCPU.A;
+	mainCPU.negativeResult = mainCPU.A;
+}
+
+inline void EOR_MEM(unsigned int address) {
+	mainCPU.A = mainCPU.A ^ mainCPU.read(address);
+	mainCPU.zeroResult = mainCPU.A;
+	mainCPU.negativeResult = mainCPU.A;
+}
+
+inline void EOR_ZERO(unsigned int address) {
+	mainCPU.A = mainCPU.A ^ mainCPU.RAM[address];
+	mainCPU.zeroResult = mainCPU.A;
+	mainCPU.negativeResult = mainCPU.A;
+}
+
+inline void ASL() {
+	mainCPU.carryResult = (mainCPU.A & 0x80);
+	mainCPU.A = (mainCPU.A << 1) & 0xFF;
+	mainCPU.zeroResult = mainCPU.A;
+	mainCPU.negativeResult = mainCPU.A;
+}
+
+inline void ASL_MEM(unsigned int address) {
+	unsigned int data = mainCPU.read(address);
+
+	mainCPU.carryResult = (data & 0x80);
+	data = (data << 1) & 0xFF;
+	mainCPU.zeroResult = data;
+	mainCPU.negativeResult = data;
+
+	writeAddr(address, data);
+}
+
+inline void ASL_ZERO(unsigned int address) {
+	unsigned int data = mainCPU.RAM[address];
+
+	mainCPU.carryResult = (data & 0x80);
+	int result = (data << 1) & 0xFF;
+	mainCPU.zeroResult = result;
+	mainCPU.negativeResult = result;
+
+	writeZero(address, result);
+}
+
+inline void LSR() {
+	mainCPU.carryResult = (mainCPU.A & 0x01);
+	mainCPU.A >>= 1;
+	mainCPU.zeroResult = mainCPU.A;
+	mainCPU.negativeResult = 0;
+}
+
+inline void LSR_MEM(unsigned int address) {
+	unsigned int data = mainCPU.read(address);
+
+	mainCPU.carryResult = (data & 0x01);
+	data >>= 1;
+	mainCPU.zeroResult = data;
+	mainCPU.negativeResult = 0;
+
+	writeAddr(address, data);
+}
+
+inline void LSR_ZERO(unsigned int address) {
+	unsigned int data = mainCPU.RAM[address];
+
+	mainCPU.carryResult = (data & 0x01);
+	data >>= 1;
+	mainCPU.zeroResult = data;
+	mainCPU.negativeResult = 0;
+
+	writeZero(address, data);
+}
+
+inline void ROL() {
+	mainCPU.A = (mainCPU.A << 1) | (mainCPU.carryResult ? 0x01 : 0);
+	mainCPU.carryResult = mainCPU.A & 0x100;
+	mainCPU.zeroResult = mainCPU.A & 0xFF;
+	mainCPU.A = mainCPU.zeroResult;
+	mainCPU.negativeResult = mainCPU.A;
+}
+
+inline void ROL_MEM(unsigned int address) {
+	unsigned int data = mainCPU.read(address);
+
+	data = (data << 1) | (mainCPU.carryResult ? 0x01 : 0);
+	mainCPU.carryResult = data & 0x100;
+	mainCPU.zeroResult = data & 0xFF;
+	mainCPU.negativeResult = data;
+
+	writeAddr(address, data);
+}
+
+inline void ROL_ZERO(unsigned int address) {
+	unsigned int data = mainCPU.RAM[address];
+
+	data = (data << 1) | (mainCPU.carryResult ? 0x01 : 0);
+	mainCPU.carryResult = data & 0x100;
+	mainCPU.zeroResult = data & 0xFF;
+	mainCPU.negativeResult = data;
+
+	writeZero(address, data);
+}
+
+
+inline void ROR() {
+	unsigned int result = (mainCPU.A >> 1) | (mainCPU.carryResult ? 0x80 : 0);
+	mainCPU.carryResult = mainCPU.A & 0x01;
+
+	mainCPU.A = result;
+	mainCPU.zeroResult = mainCPU.A;
+	mainCPU.negativeResult = mainCPU.A;
+}
+
+inline void ROR_MEM(unsigned int address) {
+	unsigned int data = mainCPU.read(address);
+
+	unsigned int result = (data >> 1) | (mainCPU.carryResult ? 0x80 : 0);
+	mainCPU.carryResult = data & 0x01;
+	mainCPU.zeroResult = result;
+	mainCPU.negativeResult = result;
+
+	writeAddr(address, result);
+}
+
+inline void ROR_ZERO(unsigned int address) {
+	int data = mainCPU.RAM[address];
+
+	unsigned int result = (data >> 1) | (mainCPU.carryResult ? 0x80 : 0);
+	mainCPU.carryResult = data & 0x01;
+	mainCPU.zeroResult = result;
+	mainCPU.negativeResult = result;
+
+	writeZero(address, result);
+}
+
+inline void BIT_MEM(unsigned int address) {
+	unsigned int data = mainCPU.read(address);
+
+	mainCPU.P =
+		(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_CRY)) |					// keep flags
+		(data & (ST_OVR));													// these are copied in (bits 6-7)
+	mainCPU.zeroResult = (data & mainCPU.A);
+	mainCPU.negativeResult = data;
+}
+
+inline void BIT_ZERO(unsigned int address) {
+	unsigned int data = mainCPU.RAM[address];
+
+	mainCPU.P =
+		(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_CRY)) |					// keep flags
+		(data & (ST_OVR));													// these are copied in (bits 6-7)
+	mainCPU.zeroResult = (data & mainCPU.A);
+	mainCPU.negativeResult = data;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// STATUS FLAGS
+
+inline void CLC() {
+	// (clear carry)
+	mainCPU.carryResult = 0;
+}
+
+inline void SEC() {
+	// (set carry)
+	mainCPU.carryResult = 1;
+}
+
+inline void CLI() {
+	// (clear interrupt)
+	// TODO : Delayed IRQ response behavior?
+	mainCPU.P &= ~ST_INT;
+}
+
+inline void SEI() {
+	// (set interrupt)
+	mainCPU.P |= ST_INT;
+}
+
+inline void CLV() {
+	// (clear overflow)
+	mainCPU.P &= ~ST_OVR;
+}
+
+inline void CLD() {
+	// (clear decimal)
+	mainCPU.P &= ~ST_BCD;
+}
+
+inline void SED() {
+	// (set decimal)
+	mainCPU.P |= ST_BCD;
+}
+
 inline void cpu6502_PerformInstruction() {
 #if TRACE_DEBUG
 	cpu_instr_history hist;
 	memcpy(&hist.regs, &mainCPU, sizeof(cpu_6502));
+	int effAddr = -1;
+#define EFF_ADDR
+#else
+#define EFF_ADDR int effAddr; 
 #endif
 
 	// TODO : cache into single read (with instruction overlap in bank pages)
-	unsigned int instr = mainCPU.readNonIO(mainCPU.PC);
-	unsigned int data1 = mainCPU.readNonIO(mainCPU.PC + 1);
-	unsigned int data2 = mainCPU.readNonIO(mainCPU.PC + 2);
-
-	// effective address
-	unsigned int effAddr = 0;
-	unsigned char* operand;
-
-	// instruction base clocks
-	mainCPU.clocks += clockTable[instr];
-
-	// TODO : perf (try labels here)
-	switch (modeTable[instr]) {
-		case AM_Absolute:
-			effAddr = data1 + (data2 << 8);
-			operand = mainCPU.getByte(effAddr);
-			mainCPU.PC += 3;
-			break;
-		case AM_AbsoluteX:
-			effAddr = data1 + (data2 << 8) + (mainCPU.X);
-			operand = mainCPU.getByte(effAddr);
-			mainCPU.PC += 3;
-			break;
-		case AM_AbsoluteY:
-			effAddr = data1 + (data2 << 8) + (mainCPU.Y);
-			operand = mainCPU.getByte(effAddr);
-			mainCPU.PC += 3;
-			break;
-		case AM_IndirectX:
-		{
-			int target = (data1 + mainCPU.X) & 0xFF;
-			effAddr = mainCPU.RAM[target] + (mainCPU.RAM[(target + 1) & 0xFF] << 8);
-			operand = mainCPU.getByte(effAddr);
-			mainCPU.PC += 2;
-			break;
-		}
-		case AM_IndirectY:
-		{
-			effAddr = mainCPU.RAM[data1] + (mainCPU.RAM[(data1 + 1) & 0xFF] << 8) + mainCPU.Y;
-			operand = mainCPU.getByte(effAddr);
-			mainCPU.PC += 2;
-			break;
-		}
-		case AM_Zero:
-			effAddr = data1;
-			operand = &mainCPU.RAM[effAddr];
-			mainCPU.PC += 2;
-			break;
-		case AM_ZeroX:
-			effAddr = (data1 + mainCPU.X) & 0xFF;
-			operand = &mainCPU.RAM[effAddr];
-			mainCPU.PC += 2;
-			break;
-		case AM_ZeroY:
-			effAddr = (data1 + mainCPU.Y) & 0xFF;
-			operand = &mainCPU.RAM[effAddr];
-			mainCPU.PC += 2;
-			break;
-		default:
-			DebugAssert(modeTable[instr] == AM_None);
-			mainCPU.PC += 1;
-			break;
+	unsigned int instr, data1, data2;
+	if (mainCPU.PC & 0xFF < 0xFD) {
+		unsigned char* ptr = mainCPU.getNonIOMem(mainCPU.PC);
+		instr = ptr[0];
+		data1 = ptr[1];
+		data2 = ptr[2];
+	} else {
+		instr = mainCPU.readNonIO(mainCPU.PC);
+		data1 = mainCPU.readNonIO(mainCPU.PC + 1);
+		data2 = mainCPU.readNonIO(mainCPU.PC + 2);
 	}
+
+	switch (instr) {
+#define OPCODE_START(op,clk,sz) \
+	case op: \
+		{ EFF_ADDR \
+		  mainCPU.clocks += clk; \
+		  mainCPU.PC += sz;
+
+#define OPCODE_END(spc) \
+		spc \
+		break; }
+
+#define OPCODE_NON(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) name(); OPCODE_END(spc) 
+#define OPCODE_IMM(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) name(data1); OPCODE_END(spc) 
+#define OPCODE_REL(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) name(data1); OPCODE_END(spc) 
+#define OPCODE_ABS(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) effAddr = data1 + (data2 << 8);					name##_MEM(effAddr); OPCODE_END(spc) 
+#define OPCODE_ABX(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) effAddr = data1 + (data2 << 8) + (mainCPU.X);	name##_MEM(effAddr); OPCODE_END(spc) 
+#define OPCODE_ABY(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) effAddr = data1 + (data2 << 8) + (mainCPU.Y);	name##_MEM(effAddr); OPCODE_END(spc) 
+#define OPCODE_IND(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) int target = data1 + (data2 << 8); effAddr = mainCPU.RAM[target] + (mainCPU.RAM[(target + 1) & 0xFF] << 8);			name##_MEM(effAddr); OPCODE_END(spc)
+#define OPCODE_INX(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) int target = (data1 + mainCPU.X) & 0xFF; effAddr = mainCPU.RAM[target] + (mainCPU.RAM[(target + 1) & 0xFF] << 8);	name##_MEM(effAddr); OPCODE_END(spc)
+#define OPCODE_INY(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) effAddr = mainCPU.RAM[data1] + (mainCPU.RAM[(data1 + 1) & 0xFF] << 8) + mainCPU.Y;									name##_MEM(effAddr); OPCODE_END(spc) 
+#define OPCODE_ZRO(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) effAddr = data1;							name##_ZERO(data1); OPCODE_END(spc) 
+#define OPCODE_ZRX(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) effAddr = (data1 + mainCPU.X) & 0xFF;	name##_ZERO(effAddr); OPCODE_END(spc) 
+#define OPCODE_ZRY(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) effAddr = (data1 + mainCPU.Y) & 0xFF;	name##_ZERO(effAddr); OPCODE_END(spc) 
+
+		#include "6502_opcodes.inl"
+		default: DebugAssert(false); 
+	};
 
 #if TRACE_DEBUG
 	resolveToP();
@@ -175,8 +776,8 @@ inline void cpu6502_PerformInstruction() {
 	hist.data1 = data1;
 	hist.data2 = data2;
 	hist.effAddr = effAddr;
-	if (modeTable[instr & 0x1F] != AM_None) {
-		hist.effByte = *operand;
+	if (effAddr != -1 && (effAddr < 0x2000 || effAddr >= 0x6000)) {
+		hist.effByte = mainCPU.readNonIO(effAddr);
 	}
 
 	traceHistory[traceNum++] = hist;
@@ -191,471 +792,6 @@ inline void cpu6502_PerformInstruction() {
 		HitBreakpoint();
 	}
 #endif
-
-	unsigned int result;	// used in some instructions
-
-	switch (instr) {
-		/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-		// STORE / LOAD
-
-		case 0xA9:
-			// LDA #$NN (load A immediate)
-			mainCPU.PC++;
-			operand = PTR_TO_BYTE(data1);
-		case 0xA5: case 0xB5: case 0xAD: case 0xBD: case 0xB9: case 0xA1: case 0xB1:
-			// LDA (load accumulator)
-			mainCPU.A = *operand;
-			mainCPU.zeroResult = mainCPU.A;
-			mainCPU.negativeResult = mainCPU.A;
-			break;
-
-		case 0xA2:
-			// LDX #$NN (load X immediate)
-			mainCPU.PC++;
-			operand = PTR_TO_BYTE(data1);
-		case 0xA6: case 0xB6: case 0xAE: case 0xBE:
-			// LDX (load X)
-			mainCPU.X = *operand;
-			mainCPU.zeroResult = mainCPU.X;
-			mainCPU.negativeResult = mainCPU.X;
-			break;
-
-		case 0xA0:
-			// LDY #$NN (load Y immediate)
-			mainCPU.PC++;
-			operand = PTR_TO_BYTE(data1);
-		case 0xA4: case 0xB4: case 0xAC: case 0xBC:
-			// LDY (load Y)
-			mainCPU.Y = *operand;
-			mainCPU.zeroResult = mainCPU.Y;
-			mainCPU.negativeResult = mainCPU.Y;
-			break;
-
-		case 0x85: case 0x95: case 0x8D: case 0x9D: case 0x99: case 0x81: case 0x91:
-			// STA (store accumulator)
-			result = mainCPU.A;
-			goto writeData;
-
-		case 0x86: case 0x96: case 0x8E:
-			// STX (store X)
-			result = mainCPU.X;
-			goto writeData;
-
-		case 0x84: case 0x94: case 0x8C:
-			// STY (store Y)
-			result = mainCPU.Y;
-			goto writeData;
-
-		case 0xAA:
-			// TAX (A -> X)
-			mainCPU.X = mainCPU.A;
-			goto trxFlags;
-		case 0x8A:
-			// TXA (X -> A)
-			mainCPU.A = mainCPU.X;
-			goto trxFlags;
-		case 0xA8:
-			// TAY (A -> Y)
-			mainCPU.Y = mainCPU.A;
-			goto trxFlags;
-		case 0x98:
-			// TYA (Y -> A)
-			mainCPU.A = mainCPU.Y;
-		trxFlags:
-			mainCPU.zeroResult = mainCPU.A;
-			mainCPU.negativeResult = mainCPU.A;
-			break;
-
-		case 0xBA:
-			// TSX (SP -> X)
-			mainCPU.X = mainCPU.SP;
-		case 0x9A:
-			// TXS (X -> SP)
-			mainCPU.SP = mainCPU.X;
-			mainCPU.zeroResult = mainCPU.X;
-			mainCPU.negativeResult = mainCPU.X;
-			break;
-
-		case 0x48:
-			// PHA (push A)
-			mainCPU.push(mainCPU.A);
-			break;
-
-		case 0x68:
-			// PLA (pull A)
-			mainCPU.A = mainCPU.pop();
-			mainCPU.zeroResult = mainCPU.A;
-			mainCPU.negativeResult = mainCPU.A;
-			break;
-
-		case 0x08:
-			// PHP (push processor status)
-			resolveToP();
-			mainCPU.push(mainCPU.P | ST_UNUSED | ST_BRK);
-			break;
-
-		case 0x28:
-			// PLP (pop processor status ignoring bits 4 & 5)
-			mainCPU.P &= (ST_BRK | ST_UNUSED);
-			mainCPU.P |= mainCPU.pop() & ~(ST_BRK | ST_UNUSED);
-			resolveFromP();
-			break;
-
-		/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-		// ALU
-
-		case 0x69:
-			// ADC #$NN (or immediate)
-			mainCPU.PC++;
-			operand = PTR_TO_BYTE(data1);
-		case 0x65: case 0x75: case 0x6D: case 0x7D: case 0x79: case 0x61: case 0x71:
-			// ADC
-			// TODO : possibly move overflow calculation to flag resolve?
-			result = mainCPU.A + *operand + (mainCPU.carryResult ? 1 : 0);
-			mainCPU.P =
-				(mainCPU.P & (ST_INT | ST_BRK | ST_BCD)) |								// keep flags
-				(((mainCPU.A^result)&(*operand^result) & 0x80) >> (7 - ST_OVR_BIT));	// overflow (http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html)
-			mainCPU.A = result & 0xFF;
-			mainCPU.carryResult = result & 0x100;
-			mainCPU.zeroResult = mainCPU.A;
-			mainCPU.negativeResult = mainCPU.A;
-			break;
-			
-		case 0xE9:
-			// SBC #$NN (or immediate)
-			mainCPU.PC++;
-			operand = PTR_TO_BYTE(data1);
-		case 0xE5: case 0xF5: case 0xED: case 0xFD: case 0xF9: case 0xE1: case 0xF1:
-			// SBC
-			// TODO : possibly move overflow calculation to flag resolve?
-			result = mainCPU.A - *operand - (mainCPU.carryResult ? 0 : 1);
-			mainCPU.P =
-				(mainCPU.P & (ST_INT | ST_BRK | ST_BCD)) |									// keep flags
-				(((mainCPU.A^result)&((~(*operand))^result) & 0x80) >> (7 - ST_OVR_BIT));	// overflow (http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html)
-			mainCPU.A = result & 0xFF;
-			mainCPU.carryResult = ~result & 0x100;
-			mainCPU.zeroResult = mainCPU.A;
-			mainCPU.negativeResult = mainCPU.A;
-			break;
-
-		case 0xC6: case 0xD6: case 0xCE: case 0xDE:
-			// DEC
-			result = (*operand - 1) & 0xFF;
-			mainCPU.zeroResult = result;
-			mainCPU.negativeResult = result;
-			goto writeData;
-
-		case 0xE6: case 0xF6: case 0xEE: case 0xFE:
-			// INC
-			result = (*operand + 1) & 0xFF;
-			mainCPU.zeroResult = result;
-			mainCPU.negativeResult = result;
-			goto writeData;
-
-		case 0xCA: 
-			// TODO (perf) (try -= 2 and skip flags and break?)
-			// DEX (decrement X)
-			mainCPU.X = (mainCPU.X - 1) & 0xFF;
-			mainCPU.zeroResult = mainCPU.X;
-			mainCPU.negativeResult = mainCPU.X;
-			break;
-
-		case 0xE8: 
-			// INX (increment X)
-			mainCPU.X = (mainCPU.X + 1) & 0xFF;
-			mainCPU.zeroResult = mainCPU.X;
-			mainCPU.negativeResult = mainCPU.X;
-			break;
-
-		case 0x88: 
-			// DEY (decrement Y)
-			// TODO (perf) (try -= 2 and skip flags and break?)
-			mainCPU.Y = (mainCPU.Y - 1) & 0xFF;
-			mainCPU.zeroResult = mainCPU.Y;
-			mainCPU.negativeResult = mainCPU.Y;
-			break;
-
-		case 0xC8: 
-			// INY (increment Y)
-			mainCPU.Y = (mainCPU.Y + 1) & 0xFF;
-			mainCPU.zeroResult = mainCPU.Y;
-			mainCPU.negativeResult = mainCPU.Y;
-			break;
-
-		/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-		// BITWISE
-			
-		case 0x09:
-			// ORA #$NN (or immediate)
-			mainCPU.PC++;
-			operand = PTR_TO_BYTE(data1);
-		case 0x05: case 0x15: case 0x0D: case 0x1D: case 0x19: case 0x01: case 0x11: 
-			// ORA
-			mainCPU.A = mainCPU.A | *operand;
-			mainCPU.zeroResult = mainCPU.A;
-			mainCPU.negativeResult = mainCPU.A;
-			break;
-
-		case 0x29:
-			// AND #$NN (and immediate)
-			mainCPU.PC++;
-			operand = PTR_TO_BYTE(data1);
-		case 0x25: case 0x35: case 0x2D: case 0x3D: case 0x39: case 0x21: case 0x31: 
-			// AND
-			mainCPU.A = mainCPU.A & *operand;
-			mainCPU.zeroResult = mainCPU.A;
-			mainCPU.negativeResult = mainCPU.A;
-			break;
-
-		case 0x49:
-			// EOR #$NN (xor immediate)
-			mainCPU.PC++;
-			operand = PTR_TO_BYTE(data1);
-		case 0x45: case 0x55: case 0x4D: case 0x5D: case 0x59: case 0x41: case 0x51: 
-			// EOR
-			mainCPU.A = mainCPU.A ^ *operand;
-			mainCPU.zeroResult = mainCPU.A;
-			mainCPU.negativeResult = mainCPU.A;
-			break;
-
-		case 0x0A:
-			// ASL A
-			operand = PTR_TO_BYTE(mainCPU.A);
-		case 0x06: case 0x16: case 0x0E: case 0x1E:
-			// ASL
-			mainCPU.carryResult = (*operand & 0x80);
-			result = (*operand << 1) & 0xFF;
-			mainCPU.zeroResult = result;
-			mainCPU.negativeResult = result;
-			goto writeData;
-			
-		case 0x4A:
-			// LSR A
-			operand = PTR_TO_BYTE(mainCPU.A);
-		case 0x46: case 0x56: case 0x4E: case 0x5E:
-			// LSR
-			mainCPU.carryResult = (*operand & 0x01);
-			result = *operand >> 1;
-			mainCPU.zeroResult = result;
-			mainCPU.negativeResult = 0;
-			goto writeData;
-
-		case 0x2A:
-			// ROL A
-			operand = PTR_TO_BYTE(mainCPU.A);
-		case 0x26: case 0x36: case 0x2E: case 0x3E:
-			// ROL 
-			result = (*operand << 1) | (mainCPU.carryResult ? 0x01 : 0);
-			mainCPU.carryResult = result & 0x100;
-			mainCPU.zeroResult = result & 0xFF;
-			mainCPU.negativeResult = result;
-			goto writeData;
-
-		case 0x6A:
-			// ROR A
-			operand = PTR_TO_BYTE(mainCPU.A);
-		case 0x66: case 0x76: case 0x6E: case 0x7E:
-			result = (*operand >> 1) | (mainCPU.carryResult ? 0x80 : 0);
-			mainCPU.carryResult = *operand & 0x01;
-			mainCPU.zeroResult = result;
-			mainCPU.negativeResult = result;
-			goto writeData;
-
-		case 0x24: case 0x2C:
-			// BIT
-			mainCPU.P =
-				(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_CRY)) |						// keep flags
-				(*operand & (ST_OVR));													// these are copied in (bits 6-7)
-			mainCPU.zeroResult = (*operand & mainCPU.A);
-			mainCPU.negativeResult = *operand;
-			break;
-
-		/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-		// BRANCH / JUMP
-
-		case 0x10:	
-			// BPL
-			result = (~mainCPU.negativeResult) & ST_NEG;
-			goto finishBranch;
-		case 0x30:
-			// BMI
-			result = mainCPU.negativeResult & ST_NEG;
-			goto finishBranch;
-		case 0x50:
-			// BVC
-			result = (~mainCPU.P) & ST_OVR;
-			goto finishBranch;
-		case 0x70:
-			// BVS
-			result = mainCPU.P & ST_OVR;
-			goto finishBranch;
-		case 0x90:
-			// BCC
-			result = mainCPU.carryResult == 0;
-			goto finishBranch;
-		case 0xB0:
-			// BCS
-			result = mainCPU.carryResult;
-			goto finishBranch;
-		case 0xD0:
-			// BNE
-			result = mainCPU.zeroResult;
-			goto finishBranch;
-		case 0xF0:
-			// BEQ
-			result = mainCPU.zeroResult == 0;
-		finishBranch:
-			mainCPU.PC++;
-			if (result) {
-				unsigned int oldPC = mainCPU.PC;
-				mainCPU.PC += (char) (data1);
-				mainCPU.clocks += 1 + ((oldPC & 0xFF00) != (mainCPU.PC & 0xFF00) ? 1 : 0);
-			}
-			break;
-
-		case 0x4C:
-			// JMP (absolute)
-			mainCPU.PC = data1 + (data2 << 8);
-			break;
-
-		case 0x6C:
-			// JMP (indirect)
-			DebugAssert(data1 != 0xFF);			// don't support jumps at end of a page 
-			mainCPU.PC = operand[0] + (operand[1] << 8);
-			break;
-
-		case 0x20:
-			// JSR (subroutine)
-			mainCPU.PC += 1;
-			mainCPU.push(mainCPU.PC >> 8);
-			mainCPU.push(mainCPU.PC & 0xFF);
-
-			mainCPU.PC = data1 + (data2 << 8);
-			break;
-
-		case 0x40:
-			// RTI (return from interrupt)
-			// TODO : Non- delayed IRQ response behavior?
-			mainCPU.P &= (ST_BRK | ST_UNUSED);
-			mainCPU.P |= mainCPU.pop() & ~(ST_BRK | ST_UNUSED);
-			mainCPU.PC = mainCPU.pop() | (mainCPU.pop() << 8);
-			resolveFromP();
-			break;
-
-		case 0x60:
-			// RTS
-			mainCPU.PC = mainCPU.pop() | (mainCPU.pop() << 8);
-			mainCPU.PC++;
-			break;
-
-		/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-		// COMPARE / TEST
-
-		case 0xC9:
-			// CMP #$NN (compare immediate)
-			mainCPU.PC++;
-			operand = PTR_TO_BYTE(data1);
-		case 0xC5: case 0xD5: case 0xCD: case 0xDD: case 0xD9: case 0xC1: case 0xD1:
-			// CMP
-			mainCPU.carryResult = (*operand <= mainCPU.A);
-			mainCPU.zeroResult = (mainCPU.A - *operand);
-			mainCPU.negativeResult = mainCPU.zeroResult;
-			break;
-
-		case 0xE0:
-			// CPX #$NN (compare immediate)
-			mainCPU.PC++;
-			operand = PTR_TO_BYTE(data1);
-		case 0xE4: case 0xEC:
-			// CPX
-			mainCPU.carryResult = (*operand <= mainCPU.X);
-			mainCPU.zeroResult = (mainCPU.X - *operand);
-			mainCPU.negativeResult = mainCPU.zeroResult;
-			break;
-			
-		case 0xC0:
-			// CPY #$NN (compare immediate)
-			mainCPU.PC++;
-			operand = PTR_TO_BYTE(data1);
-		case 0xC4: case 0xCC:
-			// CPY
-			mainCPU.carryResult = (*operand <= mainCPU.Y);
-			mainCPU.zeroResult = (mainCPU.Y - *operand);
-			mainCPU.negativeResult = mainCPU.zeroResult;
-			break;
-
-		/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-		// STATUS FLAGS
-
-		case 0x18:
-			// CLC (clear carry)
-			mainCPU.carryResult = 0;
-			break;
-
-		case 0x38:
-			// SEC (set carry)
-			mainCPU.carryResult = 1;
-			break;
-
-		case 0x58:
-			// CLI (clear interrupt)
-			// TODO : Delayed IRQ response behavior?
-			mainCPU.P &= ~ST_INT;
-			break;
-
-		case 0x78:
-			// SEI (set interrupt)
-			mainCPU.P |= ST_INT;
-			break;
-
-		case 0xB8:
-			// CLV (clear overflow)
-			mainCPU.P &= ~ST_OVR;
-			break;
-
-		case 0xD8:
-			// CLD (clear decimal)
-			mainCPU.P &= ~ST_BCD;
-			break;
-
-		case 0xF8:
-			// SED (set decimal)
-			mainCPU.P |= ST_BCD;
-			break;
-
-		/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-		// MISC
-
-		case 0x00:
-			// BRK
-			mainCPU.PC++;
-			cpu6502_SoftwareInterrupt(0xFFFE);
-			break;
-
-		case 0xEA:
-			// NOP
-			break;
-
-		writeData:
-			// DebugAssert((result & 0xFF) == result && effAddr != 0xFFFFFFFF);
-			if (effAddr >= 0x2000) {
-				mainCPU.writeSpecial(effAddr, result);
-			} else {
-				*operand = result;
-			}
-
-#if TRACE_DEBUG
-			if (effAddr == memWriteBreakpoint) {
-				HitBreakpoint();
-			}
-#endif
-			break;
-
-
-		default:
-			// unhandled instruction
-			DebugAssert(false);
-	}
 }
 
 void cpu6502_Step() {
@@ -710,7 +846,7 @@ void cpu_instr_history::output() {
 	}
 	static bool showRegs = true;
 	if (showRegs) {
-		OutputLog("A:%02X X:%02X Y:%02X S:%02X P:%s%s%s%s%s%s%s  ",
+		OutputLog("A:%02X X:%02X Y:%02X S:%02X P:%s%su%s%s%s%s%s  ",
 			regs.A,
 			regs.X,
 			regs.Y,
@@ -724,10 +860,10 @@ void cpu_instr_history::output() {
 			regs.P & ST_CRY ? "C" : "c");
 	}
 
-#define OPCODE_0W(op,str,clk,sz,spc) if (instr == op) OutputLog("$%04X:%02X        " str, regs.PC, instr);
-#define OPCODE_1W(op,str,clk,sz,spc) if (instr == op) OutputLog("$%04X:%02X %02X     " str, regs.PC, instr, data1, data1);
-#define OPCODE_2W(op,str,clk,sz,spc) if (instr == op) OutputLog("$%04X:%02X %02X %02X  " str, regs.PC, instr, data1, data2, data1 + (data2 << 8));
-#define OPCODE_REL(op,str,clk,sz,spc) if (instr == op) OutputLog("$%04X:%02X %02X     " str, regs.PC, instr, data1, regs.PC+2+((signed char)data1));
+#define OPCODE_0W(op,str,clk,sz,name,spc) if (instr == op) OutputLog("$%04X:%02X        " str, regs.PC, instr);
+#define OPCODE_1W(op,str,clk,sz,name,spc) if (instr == op) OutputLog("$%04X:%02X %02X     " str, regs.PC, instr, data1, data1);
+#define OPCODE_2W(op,str,clk,sz,name,spc) if (instr == op) OutputLog("$%04X:%02X %02X %02X  " str, regs.PC, instr, data1, data2, data1 + (data2 << 8));
+#define OPCODE_REL(op,str,clk,sz,name,spc) if (instr == op) OutputLog("$%04X:%02X %02X     " str, regs.PC, instr, data1, regs.PC+2+((signed char)data1));
 #include "6502_opcodes.inl"
 #endif
 
