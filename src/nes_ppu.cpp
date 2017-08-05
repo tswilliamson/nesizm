@@ -460,7 +460,7 @@ void renderOAM() {
 			if (yCoord < spriteSize) {
 				hadSprite = true;
 
-				if (curObj[2] & OAMATTR_VFLIP) yCoord = spriteSize - yCoord;
+				if (curObj[2] & OAMATTR_VFLIP) yCoord = spriteSize - yCoord - 1;
 
 				// determine tile index
 				unsigned char* tile;
