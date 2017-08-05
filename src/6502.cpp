@@ -214,8 +214,6 @@ inline void TSX() {
 
 inline void TXS() {
 	mainCPU.SP = mainCPU.X;
-	mainCPU.zeroResult = mainCPU.X;
-	mainCPU.negativeResult = mainCPU.X;
 }
 
 inline void PHA() {
@@ -744,9 +742,9 @@ inline void cpu6502_PerformInstruction() {
 #define OPCODE_ABS(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) effAddr = data1 + (data2 << 8);					name##_MEM(effAddr); OPCODE_END(spc) 
 #define OPCODE_ABX(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) effAddr = data1 + (data2 << 8) + (mainCPU.X);	name##_MEM(effAddr); OPCODE_END(spc) 
 #define OPCODE_ABY(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) effAddr = data1 + (data2 << 8) + (mainCPU.Y);	name##_MEM(effAddr); OPCODE_END(spc) 
-#define OPCODE_IND(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) int target = data1 + (data2 << 8); effAddr = mainCPU.RAM[target] + (mainCPU.RAM[(target + 1) & 0xFF] << 8);			name##_MEM(effAddr); OPCODE_END(spc)
-#define OPCODE_INX(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) int target = (data1 + mainCPU.X) & 0xFF; effAddr = mainCPU.RAM[target] + (mainCPU.RAM[(target + 1) & 0xFF] << 8);	name##_MEM(effAddr); OPCODE_END(spc)
-#define OPCODE_INY(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) effAddr = mainCPU.RAM[data1] + (mainCPU.RAM[(data1 + 1) & 0xFF] << 8) + mainCPU.Y;									name##_MEM(effAddr); OPCODE_END(spc) 
+#define OPCODE_IND(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) int target = (data2 << 8); effAddr = mainCPU.read(data1 + target) + (mainCPU.read(((data1 + 1) & 0xFF) + target) << 8);			name##_MEM(effAddr); OPCODE_END(spc)
+#define OPCODE_INX(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) int target = (data1 + mainCPU.X) & 0xFF; effAddr = mainCPU.RAM[target] + (mainCPU.RAM[(target + 1) & 0xFF] << 8);				name##_MEM(effAddr); OPCODE_END(spc)
+#define OPCODE_INY(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) effAddr = mainCPU.RAM[data1] + (mainCPU.RAM[(data1 + 1) & 0xFF] << 8) + mainCPU.Y;												name##_MEM(effAddr); OPCODE_END(spc) 
 #define OPCODE_ZRO(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) effAddr = data1;							name##_ZERO(data1); OPCODE_END(spc) 
 #define OPCODE_ZRX(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) effAddr = (data1 + mainCPU.X) & 0xFF;	name##_ZERO(effAddr); OPCODE_END(spc) 
 #define OPCODE_ZRY(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) effAddr = (data1 + mainCPU.Y) & 0xFF;	name##_ZERO(effAddr); OPCODE_END(spc) 

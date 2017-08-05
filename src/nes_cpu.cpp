@@ -69,6 +69,9 @@ void nes_cpu::mapDefaults() {
 		map[m] = &RAM[(m & 0x7) * 0x100];
 	}
 
+	// wrap around
+	map[0x100] = map[0];
+
 	// remainder is by default unmapped (up to each mapper)
 }
 

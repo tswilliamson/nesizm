@@ -17,6 +17,9 @@ unsigned char* ppu_chrMap = { 0 };
 int ppu_mirror = nes_mirror_type::MT_UNSET;
 unsigned int ppu_scanline = 1;
 unsigned int ppu_frameCounter = 0;
+static bool ppu_triggerNMI = false;
+static bool ppu_setVBL = false;
+static int ppu_writeToggle = 0;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Scanline handling
@@ -100,8 +103,22 @@ unsigned char* ppu_registers_type::latchReg(unsigned int regNum) {
 			latchedStatus = PPUSTATUS;
 			latch = &latchedStatus;
 
+			// suppress NMI on the exact clock cycle in the PPU it may be triggered (some games depend on this)
+			if (ppu_scanline == 243 && ppu_triggerNMI) {
+				if (mainCPU.clocks + 1 == mainCPU.ppuClocks) {
+					// one before, so donn't set the VBL as well
+					ppu_setVBL = false;
+					ppu_triggerNMI = false;
+				} else if (mainCPU.clocks == mainCPU.ppuClocks) {
+					ppu_triggerNMI = false;
+				}
+			}
+
 			// vblank flag cleared after read
-			PPUSTATUS &= ~PPUCTRL_NMI;
+			PPUSTATUS &= ~PPUSTAT_NMI;
+
+			// switch write toggle to 0
+			ppu_writeToggle = 0;
 			break;
 		}
 		case 0x04:
@@ -148,7 +165,8 @@ unsigned char* ppu_registers_type::latchReg(unsigned int regNum) {
 void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
 	switch (regNum) {
 		case 0x00:	// PPUCTRL
-			if ((PPUCTRL & PPUCTRL_NMI) == 0 && (value & PPUCTRL_NMI) && (PPUSTATUS & PPUCTRL_NMI)) {
+			if ((PPUCTRL & PPUCTRL_NMI) == 0 && (value & PPUCTRL_NMI) && (PPUSTATUS & PPUSTAT_NMI)) {
+				// TODO : this shouldn't happen mid-instruction
 				mainCPU.NMI();
 			}
 			latch = &PPUCTRL;
@@ -171,20 +189,23 @@ void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
 			OAMADDR++;	// writes to OAM data increment the OAM address
 			break;
 		case 0x05:  // SCROLLX/Y
-			if (latch == &SCROLLX) {
+			if (ppu_writeToggle == 1) {
 				latch = &SCROLLY;
 			} else {
 				latch = &SCROLLX;
 			}
+			ppu_writeToggle = 1 - ppu_writeToggle;
 			break;
 		case 0x06:  // ADDRHI/LO
-			if (latch == &ADDRHI) {
-				// TODO : write PPUCTRL bits? should use the ppu scroll v/t stuff
-				PPUCTRL = (PPUCTRL & 0xFC) | ((value & 0x0C) >> 2);
+			if (ppu_writeToggle == 1) {
 				latch = &ADDRLO;
 			} else {
+				// TODO : write PPUCTRL bits? should use the ppu scroll v/t stuff
+				PPUCTRL = (PPUCTRL & 0xFC) | ((value & 0x0C) >> 2);
 				latch = &ADDRHI;
 			}
+
+			ppu_writeToggle = 1 - ppu_writeToggle;
 			break;
 		case 0x07:
 			unsigned int address = (ADDRHI << 8) | ADDRLO;
@@ -355,12 +376,14 @@ void ppu_step() {
 			fastSprite0();
 		}
 	} else if (ppu_scanline == 242) {
-		// blank scanline area
+		// blank scanline area, trigger NMI next scanline
+		ppu_triggerNMI = (mainCPU.clocks > 140000);
+		ppu_setVBL = (mainCPU.clocks > 30000);
 	} else if (ppu_scanline == 243) {
-		if (mainCPU.clocks > 30000) {
+		if (ppu_setVBL) {
 			ppu_registers.PPUSTATUS |= PPUCTRL_NMI;
 		}
-		if ((ppu_registers.PPUCTRL & PPUCTRL_NMI) && (mainCPU.clocks > 140000)) {
+		if ((ppu_registers.PPUCTRL & PPUCTRL_NMI) && ppu_triggerNMI) {
 			mainCPU.NMI();
 		}
 

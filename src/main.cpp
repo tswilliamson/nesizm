@@ -36,7 +36,29 @@ int main(void) {
 
 	input_Initialize();
 
+#if TARGET_WINSIM
+	char romFileSystem[512] = { 0 };
+	OPENFILENAME openStruct;
+	memset(&openStruct, 0, sizeof(OPENFILENAME));
+	openStruct.lStructSize = sizeof(OPENFILENAME);
+	openStruct.lpstrFilter = "NES ROMs\0*.nes\0";
+	openStruct.lpstrFile = romFileSystem;
+	openStruct.nMaxFile = 512;
+	openStruct.lpstrInitialDir = "%USERPROFILE%\\Documents\\Prizm\\ROM";
+	openStruct.Flags = OFN_EXPLORER | OFN_DONTADDTORECENT | OFN_FILEMUSTEXIST;
+
+	if (!GetOpenFileName(&openStruct)) {
+		return -1;
+	}
+
+	char* ROMdir = strstr(romFileSystem, "ROM\\");
+	char romFile[512];
+	strcpy(romFile, "\\\\fls0\\");
+	strcat(romFile, ROMdir + 4);
+#else
 	const char* romFile = "\\\\fls0\\SMB.nes";
+#endif
+
 	if (nesCart.loadROM(romFile)) {
 		Bdisp_PutDisp_DD();
 

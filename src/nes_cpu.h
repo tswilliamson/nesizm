@@ -5,8 +5,8 @@ struct nes_cpu : public cpu_6502 {
 	// Main RAM (zero page at 0x000, stack at 0x100, mirrored every 2 kb to 0x2000)
 	unsigned char RAM[0x800];
 
-	// high byte memory map
-	unsigned char* map[0x100];
+	// high byte memory map (with wraparound)
+	unsigned char* map[0x101];
 
 	// clocks for next PPU update
 	unsigned int ppuClocks;

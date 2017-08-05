@@ -188,4 +188,11 @@ void nes_cart::setupMapper0_NROM() {
 			mainCPU.map[m + 0xE0] = &romBanks[3][m * 0x100];
 		}
 	}
+
+	// RAM bank if one is set up
+	if (numRAMBanks == 1) {
+		for (int m = 0x00; m < 0x20; m++) {
+			mainCPU.map[m + 0x60] = &romBanks[4][m * 0x100];
+		}
+	}
 }
