@@ -474,7 +474,6 @@ inline void CPY_ZERO(unsigned int addr) {
 
 inline void BRK() {
 	// BRK moves forward an instruction
-	mainCPU.PC++;
 	cpu6502_SoftwareInterrupt(0xFFFE);
 }
 
@@ -736,18 +735,18 @@ inline void cpu6502_PerformInstruction() {
 		  spc \
 		  break; }
 
-#define OPCODE_NON(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) name(); OPCODE_END(spc) 
-#define OPCODE_IMM(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) name(data1); OPCODE_END(spc) 
-#define OPCODE_REL(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) name(data1); OPCODE_END(spc) 
-#define OPCODE_ABS(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) effAddr = data1 + (data2 << 8);					name##_MEM(effAddr); OPCODE_END(spc) 
-#define OPCODE_ABX(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) effAddr = data1 + (data2 << 8) + (mainCPU.X);	name##_MEM(effAddr); OPCODE_END(spc) 
-#define OPCODE_ABY(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) effAddr = data1 + (data2 << 8) + (mainCPU.Y);	name##_MEM(effAddr); OPCODE_END(spc) 
-#define OPCODE_IND(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) int target = (data2 << 8); effAddr = mainCPU.read(data1 + target) + (mainCPU.read(((data1 + 1) & 0xFF) + target) << 8);			name##_MEM(effAddr); OPCODE_END(spc)
-#define OPCODE_INX(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) int target = (data1 + mainCPU.X) & 0xFF; effAddr = mainCPU.RAM[target] + (mainCPU.RAM[(target + 1) & 0xFF] << 8);				name##_MEM(effAddr); OPCODE_END(spc)
-#define OPCODE_INY(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) effAddr = mainCPU.RAM[data1] + (mainCPU.RAM[(data1 + 1) & 0xFF] << 8) + mainCPU.Y;												name##_MEM(effAddr); OPCODE_END(spc) 
-#define OPCODE_ZRO(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) effAddr = data1;							name##_ZERO(data1); OPCODE_END(spc) 
-#define OPCODE_ZRX(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) effAddr = (data1 + mainCPU.X) & 0xFF;	name##_ZERO(effAddr); OPCODE_END(spc) 
-#define OPCODE_ZRY(op,str,clk,sz,name,spc) OPCODE_START(op,clk,sz) effAddr = (data1 + mainCPU.Y) & 0xFF;	name##_ZERO(effAddr); OPCODE_END(spc) 
+#define OPCODE_NON(op,str,clk,sz,page,name,spc) OPCODE_START(op,clk,sz) name(); OPCODE_END(spc) 
+#define OPCODE_IMM(op,str,clk,sz,page,name,spc) OPCODE_START(op,clk,sz) name(data1); OPCODE_END(spc) 
+#define OPCODE_REL(op,str,clk,sz,page,name,spc) OPCODE_START(op,clk,sz) name(data1); OPCODE_END(spc) 
+#define OPCODE_ABS(op,str,clk,sz,page,name,spc) OPCODE_START(op,clk,sz) effAddr = data1 + (data2 << 8);					name##_MEM(effAddr); OPCODE_END(spc) 
+#define OPCODE_ABX(op,str,clk,sz,page,name,spc) OPCODE_START(op,clk,sz) effAddr = data1 + (data2 << 8) + (mainCPU.X); if (page && ((data1 + mainCPU.X) & 0x100)) mainCPU.clocks++;	name##_MEM(effAddr); OPCODE_END(spc) 
+#define OPCODE_ABY(op,str,clk,sz,page,name,spc) OPCODE_START(op,clk,sz) effAddr = data1 + (data2 << 8) + (mainCPU.Y); if (page && ((data1 + mainCPU.Y) & 0x100)) mainCPU.clocks++;	name##_MEM(effAddr); OPCODE_END(spc) 
+#define OPCODE_IND(op,str,clk,sz,page,name,spc) OPCODE_START(op,clk,sz) int target = (data2 << 8); effAddr = mainCPU.read(data1 + target) + (mainCPU.read(((data1 + 1) & 0xFF) + target) << 8);			name##_MEM(effAddr); OPCODE_END(spc)
+#define OPCODE_INX(op,str,clk,sz,page,name,spc) OPCODE_START(op,clk,sz) int target = (data1 + mainCPU.X) & 0xFF; effAddr = mainCPU.RAM[target] + (mainCPU.RAM[(target + 1) & 0xFF] << 8);				name##_MEM(effAddr); OPCODE_END(spc)
+#define OPCODE_INY(op,str,clk,sz,page,name,spc) OPCODE_START(op,clk,sz) effAddr = mainCPU.RAM[data1] + (mainCPU.RAM[(data1 + 1) & 0xFF] << 8) + mainCPU.Y; if (page && ((mainCPU.RAM[data1] + mainCPU.Y) & 0x100)) mainCPU.clocks++;	name##_MEM(effAddr); OPCODE_END(spc) 
+#define OPCODE_ZRO(op,str,clk,sz,page,name,spc) OPCODE_START(op,clk,sz) effAddr = data1;							name##_ZERO(data1); OPCODE_END(spc) 
+#define OPCODE_ZRX(op,str,clk,sz,page,name,spc) OPCODE_START(op,clk,sz) effAddr = (data1 + mainCPU.X) & 0xFF;	name##_ZERO(effAddr); OPCODE_END(spc) 
+#define OPCODE_ZRY(op,str,clk,sz,page,name,spc) OPCODE_START(op,clk,sz) effAddr = (data1 + mainCPU.Y) & 0xFF;	name##_ZERO(effAddr); OPCODE_END(spc) 
 
 		#include "6502_opcodes.inl"
 		default: DebugAssert(false); 
@@ -842,10 +841,10 @@ void cpu_instr_history::output() {
 			regs.P & ST_CRY ? "C" : "c");
 	}
 
-#define OPCODE_0W(op,str,clk,sz,name,spc) if (instr == op) OutputLog("$%04X:%02X        " str, regs.PC, instr);
-#define OPCODE_1W(op,str,clk,sz,name,spc) if (instr == op) OutputLog("$%04X:%02X %02X     " str, regs.PC, instr, data1, data1);
-#define OPCODE_2W(op,str,clk,sz,name,spc) if (instr == op) OutputLog("$%04X:%02X %02X %02X  " str, regs.PC, instr, data1, data2, data1 + (data2 << 8));
-#define OPCODE_REL(op,str,clk,sz,name,spc) if (instr == op) OutputLog("$%04X:%02X %02X     " str, regs.PC, instr, data1, regs.PC+2+((signed char)data1));
+#define OPCODE_0W(op,str,clk,sz,page,name,spc) if (instr == op) OutputLog("$%04X:%02X        " str, regs.PC, instr);
+#define OPCODE_1W(op,str,clk,sz,page,name,spc) if (instr == op) OutputLog("$%04X:%02X %02X     " str, regs.PC, instr, data1, data1);
+#define OPCODE_2W(op,str,clk,sz,page,name,spc) if (instr == op) OutputLog("$%04X:%02X %02X %02X  " str, regs.PC, instr, data1, data2, data1 + (data2 << 8));
+#define OPCODE_REL(op,str,clk,sz,page,name,spc) if (instr == op) OutputLog("$%04X:%02X %02X     " str, regs.PC, instr, data1, regs.PC+2+((signed char)data1));
 #include "6502_opcodes.inl"
 #endif
 
