@@ -648,7 +648,7 @@ void renderScanline_HorzMirror() {
 
 		// pre-build attribute table lookup into one big 32 bit int
 		// this is done backwards so the value is easily popped later
-		int attrX = ((ppu_registers.SCROLLX >> 5) + 7) & 7;
+		int attrX = (ppu_registers.SCROLLX >> 5) & 7;
 		int attrShift = (tileLine & 2) << 1;	// 4 bit shift for bottom row of attribute
 		unsigned int attrPalette = 0;
 		if (ppu_registers.SCROLLX & 0x8) {
@@ -676,6 +676,9 @@ void renderScanline_HorzMirror() {
 			// grab and rotate palette selection
 			int palette = (attrPalette & 0x03) << 2;
 			attrPalette = (attrPalette >> 2) | (attrPalette << 30);
+
+			// keep tileX mirroring
+			tileX &= 0x1F;
 
 			for (int twice = 0; twice < 2; twice++, x += 8) {
 				int chr = nameTable[tileX++] << 4;

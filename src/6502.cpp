@@ -231,10 +231,9 @@ inline void PHP() {
 	mainCPU.push(mainCPU.P | ST_UNUSED | ST_BRK);
 }
 
-// PLP (pop processor status ignoring bits 4 & 5)
+// PLP (pop processor status ignoring bit 4)
 inline void PLP() {
-	mainCPU.P &= (ST_BRK | ST_UNUSED);
-	mainCPU.P |= mainCPU.pop() & ~(ST_BRK | ST_UNUSED);
+	mainCPU.P |= mainCPU.pop() & ~(ST_BRK);
 	resolveFromP();
 }
 
@@ -315,8 +314,7 @@ inline void JSR_MEM(unsigned int addr) {
 inline void RTI() {
 	// RTI (return from interrupt)
 	// TODO : Non- delayed IRQ response behavior?
-	mainCPU.P &= (ST_BRK | ST_UNUSED);
-	mainCPU.P |= mainCPU.pop() & ~(ST_BRK | ST_UNUSED);
+	mainCPU.P |= mainCPU.pop() & ~(ST_BRK);
 	mainCPU.PC = mainCPU.pop() | (mainCPU.pop() << 8);
 	resolveFromP();
 }
@@ -333,7 +331,7 @@ inline void RTS() {
 inline void ADC(unsigned int data) {
 	unsigned int result = mainCPU.A + data + (mainCPU.carryResult ? 1 : 0);
 	mainCPU.P =
-		(mainCPU.P & (ST_INT | ST_BRK | ST_BCD)) |								// keep flags
+		(mainCPU.P & (ST_INT | ST_BRK | ST_BCD | ST_UNUSED)) |					// keep flags
 		(((mainCPU.A^result)&(data^result) & 0x80) >> (7 - ST_OVR_BIT));		// overflow (http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html)
 	mainCPU.A = result & 0xFF;
 	mainCPU.carryResult = result & 0x100;
@@ -353,7 +351,7 @@ inline void SBC(unsigned int data) {
 	// TODO : possibly move overflow calculation to flag resolve?
 	unsigned int result = mainCPU.A - data - (mainCPU.carryResult ? 0 : 1);
 	mainCPU.P =
-		(mainCPU.P & (ST_INT | ST_BRK | ST_BCD)) |									// keep flags
+		(mainCPU.P & (ST_INT | ST_BRK | ST_BCD | ST_UNUSED)) |					// keep flags
 		(((mainCPU.A^result)&((~(data)) ^ result) & 0x80) >> (7 - ST_OVR_BIT));	// overflow (http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html)
 	mainCPU.A = result & 0xFF;
 	mainCPU.carryResult = ~result & 0x100;
@@ -647,7 +645,7 @@ inline void ROR_ZERO(unsigned int address) {
 
 inline void BIT(unsigned int data) {
 	mainCPU.P =
-		(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_CRY)) |					// keep flags
+		(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_CRY | ST_UNUSED)) |		// keep flags
 		(data & (ST_OVR));													// these are copied in (bits 6-7)
 	mainCPU.zeroResult = (data & mainCPU.A);
 	mainCPU.negativeResult = data;
@@ -827,13 +825,14 @@ void cpu_instr_history::output() {
 	}
 	static bool showRegs = true;
 	if (showRegs) {
-		OutputLog("A:%02X X:%02X Y:%02X S:%02X P:%s%su%s%s%s%s%s  ",
+		OutputLog("A:%02X X:%02X Y:%02X S:%02X P:%s%s%s%s%s%s%s%s  ",
 			regs.A,
 			regs.X,
 			regs.Y,
 			regs.SP,
 			regs.P & ST_NEG ? "N" : "n",
 			regs.P & ST_OVR ? "V" : "v",
+			regs.P & ST_UNUSED ? "U" : "u",
 			regs.P & ST_BRK ? "B" : "b",
 			regs.P & ST_BCD ? "D" : "d",
 			regs.P & ST_INT ? "I" : "i",
