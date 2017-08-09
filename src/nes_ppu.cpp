@@ -215,6 +215,12 @@ void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
 				ppu_workingPalette[0] = -1;
 			}
 
+			if (address < 0x2000) {
+				// TODO: Chr RAM?
+				latch = &value;
+				break;
+			}
+
 			// address has already been auto incremented.. do some magic:
 			if (PPUCTRL & PPUCTRL_VRAMINC) {
 				latch = ppu_resolveMemoryAddress(address - 32, false);
