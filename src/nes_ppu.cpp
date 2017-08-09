@@ -651,21 +651,16 @@ void renderScanline_HorzMirror() {
 		int attrX = (ppu_registers.SCROLLX >> 5) & 7;
 		int attrShift = (tileLine & 2) << 1;	// 4 bit shift for bottom row of attribute
 		unsigned int attrPalette = 0;
-		if (ppu_registers.SCROLLX & 0x8) {
-			// odd scroll
-			for (int loop = 0; loop < 8; loop++) {
-				attrPalette <<= 4;
-				attrPalette |= ((attr[attrX] >> attrShift) & 0xC);
-				attrX = (attrX + 7) & 7;
-				attrPalette |= ((attr[attrX] >> attrShift) & 0x3);
-			}
+		for (int loop = 0; loop < 8; loop++) {
+			attrPalette <<= 4;
+			attrPalette |= ((attr[attrX] >> attrShift) & 0xF);
+			attrX = (attrX + 7) & 7;
+		}
+
+		if ((ppu_registers.SCROLLX & 0x10) == 0) {
+			attrPalette = (attrPalette << 6) | (attrPalette >> 26);
 		} else {
-			// even scroll
-			for (int loop = 0; loop < 8; loop++) {
-				attrPalette <<= 4;
-				attrPalette |= ((attr[attrX] >> attrShift) & 0xF);
-				attrX = (attrX + 7) & 7;
-			}
+			attrPalette = (attrPalette << 4) | (attrPalette >> 28);
 		}
 
 		// we render 16 pixels at a time (easy attribute table lookup), 17 times and clip
@@ -674,7 +669,7 @@ void renderScanline_HorzMirror() {
 
 		for (int loop = 0; loop < 17; loop++) {
 			// grab and rotate palette selection
-			int palette = (attrPalette & 0x03) << 2;
+			int palette = (attrPalette & 0x0C);
 			attrPalette = (attrPalette >> 2) | (attrPalette << 30);
 
 			// keep tileX mirroring
