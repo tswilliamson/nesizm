@@ -20,6 +20,7 @@ unsigned int ppu_frameCounter = 0;
 static bool ppu_triggerNMI = false;
 static bool ppu_setVBL = false;
 static int ppu_writeToggle = 0;
+static int ppu_scrollY = 0;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Scanline handling
@@ -348,6 +349,10 @@ void ppu_step() {
 		// inactive scanline with even/odd clock cycle thing
 		ppu_registers.PPUSTATUS &= ~PPUSTAT_NMI;			// clear vblank flag
 		ppu_registers.PPUSTATUS &= ~PPUSTAT_SPRITE0;		// clear sprite 0 collision flag
+
+		// scroll Y is cached
+		ppu_scrollY = ppu_registers.SCROLLY;
+
 	} else if (ppu_scanline < 13) {
 		// non-resolved but active scanline (may cause sprite 0 collision)
 		// TODO : sprite 0 collision only render version?
@@ -611,14 +616,21 @@ void renderScanline_HorzMirror() {
 	TIME_SCOPE();
 
 	DebugAssert(ppu_scanline >= 1 && ppu_scanline <= 240);
-	if (ppu_registers.PPUMASK & PPUMASK_SHOWBG) {
-		int line = ppu_scanline + ppu_registers.SCROLLY - 1;
+
+	int line = ppu_scanline - 1;
+	if (ppu_scrollY < 240) {
+		line += ppu_scrollY;
+	} else {
+		// "negative scroll" which we'll just skip the top lines for
+		line += ppu_scrollY - 256;
+	}
+
+	if ((ppu_registers.PPUMASK & PPUMASK_SHOWBG) && line >= 0) {
 		int tileLine = line >> 3;
 
 		// determine base addresses
 		unsigned char* nameTable;
 		unsigned char* attr;
-		int attrShift = (tileLine & 2) << 1;	// 4 bit shift for bottom row of attribute
 		unsigned char* patternTable = ppu_chrMap + ((ppu_registers.PPUCTRL & PPUCTRL_BGDTABLE) << 8) + (line & 7);
 
 		// TODO : Probably some pretty obvious logic to avoid the %=
@@ -637,6 +649,7 @@ void renderScanline_HorzMirror() {
 		// pre-build attribute table lookup into one big 32 bit int
 		// this is done backwards so the value is easily popped later
 		int attrX = ((ppu_registers.SCROLLX >> 5) + 7) & 7;
+		int attrShift = (tileLine & 2) << 1;	// 4 bit shift for bottom row of attribute
 		unsigned int attrPalette = 0;
 		if (ppu_registers.SCROLLX & 0x8) {
 			// odd scroll
@@ -696,8 +709,13 @@ void renderScanline_VertMirror() {
 
 	DebugAssert(ppu_scanline >= 1 && ppu_scanline <= 240);
 	if (ppu_registers.PPUMASK & PPUMASK_SHOWBG) {
-		int line = ppu_scanline + ppu_registers.SCROLLY - 1;
+		int line = ppu_scanline + ppu_scrollY - 1;
 		int tileLine = line >> 3;
+
+		if (tileLine >= 30) {
+			tileLine -= 30;
+		}
+
 		int scrollX = ppu_registers.SCROLLX;
 
 		// determine base addresses
