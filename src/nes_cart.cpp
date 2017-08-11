@@ -7,14 +7,14 @@
 
 nes_cart nesCart;
 
-nes_cart::nes_cart() {
+nes_cart::nes_cart() : writeSpecial(NULL) {
 	handle = 0;
 	file[0] = 0;
 }
 
-void nes_cart::allocateROMBanks(unsigned char* withAlloced) {
+void nes_cart::allocateBanks(unsigned char* withAlloced) {
 	for (int i = 0; i < NUM_CACHED_ROM_BANKS; i++) {
-		romBanks[i] = withAlloced + 8192 * i;
+		banks[i] = withAlloced + 8192 * i;
 	}
 }
 
@@ -150,49 +150,384 @@ void nes_cart::unload() {
 }
 
 bool nes_cart::setupMapper() {
+	clearCacheData();
+
 	switch (mapper) {
 		case 0:
 			setupMapper0_NROM();
+			return true;
+		case 1:
+			setupMapper1_MMC1();
 			return true;
 		default:
 			return false;
 	}
 }
 
-void nes_cart::setupMapper0_NROM() {
-	// read ROM banks (up to 2)
-	for (int i = 0; i < 2 * numPRGBanks; i++) {
-		Bfile_ReadFile_OS(handle, romBanks[i], 8192, -1);
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Caching support
+
+int bankIndex[NUM_CACHED_ROM_BANKS];
+
+int cachedPRGCount;				// number of 8 KB banks to use for PRG
+int cachedCHRCount;				// number of 8 KB banks to use for CHR
+
+void nes_cart::clearCacheData() {
+	requestIndex = 0;
+	
+	for (int i = 0; i < NUM_CACHED_ROM_BANKS; i++) {
+		bankIndex[i] = -1;
+		bankRequest[i] = -1;
 	}
 
-	// read CHR bank (always one)
+	cachedPRGCount = 0;
+	cachedCHRCount = 0;
+}
+
+// returns whether the bank given is in use by the memory map
+bool nes_cart::isBankUsed(int index) {
+	unsigned char* startRange = banks[index];
+	unsigned char* endRange = startRange + 1024 * 8;
+
+	for (int i = 0; i < 256; i++) {
+		if (mainCPU.map[i] >= startRange && mainCPU.map[i] < endRange) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+// finds least recently requested bank that is currently unused
+int nes_cart::findOldestUnusedBank(int startIndex, int lastIndexExclusive) {
+	int bestBank = -1;
+	for (int i = startIndex; i < lastIndexExclusive; i++) {
+		if (bestBank == -1 || bankRequest[i] < bankRequest[bestBank]) {
+			if (isBankUsed(i) == false) {
+				bestBank = i;
+			} else {
+				// mark as "requested" since it obviously is still in use
+				bankRequest[i] = requestIndex;
+			}
+		}
+	}
+
+	// if we have enough caching set up... this shouldn't happen
+	DebugAssert(bestBank != -1);
+	return bestBank;
+}
+
+// caches an 8 KB PRG bank (so index up to 2 * numPRGBanks), returns result bank memory pointer
+unsigned char* nes_cart::cachePRGBank(int index) {
+	requestIndex++;
+
+	// find bank index within range:
+	for (int i = 0; i < cachedPRGCount; i++) {
+		if (bankIndex[i] == index) {
+			bankRequest[i] = requestIndex;
+			return banks[i];
+		}
+	}
+
+	// replace smallest request with inactive memory
+	int replaceIndex = findOldestUnusedBank(0, cachedPRGCount);
+	bankIndex[replaceIndex] = index;
+	bankRequest[replaceIndex] = requestIndex;
+	Bfile_ReadFile_OS(handle, banks[replaceIndex], 8192, 16 + 8192 * index);
+	return banks[replaceIndex];
+}
+
+// caches an 8 KB CHR bank, returns result bank memory pointer
+unsigned char* nes_cart::cacheCHRBank(int index) {
+	requestIndex++;
+
+	// find bank index within range:
+	int replaceIndex = cachedPRGCount;
+	for (int i = 0; i < cachedCHRCount; i++) {
+		int chrIndex = i + cachedPRGCount;
+		if (bankIndex[chrIndex] == index) {
+			bankRequest[chrIndex] = requestIndex;
+			return banks[chrIndex];
+		} else if (bankRequest[chrIndex] < bankRequest[replaceIndex]) {
+			replaceIndex = chrIndex;
+		}
+	}
+
+	// replace smallest request entirely (no inactive memory for CHR ROM since they are copied to PPU mem directly)
+	bankIndex[replaceIndex] = index;
+	bankRequest[replaceIndex] = requestIndex;
+	Bfile_ReadFile_OS(handle, banks[replaceIndex], 8192, 16 + 16384 * numPRGBanks + 8192 * index);
+	return banks[replaceIndex];
+}
+
+
+// inline mapping helpers
+inline void mapCPU(unsigned int startAddrHigh, unsigned int numKB, unsigned char* ptr) {
+	// 256 byte increments
+	numKB *= 4;
+
+	for (int i = 0; i < numKB; i++) {
+		mainCPU.map[i + startAddrHigh] = &ptr[i * 0x100];
+	}
+}
+
+inline void mapPPU(unsigned int startAddrHigh, unsigned int numKB, unsigned char* ptr) {
+	// just copy to CHR ROM
+	DebugAssert(startAddrHigh * 0x100 + numKB * 1024 <= 0x2000);	
+	memcpy(ppu_chrMap + startAddrHigh * 0x100, ptr, numKB * 1024);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// NROM
+
+void NROM_writeSpecial(unsigned int address, unsigned char value) {
+	if (address >= 0x6000) {
+		if (address < 0x8000 && nesCart.numRAMBanks) {
+			// RAM
+			mainCPU.map[address >> 8][address & 0xFF] = value;
+		} else {
+			// does nothing!
+		}
+	}
+}
+
+void nes_cart::setupMapper0_NROM() {
+	writeSpecial = NROM_writeSpecial;
+
+	// read ROM banks (up to 2)
+	for (int i = 0; i < 2 * numPRGBanks; i++) {
+		Bfile_ReadFile_OS(handle, banks[i], 8192, -1);
+	}
+
+	// read CHR bank (always one ROM) directly into PPU chrMap
+	DebugAssert(numCHRBanks == 1);
 	int chrBank = 2 * numPRGBanks;
-	Bfile_ReadFile_OS(handle, romBanks[chrBank], 8192, -1);
-	ppu_chrMap = romBanks[chrBank];
+	Bfile_ReadFile_OS(handle, banks[chrBank], 8192, -1);
+	ppu_chrMap = banks[chrBank];
 
 	// map memory to read-in ROM
 	if (numPRGBanks == 1) {
-		for (int m = 0x00; m < 0x20; m++) {
-			mainCPU.map[m + 0x80] = &romBanks[0][m * 0x100];
-			mainCPU.map[m + 0xA0] = &romBanks[1][m * 0x100];
-			mainCPU.map[m + 0xC0] = &romBanks[0][m * 0x100];
-			mainCPU.map[m + 0xE0] = &romBanks[1][m * 0x100];
-		}
+		mapCPU(0x80, 8, banks[0]);
+		mapCPU(0xA0, 8, banks[1]);
+		mapCPU(0xC0, 8, banks[0]);
+		mapCPU(0xE0, 8, banks[1]);
 	} else {
 		DebugAssert(numPRGBanks == 2);
 
-		for (int m = 0x00; m < 0x20; m++) {
-			mainCPU.map[m + 0x80] = &romBanks[0][m * 0x100];
-			mainCPU.map[m + 0xA0] = &romBanks[1][m * 0x100];
-			mainCPU.map[m + 0xC0] = &romBanks[2][m * 0x100];
-			mainCPU.map[m + 0xE0] = &romBanks[3][m * 0x100];
-		}
+		mapCPU(0x80, 8, banks[0]);
+		mapCPU(0xA0, 8, banks[1]);
+		mapCPU(0xC0, 8, banks[2]);
+		mapCPU(0xE0, 8, banks[3]);
 	}
 
 	// RAM bank if one is set up
 	if (numRAMBanks == 1) {
-		for (int m = 0x00; m < 0x20; m++) {
-			mainCPU.map[m + 0x60] = &romBanks[4][m * 0x100];
+		mapCPU(0x60, 8, banks[4]);
+	}
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// MMC1
+
+// register 0 holds board disambiguation
+// 0 : S*ROM (most common formats with same interface. This includes SNROM whose RAM enable bit won't be implemented)
+// 1 : SOROM (extra RAM bank, bit 3 of chr bank select selects RAM bank)
+// 2 : SUROM (512 KB PRG ROM, high chr bank bit selects bank)
+// 3 : SXROM (32 KB RAM, bits 3-4 of chr bank select selects RAM bank high bits)
+#define S_ROM 0
+#define SOROM 1
+#define SUROM 2
+#define SXROM 3
+
+// register 1 holds the shift register bit
+// register 2 holds the shift register value
+
+// register 3 holds PRG bank mode
+// register 4 holds CHR bank mode
+
+void MMC1_writeSpecial(unsigned int address, unsigned char value) {
+	if (address >= 0x6000) {
+		if (address < 0x8000 && nesCart.numRAMBanks) {
+			// RAM
+			mainCPU.map[address >> 8][address & 0xFF] = value;
+		} else {
+			if (value & 0x80) {
+				// clear shift register
+				nesCart.registers[1] = 0;
+				nesCart.registers[2] = 0;
+			} else {
+				// set shift register bit
+				nesCart.registers[2] |= ((value & 1) << nesCart.registers[1]);
+				nesCart.registers[1]++;
+
+				if (nesCart.registers[1] == 5) {
+					// shift register ready to go! send result and clear for another round
+					nesCart.MMC1_Write(address, nesCart.registers[2]);
+					nesCart.registers[1] = 0;
+					nesCart.registers[2] = 0;
+				}
+
+			}
 		}
+	}
+}
+
+void nes_cart::MMC1_Write(unsigned int addr, int regValue) {
+	if (addr < 0xA000) {
+		// Control
+		// mirroring in bottom 2 bits
+		switch (regValue & 3) {
+			case 0:
+				// one screen lower bank
+				DebugAssert(false);	// unimplemented
+				break;
+			case 1:
+				// one screen upper bank
+				DebugAssert(false);	// unimplemented
+				break;
+			case 2:
+				// vertical
+				ppu_setMirrorType(nes_mirror_type::MT_VERTICAL);
+				break;
+			case 3:
+				// horizontal
+				ppu_setMirrorType(nes_mirror_type::MT_HORIZONTAL);
+				break;
+		}
+
+		// bank modes
+		int newPRGBankMode = (regValue & 0x0C) >> 2;
+		if (registers[3] != newPRGBankMode) {
+			registers[3] = newPRGBankMode;
+
+			if (newPRGBankMode == 2) {
+				// fix lower
+				unsigned char* firstBank[2] = { cachePRGBank(0), cachePRGBank(1) };
+				mapCPU(0x80, 8, firstBank[0]);
+				mapCPU(0xA0, 8, firstBank[1]);
+			}
+			if (newPRGBankMode == 3) {
+				// fix upper
+				unsigned char* lastBank[2] = { cachePRGBank(numPRGBanks * 2 - 2), cachePRGBank(numPRGBanks * 2 - 1) };
+				mapCPU(0xC0, 8, lastBank[0]);
+				mapCPU(0xE0, 8, lastBank[1]);
+			}
+		}
+
+		registers[4] = (regValue & 0x10) >> 4;
+	} else if (addr < 0xC000) {
+		// CHR Bank 0
+		if (registers[4] == 1) {
+			// 4 kb mode
+			regValue &= numCHRBanks * 2 - 1;
+			unsigned char* chrMem = cacheCHRBank(regValue >> 1);
+			mapPPU(0x00, 4, chrMem + 4096 * (regValue & 1));
+		} else {
+			// 8 kb mode
+			regValue &= numCHRBanks - 1;
+			unsigned char* chrMem = cacheCHRBank(regValue);
+			mapPPU(0x00, 8, chrMem);
+		}
+	} else if (addr < 0xE000) {
+		// CHR Bank 1
+		if (registers[4] == 1) {
+			// 4 kb mode
+			regValue &= numCHRBanks * 2 - 1;
+			unsigned char* chrMem = cacheCHRBank(regValue >> 1);
+			mapPPU(0x10, 4, chrMem + 4096 * (regValue & 1));
+		} else {
+			// 8 kb mode, ignored
+		}
+	} else {
+		// PRG Bank
+		if (registers[3] < 2) {
+			// 32 kb mode
+			regValue &= 0xFE;
+			regValue *= 2;
+			unsigned char* prgMem0 = cachePRGBank(regValue + 0);
+			mapCPU(0x80, 8, prgMem0);
+			unsigned char* prgMem1 = cachePRGBank(regValue + 1);
+			mapCPU(0xA0, 8, prgMem1);
+			unsigned char* prgMem2 = cachePRGBank(regValue + 2);
+			mapCPU(0xC0, 8, prgMem2);
+			unsigned char* prgMem3 = cachePRGBank(regValue + 3);
+			mapCPU(0xE0, 8, prgMem3);
+		} else if (registers[3] == 2) {
+			// changes bank at 0xC000
+			regValue *= 2;
+			unsigned char* prgMem0 = cachePRGBank(regValue + 0);
+			mapCPU(0xC0, 8, prgMem0);
+			unsigned char* prgMem1 = cachePRGBank(regValue + 1);
+			mapCPU(0xE0, 8, prgMem1);
+		} else if (registers[3] == 3) {
+			// changes bank at 0x8000
+			regValue *= 2;
+			unsigned char* prgMem0 = cachePRGBank(regValue + 0);
+			mapCPU(0x80, 8, prgMem0);
+			unsigned char* prgMem1 = cachePRGBank(regValue + 1);
+			mapCPU(0xA0, 8, prgMem1);
+		}
+	}
+}
+
+void nes_cart::setupMapper1_MMC1() {
+	writeSpecial = MMC1_writeSpecial;
+
+	// disambiguate board type
+	if (numRAMBanks == 2) {
+		// SOROM
+		registers[0] = SOROM;
+	} else if (numRAMBanks == 4) {
+		registers[0] = SXROM;
+	} else if (numPRGBanks == 512 / 16) {
+		registers[0] = SUROM;
+	} else {
+		registers[0] = S_ROM;
+	}
+
+	registers[1] = 0;
+	registers[2] = 0;
+	registers[3] = 0;
+	registers[4] = 0;
+
+	// determine bank caching allocations proportional to PRG and CHR ROM usage
+	// applies minimums of a third the amount of space or the total actual ROM amount, whichever is smaller
+	int cachedCount = NUM_CACHED_ROM_BANKS - numRAMBanks - 1;
+	int minPRGCount = cachedCount / 3;
+	if (numPRGBanks * 2 < minPRGCount) minPRGCount = numPRGBanks * 2;
+	int minCHRCount = cachedCount / 3;
+	if (numCHRBanks < minCHRCount) minCHRCount = numCHRBanks;
+
+	cachedPRGCount = cachedCount * (numPRGBanks * 2) / (numPRGBanks * 2 + numCHRBanks);
+	if (cachedPRGCount < minPRGCount)
+		cachedPRGCount = minPRGCount;
+
+	cachedCHRCount = cachedCount - cachedPRGCount;
+	if (cachedCHRCount < minCHRCount) {
+		int diff = minCHRCount - cachedCHRCount;
+		cachedPRGCount -= diff;
+		cachedCHRCount += diff;
+	}
+
+	// chr map uses best bank for chr caching locality:
+	ppu_chrMap = banks[cachedCount];
+
+	// RAM bank (first index if applicable) set up at 0x6000
+	if (numRAMBanks) {
+		int ramBank0 = cachedCount + 1;
+		mapCPU(0x60, 8, banks[ramBank0]);
+	}
+
+	// map first 16 KB of PRG mamory to 80-BF by default, and last 16 KB to C0-FF
+	unsigned char* firstBank[2] = { cachePRGBank(0), cachePRGBank(1) };
+	mapCPU(0x80, 8, firstBank[0]);
+	mapCPU(0xA0, 8, firstBank[1]);
+	unsigned char* lastBank[2] = { cachePRGBank(numPRGBanks * 2 - 2), cachePRGBank(numPRGBanks * 2 - 1) };
+	mapCPU(0xC0, 8, lastBank[0]);
+	mapCPU(0xE0, 8, lastBank[1]);
+
+	// map first 8 KB of CHR memory to ppu chr if not ram
+	if (numCHRBanks) {
+		mapPPU(0x00, 8, cacheCHRBank(0));
 	}
 }

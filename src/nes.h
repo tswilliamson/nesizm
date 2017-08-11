@@ -20,17 +20,45 @@ struct nes_cart {
 
 	int mapper;						// mapper ID used with ROM
 	int numPRGBanks;				// num 16 kb Program ROM banks
-	int numCHRBanks;				// num 8 kb CHR ROM banks
+	int numCHRBanks;				// num 8 kb CHR ROM banks (0 means CHR RAM)
 	int numRAMBanks;				// num 8 kb RAM banks
 
 	int isBatteryBacked;			// 0 if no battery backup
 	int isPAL;						// 1 if PAL, 0 if NTSC
 
-	// 8kb ROM banks for various usages based on mapper (allocated on stack due to Prizm deficiencies
-	unsigned char* romBanks[NUM_CACHED_ROM_BANKS];	
+	// up to 8 internal registers
+	unsigned int registers[8];
 
-	// sets up ROM bank pointers with the given allocated data
-	void allocateROMBanks(unsigned char* withAlloced);
+	void(*writeSpecial)(unsigned int address, unsigned char value);
+
+	// 8kb banks for various usages based on mapper (allocated on stack due to Prizm deficiencies
+	unsigned char* banks[NUM_CACHED_ROM_BANKS];	
+
+	// common bank caching set up. Caching is used for PRG and CHR. RAM is stored permanently in memory
+	int requestIndex;
+
+	int bankIndex[NUM_CACHED_ROM_BANKS];
+	int bankRequest[NUM_CACHED_ROM_BANKS];
+
+	int cachedPRGCount;				// number of 8 KB banks to use for PRG
+	int cachedCHRCount;				// number of 8 KB banks to use for CHR
+
+	void clearCacheData();
+
+	// returns whether the bank given is in use by the memory map
+	bool isBankUsed(int index);
+
+	// finds least recently requested bank that is currently unused
+	int findOldestUnusedBank(int startIndex, int lastIndexExclusive);
+
+	// caches an 8 KB PRG bank (so index up to 2 * numPRGBanks), returns result bank memory pointer
+	unsigned char* cachePRGBank(int index);
+
+	// caches an 8 KB CHR bank, returns result bank memory pointer
+	unsigned char* cacheCHRBank(int index);
+
+	// sets up bank pointers with the given allocated data
+	void allocateBanks(unsigned char* withAlloced);
 
 	// Loads a ROM from the given file path
 	bool loadROM(const char* withFile);
@@ -41,8 +69,11 @@ struct nes_cart {
 	// Sets up loaded ROM File with the selected mapper (returns false if unsupported)
 	bool setupMapper();
 
-	// various mapper setups
+	// various mapper setups and functions
 	void setupMapper0_NROM();
+
+	void setupMapper1_MMC1();
+	void MMC1_Write(unsigned int addr, int regValue);
 };
 
 struct nes_nametable {

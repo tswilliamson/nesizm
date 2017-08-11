@@ -28,7 +28,7 @@ unsigned char* nes_cpu::getSpecial(unsigned int addr) {
 				// UNMAPPED! NO DATA!
 				specByte = 0;
 		}
-	}
+	} 
 
 	return &specByte;
 }
@@ -58,6 +58,8 @@ void nes_cpu::writeSpecial(unsigned int addr, unsigned char value) {
 				// UNMAPPED! WILL DO NOTHING
 				break;
 		}
+	} else {
+		nesCart.writeSpecial(addr, value);
 	}
 }
 

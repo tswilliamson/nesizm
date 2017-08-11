@@ -32,7 +32,7 @@ int main(void) {
 
 	// allocate nes_carts on stack
 	unsigned char stackBanks[NUM_CACHED_ROM_BANKS * 8192] ALIGN(256);
-	nesCart.allocateROMBanks(stackBanks);
+	nesCart.allocateBanks(stackBanks);
 
 	input_Initialize();
 

@@ -14,7 +14,7 @@
 
 #if TRACE_DEBUG
 static unsigned int cpuBreakpoint = 0x0000;
-static unsigned int memWriteBreakpoint = 0xffff;
+static unsigned int memWriteBreakpoint = 0xfffff;
 
 #define NUM_TRACED 300
 static cpu_instr_history traceHistory[NUM_TRACED] = { 0 };

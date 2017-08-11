@@ -216,8 +216,8 @@ void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
 				ppu_workingPalette[0] = -1;
 			}
 
-			if (address < 0x2000) {
-				// TODO: Chr RAM?
+			// discard writes to CHR ROM when it is ROM
+			if (address < 0x2000 && nesCart.numCHRBanks) {
 				latch = &value;
 				break;
 			}
