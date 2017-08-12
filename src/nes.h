@@ -29,7 +29,11 @@ struct nes_cart {
 	// up to 8 internal registers
 	unsigned int registers[8];
 
+	// called on all writes over 0x4020
 	void(*writeSpecial)(unsigned int address, unsigned char value);
+
+	// called on PPU render reads beyond 0xFD0 in order to last different CHR map (used by MMC2 for Punch Out)
+	void(*renderLatch)(unsigned int ppuAddress);
 
 	// 8kb banks for various usages based on mapper (allocated on stack due to Prizm deficiencies
 	unsigned char* banks[NUM_CACHED_ROM_BANKS];	
@@ -74,6 +78,8 @@ struct nes_cart {
 
 	void setupMapper1_MMC1();
 	void MMC1_Write(unsigned int addr, int regValue);
+
+	void setupMapper9_MMC2();
 };
 
 struct nes_nametable {

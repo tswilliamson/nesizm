@@ -150,6 +150,9 @@ void nes_cart::unload() {
 }
 
 bool nes_cart::setupMapper() {
+	renderLatch = NULL;
+	writeSpecial = NULL;
+
 	clearCacheData();
 
 	switch (mapper) {
@@ -158,6 +161,9 @@ bool nes_cart::setupMapper() {
 			return true;
 		case 1:
 			setupMapper1_MMC1();
+			return true;
+		case 9:
+			setupMapper9_MMC2();
 			return true;
 		default:
 			return false;
@@ -529,5 +535,159 @@ void nes_cart::setupMapper1_MMC1() {
 	// map first 8 KB of CHR memory to ppu chr if not ram
 	if (numCHRBanks) {
 		mapPPU(0x00, 8, cacheCHRBank(0));
+	}
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// MMC2 (Punch Out mapper)
+
+// This works by keeping 4 separate copies of the CHR bank around, so they can be instantly switched by
+// changing the PPU's chr map pointer. This does mean that we have to save two versions of each latched
+// CHR map value on writes to the MMC2 registers, but that's not render critical in the same way
+
+// register 0 is the current low CHR map latch value : 0 = FD, 1 = FE
+// register 1 is the current high CHR map latch value : 0 = FD, 1 = FE
+
+// register 2 is the current bank copied into the PRG select
+// register 3 is the current CHR bank selected for low CHR map, latched with FD
+// register 4 is the current CHR bank selected for low CHR map, latched with FE
+// register 5 is the current CHR bank selected for high CHR map, latched with FD
+// register 6 is the current CHR bank selected for high CHR map, latched with FE
+
+#define MMC2_CHRBANK0 (NUM_CACHED_ROM_BANKS-4)
+#define MMC2_CHRBANK1 (NUM_CACHED_ROM_BANKS-3)
+#define MMC2_CHRBANK2 (NUM_CACHED_ROM_BANKS-2)
+#define MMC2_CHRBANK3 (NUM_CACHED_ROM_BANKS-1)
+
+inline void MMC2_selectCHRMap() {
+	ppu_chrMap = nesCart.banks[MMC2_CHRBANK0 + nesCart.registers[0] + nesCart.registers[1] * 2];
+}
+
+void MMC2_renderLatch(unsigned int address) {
+	if (address < 0x1000) {
+		if (address == 0x0FD8) {
+			if (nesCart.registers[0] == 1) {
+				nesCart.registers[0] = 0;
+				MMC2_selectCHRMap();
+			}
+		} else if (address == 0x0FE8) {
+			if (nesCart.registers[0] == 0) {
+				nesCart.registers[0] = 1;
+				MMC2_selectCHRMap();
+			}
+		}
+	} else {
+		if (address >= 0x1FD8 && address <= 0x1FDF) {
+			if (nesCart.registers[1] == 1) {
+				nesCart.registers[1] = 0;
+				MMC2_selectCHRMap();
+			}
+		} else if (address >= 0x1FE8 && address <= 0x1FEF) {
+			if (nesCart.registers[1] == 0) {
+				nesCart.registers[1] = 1;
+				MMC2_selectCHRMap();
+			}
+		}
+	}
+}
+
+void MMC2_writeSpecial(unsigned int address, unsigned char value) {
+	if (address >= 0x6000) {
+		if (address < 0x8000 && nesCart.numRAMBanks) {
+			// RAM
+			mainCPU.map[address >> 8][address & 0xFF] = value;
+		} else if (address >= 0xA000) {
+			if (address < 0xB000) {
+				// PRG ROM select
+				value &= 0xF;
+				if (value != nesCart.registers[2]) {
+					mapCPU(0x80, 8, nesCart.cachePRGBank(value));
+					nesCart.registers[2] = value;
+				}
+			} else if (address < 0xC000) {
+				// low CHR / FD select
+				value &= 0x1F;
+				if (value != nesCart.registers[3]) {
+					unsigned char* chrMap = nesCart.cacheCHRBank(value >> 1) + ((value & 1) << 12);
+					// map to lower 4k of bank 0 and 2
+					memcpy(nesCart.banks[MMC2_CHRBANK0], chrMap, 4096);
+					memcpy(nesCart.banks[MMC2_CHRBANK2], chrMap, 4096);
+					nesCart.registers[3] = value;
+				}
+			} else if (address < 0xD000) {
+				// low CHR / FE select
+				value &= 0x1F;
+				if (value != nesCart.registers[4]) {
+					unsigned char* chrMap = nesCart.cacheCHRBank(value >> 1) + ((value & 1) << 12);
+					// map to lower 4k of bank 1 and 3
+					memcpy(nesCart.banks[MMC2_CHRBANK1], chrMap, 4096);
+					memcpy(nesCart.banks[MMC2_CHRBANK3], chrMap, 4096);
+					nesCart.registers[4] = value;
+				}
+			} else if (address < 0xE000) {
+				// high CHR / FD select
+				value &= 0x1F;
+				if (value != nesCart.registers[5]) {
+					unsigned char* chrMap = nesCart.cacheCHRBank(value >> 1) + ((value & 1) << 12);
+					// map to higher 4k of bank 0 and 1
+					memcpy(nesCart.banks[MMC2_CHRBANK0] + 4096, chrMap, 4096);
+					memcpy(nesCart.banks[MMC2_CHRBANK1] + 4096, chrMap, 4096);
+					nesCart.registers[5] = value;
+				}
+			} else if (address < 0xF000) {
+				// high CHR / FE select
+				value &= 0x1F;
+				if (value != nesCart.registers[6]) {
+					unsigned char* chrMap = nesCart.cacheCHRBank(value >> 1) + ((value & 1) << 12);
+					// map to higher 4k of bank 2 and 3
+					memcpy(nesCart.banks[MMC2_CHRBANK2] + 4096, chrMap, 4096);
+					memcpy(nesCart.banks[MMC2_CHRBANK3] + 4096, chrMap, 4096);
+					nesCart.registers[6] = value;
+				}
+			} else {
+				// mirror select
+				if (value & 1) {
+					ppu_setMirrorType(nes_mirror_type::MT_HORIZONTAL);
+				} else {
+					ppu_setMirrorType(nes_mirror_type::MT_VERTICAL);
+				}
+			}
+		}
+	}
+}
+
+void nes_cart::setupMapper9_MMC2() {
+	writeSpecial = MMC2_writeSpecial;
+	renderLatch = MMC2_renderLatch;
+
+	int cachedCount = MMC2_CHRBANK0 - numRAMBanks;
+	cachedPRGCount = cachedCount / 2;
+	cachedCHRCount = cachedCount - cachedPRGCount;
+
+	registers[0] = 0;
+	registers[1] = 0;
+	registers[2] = -1;
+	registers[3] = -1;
+	registers[4] = -1;
+	registers[5] = -1;
+	registers[6] = -1;
+
+	// map memory to read-in ROM
+	mapCPU(0x80, 8, cachePRGBank(0));
+	mapCPU(0xA0, 8, cachePRGBank(numPRGBanks * 2 - 3));
+	mapCPU(0xC0, 8, cachePRGBank(numPRGBanks * 2 - 2));
+	mapCPU(0xE0, 8, cachePRGBank(numPRGBanks * 2 - 1));
+
+	// read first CHR bank (for now) and put it into all 4 CHR banks
+	unsigned char* chrBank = cacheCHRBank(0);
+	memcpy(banks[MMC2_CHRBANK0], chrBank, 1024 * 8);
+	memcpy(banks[MMC2_CHRBANK1], chrBank, 1024 * 8);
+	memcpy(banks[MMC2_CHRBANK2], chrBank, 1024 * 8);
+	memcpy(banks[MMC2_CHRBANK3], chrBank, 1024 * 8);
+	ppu_chrMap = banks[NUM_CACHED_ROM_BANKS-1];
+
+	// RAM bank if one is set up
+	if (numRAMBanks == 1) {
+		mapCPU(0x60, 8, banks[MMC2_CHRBANK0 - 1]);
 	}
 }

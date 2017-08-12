@@ -324,6 +324,41 @@ void fastSprite0() {
 	}
 }
 
+void fastOAMLatchCheck() {
+	unsigned char* curObj = &ppu_oam[252];
+
+	bool sprite16 = (ppu_registers.PPUCTRL & PPUCTRL_SPRSIZE);
+	unsigned int patternOffset = ((!sprite16 && (ppu_registers.PPUCTRL & PPUCTRL_OAMTABLE)) ? 0x1000 : 0x0000);
+
+	int furthestRight = -1;
+	int furthestLatch = 0;
+	for (int i = 0; i < 64; i++) {
+		unsigned int yCoord = ppu_scanline - curObj[0] - 2;
+		if (yCoord == 0) {
+			// determine tile index
+			unsigned int tileMem;
+			if (sprite16) {
+				tileMem = ((((curObj[1] & 1) << 8) + (curObj[1] & 0xFE)) << 4);
+			} else {
+				tileMem = (curObj[1] << 4);
+			}
+
+			if (tileMem >= 0xFD0 && tileMem <= 0xFE0) {
+				if (curObj[3] > furthestRight) {
+					furthestRight = curObj[3];
+					furthestLatch = tileMem + patternOffset + 8;
+				}
+			}
+		}
+
+		curObj -= 4;
+	}
+
+	if (furthestLatch) {
+		nesCart.renderLatch(furthestLatch);
+	}
+}
+
 // TODO : scanline check faster to do with table or function ptr?
 void ppu_step() {
 	TIME_SCOPE();
@@ -360,6 +395,11 @@ void ppu_step() {
 			renderScanline();
 		} else {
 			fastSprite0();
+		}
+
+		// MMC2/4 support
+		if (nesCart.renderLatch) {
+			fastOAMLatchCheck();
 		}
 	} else if (ppu_scanline < 229) {
 		// rendered scanline
@@ -486,29 +526,30 @@ void renderOAM() {
 
 	if (ppu_registers.PPUMASK & PPUMASK_SHOWOBJ) {
 		// render objects to separate buffer
-		bool hadSprite = false;
+		int numSprites = 0;
 		unsigned char* curObj = &ppu_oam[252];
-		unsigned char* patternTable = ppu_chrMap + ((!sprite16 && (ppu_registers.PPUCTRL & PPUCTRL_OAMTABLE)) ? 0x1000 : 0x0000);
+		unsigned int patternOffset = ((!sprite16 && (ppu_registers.PPUCTRL & PPUCTRL_OAMTABLE)) ? 0x1000 : 0x0000);
+		unsigned char* patternTable = ppu_chrMap + patternOffset;
+
 		for (int i = 0; i < 64; i++) {
 			unsigned int yCoord = ppu_scanline - curObj[0] - 2;
 			if (yCoord < spriteSize) {
-				hadSprite = true;
+				numSprites++;
 
 				if (curObj[2] & OAMATTR_VFLIP) yCoord = spriteSize - yCoord - 1;
 
 				// determine tile index
 				unsigned char* tile;
 				if (sprite16) {
-					tile = patternTable + ((((curObj[1] & 1) << 8) + (curObj[1] & 0xFE)) << 4) + ((yCoord & 8) << 1);
-					yCoord &= 7;
+					tile = patternTable + ((((curObj[1] & 1) << 8) + (curObj[1] & 0xFE)) << 4) + ((yCoord & 8) << 1) + (yCoord & 7);
 				} else {
-					tile = patternTable + (curObj[1] << 4);
+					tile = patternTable + (curObj[1] << 4) + yCoord;
 				}
 
 				unsigned int x = curObj[3];
 
 				// interleave the bit planes and assign to char buffer (only unmapped pixels)
-				unsigned int bitPlane = MortonTable[tile[yCoord]] | (MortonTable[tile[yCoord + 8]] << 1);
+				unsigned int bitPlane = MortonTable[tile[0]] | (MortonTable[tile[8]] << 1);
 				unsigned int palette = ((curObj[2] & 3) << 2) + (curObj[2] & OAMATTR_PRIORITY) + 16;
 
 				if (curObj[2] & OAMATTR_HFLIP) {
@@ -535,7 +576,12 @@ void renderOAM() {
 			curObj -= 4;
 		}
 
-		if (hadSprite) {
+		if (numSprites) {
+			// MMC2/4 support
+			if (nesCart.renderLatch) {
+				fastOAMLatchCheck();
+			}
+
 			// mask left 8 pixels
 			if ((ppu_registers.PPUMASK & PPUMASK_SHOWLEFTOBJ) == 0) {
 				for (int i = 0; i < 8; i++) {
@@ -631,7 +677,8 @@ void renderScanline_HorzMirror() {
 		// determine base addresses
 		unsigned char* nameTable;
 		unsigned char* attr;
-		unsigned char* patternTable = ppu_chrMap + ((ppu_registers.PPUCTRL & PPUCTRL_BGDTABLE) << 8) + (line & 7);
+		unsigned int chrOffset = ((ppu_registers.PPUCTRL & PPUCTRL_BGDTABLE) << 8) + (line & 7);
+		unsigned char* patternTable = ppu_chrMap + chrOffset;
 
 		// TODO : Probably some pretty obvious logic to avoid the %=
 		if (ppu_registers.PPUCTRL & PPUCTRL_FLIPYTBL) tileLine += 30;
@@ -667,26 +714,57 @@ void renderScanline_HorzMirror() {
 		int x = 16 - (ppu_registers.SCROLLX & 15);
 		int tileX = (ppu_registers.SCROLLX >> 4) * 2;	// always start on an even numbered tile
 
-		for (int loop = 0; loop < 17; loop++) {
-			// grab and rotate palette selection
-			int palette = (attrPalette & 0x0C);
-			attrPalette = (attrPalette >> 2) | (attrPalette << 30);
+		// MMC2/4 too branch here for faster code:
+		if (nesCart.renderLatch) {
+			for (int loop = 0; loop < 17; loop++) {
+				// grab and rotate palette selection
+				int palette = (attrPalette & 0x0C);
+				attrPalette = (attrPalette >> 2) | (attrPalette << 30);
 
-			// keep tileX mirroring
-			tileX &= 0x1F;
+				// keep tileX mirroring
+				tileX &= 0x1F;
 
-			for (int twice = 0; twice < 2; twice++, x += 8) {
-				int chr = nameTable[tileX++] << 4;
+				for (int twice = 0; twice < 2; twice++, x += 8) {
+					int chr = nameTable[tileX++] << 4;
 
-				int bitPlane = MortonTable[patternTable[chr]] | (MortonTable[patternTable[chr + 8]] << 1);
-				ppu_scanlineBuffer[x + 7] = palette + (bitPlane & 3); bitPlane >>= 2;
-				ppu_scanlineBuffer[x + 6] = palette + (bitPlane & 3); bitPlane >>= 2;
-				ppu_scanlineBuffer[x + 5] = palette + (bitPlane & 3); bitPlane >>= 2;
-				ppu_scanlineBuffer[x + 4] = palette + (bitPlane & 3); bitPlane >>= 2;
-				ppu_scanlineBuffer[x + 3] = palette + (bitPlane & 3); bitPlane >>= 2;
-				ppu_scanlineBuffer[x + 2] = palette + (bitPlane & 3); bitPlane >>= 2;
-				ppu_scanlineBuffer[x + 1] = palette + (bitPlane & 3); bitPlane >>= 2;
-				ppu_scanlineBuffer[x + 0] = palette + (bitPlane & 3);
+					int bitPlane = MortonTable[patternTable[chr]] | (MortonTable[patternTable[chr + 8]] << 1);
+					ppu_scanlineBuffer[x + 7] = palette + (bitPlane & 3); bitPlane >>= 2;
+					ppu_scanlineBuffer[x + 6] = palette + (bitPlane & 3); bitPlane >>= 2;
+					ppu_scanlineBuffer[x + 5] = palette + (bitPlane & 3); bitPlane >>= 2;
+					ppu_scanlineBuffer[x + 4] = palette + (bitPlane & 3); bitPlane >>= 2;
+					ppu_scanlineBuffer[x + 3] = palette + (bitPlane & 3); bitPlane >>= 2;
+					ppu_scanlineBuffer[x + 2] = palette + (bitPlane & 3); bitPlane >>= 2;
+					ppu_scanlineBuffer[x + 1] = palette + (bitPlane & 3); bitPlane >>= 2;
+					ppu_scanlineBuffer[x + 0] = palette + (bitPlane & 3);
+
+					if (chr >= 0xFD0 && nesCart.renderLatch) {
+						nesCart.renderLatch(chr + chrOffset + 8);
+						patternTable = ppu_chrMap + chrOffset;
+					}
+				}
+			}
+		} else {
+			for (int loop = 0; loop < 17; loop++) {
+				// grab and rotate palette selection
+				int palette = (attrPalette & 0x0C);
+				attrPalette = (attrPalette >> 2) | (attrPalette << 30);
+
+				// keep tileX mirroring
+				tileX &= 0x1F;
+
+				for (int twice = 0; twice < 2; twice++, x += 8) {
+					int chr = nameTable[tileX++] << 4;
+
+					int bitPlane = MortonTable[patternTable[chr]] | (MortonTable[patternTable[chr + 8]] << 1);
+					ppu_scanlineBuffer[x + 7] = palette + (bitPlane & 3); bitPlane >>= 2;
+					ppu_scanlineBuffer[x + 6] = palette + (bitPlane & 3); bitPlane >>= 2;
+					ppu_scanlineBuffer[x + 5] = palette + (bitPlane & 3); bitPlane >>= 2;
+					ppu_scanlineBuffer[x + 4] = palette + (bitPlane & 3); bitPlane >>= 2;
+					ppu_scanlineBuffer[x + 3] = palette + (bitPlane & 3); bitPlane >>= 2;
+					ppu_scanlineBuffer[x + 2] = palette + (bitPlane & 3); bitPlane >>= 2;
+					ppu_scanlineBuffer[x + 1] = palette + (bitPlane & 3); bitPlane >>= 2;
+					ppu_scanlineBuffer[x + 0] = palette + (bitPlane & 3);
+				}
 			}
 		}
 	} else {
@@ -720,7 +798,8 @@ void renderScanline_VertMirror() {
 		unsigned char* nameTable;
 		unsigned char* attr;
 		int attrShift = (tileLine & 2) << 1;	// 4 bit shift for bottom row of attribute
-		unsigned char* patternTable = ppu_chrMap + ((ppu_registers.PPUCTRL & PPUCTRL_BGDTABLE) << 8) + (line & 7);
+		unsigned int chrOffset = ((ppu_registers.PPUCTRL & PPUCTRL_BGDTABLE) << 8) + (line & 7);
+		unsigned char* patternTable = ppu_chrMap + chrOffset;
 
 		if (ppu_registers.PPUCTRL & PPUCTRL_FLIPXTBL) scrollX += 256;
 
@@ -731,6 +810,48 @@ void renderScanline_VertMirror() {
 		
 		nameTable = &ppu_nameTables[nameTableIndex].table[tileLine << 5];
 		attr = &ppu_nameTables[nameTableIndex].attr[(tileLine >> 2) << 3];
+
+		// For MMC2/4... this only supported on a per scanline basis (doesn't allow switching this bank mid scanline)
+		if (nesCart.renderLatch) {
+			// a bit hacky but.. the tiles that are "meant" to be rendered are the first to appear after a render latch
+			bool hadLatch = false;
+			int curTileX = tileX & 0x1F;
+			int numOn2nd = 34 - (32 - curTileX);
+			while (curTileX < 32) {
+				int chr = nameTable[curTileX++];
+
+				if (chr >= 0xFD) {
+					nesCart.renderLatch((chr << 4) + chrOffset + 8);
+					hadLatch = true;
+				} else if (hadLatch) {
+					numOn2nd = 0;
+					break;
+				}
+			}
+
+			// now render the other nametable until scanline is complete
+			curTileX = 0;
+			nameTableIndex = 1 - nameTableIndex;
+			nameTable = &ppu_nameTables[nameTableIndex].table[tileLine << 5];
+
+			while (curTileX < numOn2nd) {
+				int chr = nameTable[curTileX++];
+
+				if (chr >= 0xFD && nesCart.renderLatch) {
+					nesCart.renderLatch((chr << 4) + chrOffset + 8);
+					hadLatch = true;
+				} else if (hadLatch) {
+					break;
+				}
+			}
+
+			nameTableIndex = 1 - nameTableIndex;
+			nameTable = &ppu_nameTables[nameTableIndex].table[tileLine << 5];
+
+			if (hadLatch) {
+				patternTable = ppu_chrMap + chrOffset;
+			}
+		}
 
 		// render tileX up to the end of the current nametable
 		int curTileX = tileX & 0x1F;
