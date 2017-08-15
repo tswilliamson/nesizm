@@ -79,6 +79,8 @@ struct nes_cart {
 	void setupMapper1_MMC1();
 	void MMC1_Write(unsigned int addr, int regValue);
 
+	void setupMapper2_UNROM();
+
 	void setupMapper9_MMC2();
 };
 
