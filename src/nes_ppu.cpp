@@ -388,6 +388,9 @@ void ppu_step() {
 		// scroll Y is cached
 		ppu_scrollY = ppu_registers.SCROLLY;
 
+		if (nesCart.scanlineClock) {
+			nesCart.scanlineClock();
+		}
 	} else if (ppu_scanline < 13) {
 		// non-resolved but active scanline (may cause sprite 0 collision)
 		// TODO : sprite 0 collision only render version?
@@ -400,6 +403,10 @@ void ppu_step() {
 		// MMC2/4 support
 		if (nesCart.renderLatch) {
 			fastOAMLatchCheck();
+		}
+
+		if (nesCart.scanlineClock) {
+			nesCart.scanlineClock();
 		}
 	} else if (ppu_scanline < 229) {
 		// rendered scanline
@@ -419,6 +426,9 @@ void ppu_step() {
 			fastSprite0();
 		}
 
+		if (nesCart.scanlineClock) {
+			nesCart.scanlineClock();
+		}
 	} else if (ppu_scanline < 241) {
 		// non-resolved scanline
 		if (!skipFrame) {
@@ -426,11 +436,15 @@ void ppu_step() {
 		} else {
 			fastSprite0();
 		}
-	} else if (ppu_scanline == 242) {
+
+		if (nesCart.scanlineClock) {
+			nesCart.scanlineClock();
+		}
+	} else if (ppu_scanline == 241) {
 		// blank scanline area, trigger NMI next scanline
 		ppu_triggerNMI = (mainCPU.clocks > 140000);
 		ppu_setVBL = (mainCPU.clocks > 30000);
-	} else if (ppu_scanline == 243) {
+	} else if (ppu_scanline == 242) {
 		if (ppu_setVBL) {
 			ppu_registers.PPUSTATUS |= PPUCTRL_NMI;
 		}

@@ -26,14 +26,17 @@ struct nes_cart {
 	int isBatteryBacked;			// 0 if no battery backup
 	int isPAL;						// 1 if PAL, 0 if NTSC
 
-	// up to 8 internal registers
-	unsigned int registers[8];
+	// up to 16 internal registers
+	unsigned int registers[16];
 
 	// called on all writes over 0x4020
 	void(*writeSpecial)(unsigned int address, unsigned char value);
 
 	// called on PPU render reads beyond 0xFD0 in order to last different CHR map (used by MMC2 for Punch Out)
 	void(*renderLatch)(unsigned int ppuAddress);
+
+	// called per scanling from PPU if set, used for MMC3
+	void(*scanlineClock)();
 
 	// 8kb banks for various usages based on mapper (allocated on stack due to Prizm deficiencies
 	unsigned char* banks[NUM_CACHED_ROM_BANKS];	
@@ -80,6 +83,10 @@ struct nes_cart {
 	void MMC1_Write(unsigned int addr, int regValue);
 
 	void setupMapper2_UNROM();
+
+	void setupMapper4_MMC3();
+	void MMC3_UpdateMapping(int regNumber);
+	static void MMC3_ScanlineClock();
 
 	void setupMapper9_MMC2();
 };

@@ -165,6 +165,9 @@ bool nes_cart::setupMapper() {
 		case 2:
 			setupMapper2_UNROM();
 			return true;
+		case 4:
+			setupMapper4_MMC3();
+			return true;
 		case 9:
 			setupMapper9_MMC2();
 			return true;
@@ -584,6 +587,102 @@ void nes_cart::setupMapper2_UNROM() {
 	if (numRAMBanks == 1) {
 		mapCPU(0x60, 8, banks[4]);
 	}
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// MMC3 (most popular mapper with IRQ)
+
+// register 0-7 holds the 8 bank registers
+
+// register 8 is the bank select register (control values)
+// register 9 is the IRQ counter latch value
+// register 10 is the IRQ counter reload flag
+// register 11 is the actual IRQ counter value
+// register 12 is the IRQ interrupt triggle enable/disable flag
+
+void MMC3_writeSpecial(unsigned int address, unsigned char value) {
+	if (address >= 0x6000) {
+		if (address < 0x8000) {
+			if (nesCart.numRAMBanks) {
+				// RAM
+				mainCPU.map[address >> 8][address & 0xFF] = value;
+			} else {
+				// open bus
+			}
+		} else if (address < 0xA000) {
+			if (!(address & 1)) {
+				// bank select
+				if (nesCart.registers[8] != value) {
+					// upper two bits changing effects the entire current memory mapping
+					int upperBits = (nesCart.registers[8] ^ value) & 0xC0;
+					nesCart.registers[8] = value;
+					if (upperBits) {
+						nesCart.MMC3_UpdateMapping(-1);
+					}
+				}
+			} else {
+				// bank data
+				int targetReg = nesCart.registers[8] & 7;
+				if (nesCart.registers[targetReg] != value) {
+					nesCart.registers[targetReg] = value;
+					nesCart.MMC3_UpdateMapping(targetReg);
+				}
+			}
+		}
+		else if (address < 0xC000) {
+			if (!(address & 1)) {
+				// mirroring
+				if (value & 1) {
+					ppu_setMirrorType(nes_mirror_type::MT_HORIZONTAL);
+				} else {
+					ppu_setMirrorType(nes_mirror_type::MT_VERTICAL);
+				}
+			} else {
+				// RAM protect
+				// TODO : support reading open bus
+				DebugAssert(value & 0x80);
+			}
+		}
+		else if (address < 0xE000) {
+			if (!(address & 1)) {
+				// IRQ counter reload value
+				nesCart.registers[9] = value;
+			} else {
+				// set IRQ counter reload flag
+				nesCart.registers[10] = 1;
+			}
+		}
+		else {
+			if (!(address & 1)) {
+				// disable IRQ interrupt
+				nesCart.registers[12] = 0;
+			} else {
+				// enable IRQ interrupt
+				nesCart.registers[12] = 1;
+			}
+		}
+	}
+}
+
+void nes_cart::MMC3_UpdateMapping(int regNumber) {
+
+}
+
+void nes_cart::MMC3_ScanlineClock() {
+
+}
+
+void nes_cart::setupMapper4_MMC3() {
+	writeSpecial = MMC3_writeSpecial;
+	scanlineClock = MMC3_ScanlineClock;
+
+	memset(registers, 0, sizeof(registers));
+
+	// set fixed page up
+
+
+	// this will set up all non permanent memory
+	MMC3_UpdateMapping(-1);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
