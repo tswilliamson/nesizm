@@ -20,7 +20,10 @@ unsigned int ppu_frameCounter = 0;
 static bool ppu_triggerNMI = false;
 static bool ppu_setVBL = false;
 static int ppu_writeToggle = 0;
+
+// partial representation of PPU side registers we maintain for scrolling determination
 static int ppu_scrollY = 0;
+static bool ppu_flipY = false;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Scanline handling
@@ -39,6 +42,27 @@ void finishFrame_DMA();
 void resolveScanline_VRAM();		
 void finishFrame_VRAM();		
 #endif
+
+void ppu_copyYScrollRegs() {
+	ppu_scrollY = ppu_registers.SCROLLY;
+	ppu_flipY = (ppu_registers.PPUCTRL & PPUCTRL_FLIPYTBL) != 0;
+}
+
+void ppu_midFrameScrollUpdate() {
+	// update ppu_scrollY to account for current scanline offset
+	int actualScrollY = ppu_scrollY;
+	if (actualScrollY >= 240) {
+		actualScrollY -= 255;
+	}
+	actualScrollY -= ppu_scanline - 1;
+
+	if (actualScrollY < 0) {
+		ppu_flipY = !ppu_flipY;
+		actualScrollY += 240;
+	}
+
+	ppu_scrollY = actualScrollY;
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Palette
@@ -198,11 +222,22 @@ void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
 			ppu_writeToggle = 1 - ppu_writeToggle;
 			break;
 		case 0x06:  // ADDRHI/LO
+			// address writes always effect nametable and scroll bits as well, and will copy result mid-render
+
 			if (ppu_writeToggle == 1) {
+				// effects coarse scrollX, and scrollY, and applies write to Y scroll mid frame if need be
+				SCROLLX = (SCROLLX & 0x07) | ((value & 0x1F) << 3);
+				SCROLLY = (SCROLLY & 0xC7) | ((value & 0xE0) >> 2);
+				ppu_copyYScrollRegs();
+				if (ppu_scanline > 1 && ppu_scanline < 241) {
+					ppu_midFrameScrollUpdate();
+				}
 				latch = &ADDRLO;
 			} else {
-				// TODO : write PPUCTRL bits? should use the ppu scroll v/t stuff
+				// nametable bits in first write
 				PPUCTRL = (PPUCTRL & 0xFC) | ((value & 0x0C) >> 2);
+				// also scroll Y a bit weirdly
+				SCROLLY = (SCROLLY & 0x38) | ((value & 0x03) << 6) | ((value & 0x30) >> 4);
 				latch = &ADDRHI;
 			}
 
@@ -385,8 +420,8 @@ void ppu_step() {
 		ppu_registers.PPUSTATUS &= ~PPUSTAT_NMI;			// clear vblank flag
 		ppu_registers.PPUSTATUS &= ~PPUSTAT_SPRITE0;		// clear sprite 0 collision flag
 
-		// scroll Y is cached
-		ppu_scrollY = ppu_registers.SCROLLY;
+		// time to copy y scroll regs
+		ppu_copyYScrollRegs();
 
 		if (nesCart.scanlineClock) {
 			nesCart.scanlineClock();
@@ -694,9 +729,10 @@ void renderScanline_HorzMirror() {
 		unsigned int chrOffset = ((ppu_registers.PPUCTRL & PPUCTRL_BGDTABLE) << 8) + (line & 7);
 		unsigned char* patternTable = ppu_chrMap + chrOffset;
 
-		// TODO : Probably some pretty obvious logic to avoid the %=
-		if (ppu_registers.PPUCTRL & PPUCTRL_FLIPYTBL) tileLine += 30;
-		tileLine %= 60;
+		if (ppu_flipY) {
+			tileLine += 30;
+			if (tileLine >= 60) tileLine -= 60;
+		}
 
 		if (tileLine < 30) {
 			nameTable = &ppu_nameTables[0].table[tileLine << 5];
