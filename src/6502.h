@@ -34,6 +34,9 @@ struct cpu_6502 {
 
 	// clock cycle counter
 	unsigned int clocks;
+
+	// clocks for next IRQ, 0 if disabled
+	unsigned int irqClocks;
 };		
 
 struct cpu_instr_history {
@@ -69,6 +72,9 @@ void cpu6502_Init();
 
 // this is done statically to obtain static addressing optimizations
 void cpu6502_Step();
+
+// performs IRQ interrupt
+void cpu6502_IRQ();
 
 // runs device interrupt routine at the given vector address (if interrupt disable flag is 0)
 void cpu6502_DeviceInterrupt(unsigned int vectorAddress, bool masked);

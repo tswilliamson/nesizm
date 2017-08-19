@@ -776,7 +776,13 @@ inline void cpu6502_PerformInstruction() {
 void cpu6502_Step() {
 	TIME_SCOPE();
 
-	for (; mainCPU.clocks < mainCPU.ppuClocks;) {
+	// stop at next PPU or IRQ
+	int nextClocks = mainCPU.ppuClocks;
+	if (mainCPU.irqClocks && mainCPU.irqClocks < mainCPU.ppuClocks) {
+		nextClocks = mainCPU.irqClocks;
+	}
+
+	for (; mainCPU.clocks < nextClocks;) {
 		cpu6502_PerformInstruction();
 	}
 }

@@ -600,6 +600,9 @@ void nes_cart::setupMapper2_UNROM() {
 // register 11 is the actual IRQ counter value
 // register 12 is the IRQ interrupt triggle enable/disable flag
 
+#define MMC3_CHRBANK0 (NUM_CACHED_ROM_BANKS - 2)
+#define MMC3_CHRBANK1 (NUM_CACHED_ROM_BANKS - 1)
+
 void MMC3_writeSpecial(unsigned int address, unsigned char value) {
 	if (address >= 0x6000) {
 		if (address < 0x8000) {
@@ -617,7 +620,14 @@ void MMC3_writeSpecial(unsigned int address, unsigned char value) {
 					int upperBits = (nesCart.registers[8] ^ value) & 0xC0;
 					nesCart.registers[8] = value;
 					if (upperBits) {
-						nesCart.MMC3_UpdateMapping(-1);
+						if (upperBits & 0x40) {
+							// PRG bank mode change
+							nesCart.MMC3_UpdateMapping(-1);
+						}
+						if (upperBits & 0x80) {
+							// CHR mode change, fast A12 switch
+							ppu_chrMap = (upperBits & 0x80) ? nesCart.banks[MMC3_CHRBANK1] : nesCart.banks[MMC3_CHRBANK0];
+						}
 					}
 				}
 			} else {
@@ -640,7 +650,7 @@ void MMC3_writeSpecial(unsigned int address, unsigned char value) {
 			} else {
 				// RAM protect
 				// TODO : support reading open bus
-				DebugAssert(value & 0x80);
+				// DebugAssert(value & 0x80);
 			}
 		}
 		else if (address < 0xE000) {
@@ -665,11 +675,126 @@ void MMC3_writeSpecial(unsigned int address, unsigned char value) {
 }
 
 void nes_cart::MMC3_UpdateMapping(int regNumber) {
+	switch (regNumber) {
+		case 0:
+		{
+			// 2 KB bank at $00 and $10
+			unsigned char* chrData = cacheCHRBank(registers[0] >> 3) + (registers[0] & 0x6) * 1024;
+			memcpy(banks[MMC3_CHRBANK0] + 0x0000, chrData, 2048);
+			memcpy(banks[MMC3_CHRBANK1] + 0x1000, chrData, 2048);
+			break;
+		}
+		case 1:
+		{
+			// 2 KB bank at $08 and $18
+			unsigned char* chrData = cacheCHRBank(registers[1] >> 3) + (registers[1] & 0x6) * 1024;
+			memcpy(banks[MMC3_CHRBANK0] + 0x0800, chrData, 2048);
+			memcpy(banks[MMC3_CHRBANK1] + 0x1800, chrData, 2048);
+			break;
+		}
+		case 2:
+		{
+			// 1 KB bank at $10 and $00
+			unsigned char* chrData = cacheCHRBank(registers[2] >> 3) + (registers[2] & 0x7) * 1024;
+			memcpy(banks[MMC3_CHRBANK0] + 0x1000, chrData, 1024);
+			memcpy(banks[MMC3_CHRBANK1] + 0x0000, chrData, 1024);
+			break;
+		}
+		case 3:
+		{
+			// 1 KB bank at $14 and $04
+			unsigned char* chrData = cacheCHRBank(registers[3] >> 3) + (registers[3] & 0x7) * 1024;
+			memcpy(banks[MMC3_CHRBANK0] + 0x1400, chrData, 1024);
+			memcpy(banks[MMC3_CHRBANK1] + 0x0400, chrData, 1024);
+			break;
+		}
+		case 4:
+		{
+			// 1 KB bank at $18 and $08
+			unsigned char* chrData = cacheCHRBank(registers[4] >> 3) + (registers[4] & 0x7) * 1024;
+			memcpy(banks[MMC3_CHRBANK0] + 0x1800, chrData, 1024);
+			memcpy(banks[MMC3_CHRBANK1] + 0x0800, chrData, 1024);
+			break;
+		}
+		case 5:
+		{
+			// 1 KB bank at $1C and $0C
+			unsigned char* chrData = cacheCHRBank(registers[5] >> 3) + (registers[5] & 0x7) * 1024;
+			memcpy(banks[MMC3_CHRBANK0] + 0x1C00, chrData, 1024);
+			memcpy(banks[MMC3_CHRBANK1] + 0x0C00, chrData, 1024);
+			break;
+		}
+		case 6:
+		{
+			// select bank at 80 (or C0)
+			int prgBank = registers[6] & (numPRGBanks * 2 - 1);
+			unsigned char* prgData = cachePRGBank(prgBank);
+			if (registers[8] & 0x40) {
+				mapCPU(0xC0, 8, prgData);
+			} else {
+				mapCPU(0x80, 8, prgData);
+			}
+			break;
+		}
+		case 7:
+		{
+			// select bank at A0
+			int prgBank = registers[7] & (numPRGBanks * 2 - 1);
+			unsigned char* prgData = cachePRGBank(prgBank);
+			mapCPU(0xA0, 8, prgData);
+			break;
+		}
+	}
 
+	if (regNumber == -1) {
+		for (int i = 0; i < 8; i++) {
+			MMC3_UpdateMapping(i);
+		}
+
+		// possible bank mode change
+		unsigned char* penultBank = cachePRGBank(numPRGBanks * 2 - 2);
+		if (registers[8] & 0x40) {
+			// 2nd to last bank set to 80-9F
+			mapCPU(0x80, 8, penultBank);
+		} else {
+			// 2nd to last bank set to C0-DF
+			mapCPU(0xC0, 8, penultBank);
+		}
+	}
 }
 
 void nes_cart::MMC3_ScanlineClock() {
+	int flipCycles = -1;
+	if (ppu_registers.PPUCTRL & PPUCTRL_OAMTABLE) {
+		if (!(ppu_registers.PPUCTRL & PPUCTRL_BGDTABLE)) {
+			// BG uses 0x0000, OAM uses 0x1000
+			flipCycles = 82;
+		}
+	} else {
+		if (ppu_registers.PPUCTRL & PPUCTRL_BGDTABLE) {
+			// BG uses 0x1000, OAM uses 0x0000
+			flipCycles = 0;
+		} else if (ppu_registers.PPUCTRL & PPUCTRL_SPRSIZE) {
+			// BG uses 0x0000, OAM uses 0x0000, but 8x16 sprites
+			flipCycles = 82;
+		}
+	}
 
+	if (flipCycles >= 0) {
+		// perform counter
+		if (nesCart.registers[10] || nesCart.registers[11] == 0) {
+			// reload counter value
+			nesCart.registers[11] = nesCart.registers[9];
+			nesCart.registers[10] = 0;
+		} else {
+			nesCart.registers[11]--;
+
+			if (nesCart.registers[11] == 0 && nesCart.registers[12]) {
+				// trigger an IRQ
+				mainCPU.irqClocks = mainCPU.clocks + flipCycles;
+			}
+		}
+	}
 }
 
 void nes_cart::setupMapper4_MMC3() {
@@ -678,8 +803,21 @@ void nes_cart::setupMapper4_MMC3() {
 
 	memset(registers, 0, sizeof(registers));
 
-	// set fixed page up
+	// 2 banks for chr memory to allow fast A12 CHR inversion
+	int cachedCount = MMC3_CHRBANK0 - numRAMBanks;
+	cachedPRGCount = cachedCount / 2;
+	cachedCHRCount = cachedCount - cachedPRGCount;
 
+	ppu_chrMap = banks[MMC3_CHRBANK0];
+
+	// set fixed page up
+	unsigned char* finalBank = cachePRGBank(numPRGBanks * 2 - 1);
+	mapCPU(0xE0, 8, finalBank);
+
+	// RAM bank if one is set up
+	if (numRAMBanks == 1) {
+		mapCPU(0x60, 8, banks[MMC3_CHRBANK0 - 1]);
+	}
 
 	// this will set up all non permanent memory
 	MMC3_UpdateMapping(-1);

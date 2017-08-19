@@ -54,7 +54,7 @@ void ppu_midFrameScrollUpdate() {
 	if (actualScrollY >= 240) {
 		actualScrollY -= 255;
 	}
-	actualScrollY -= ppu_scanline - 1;
+	actualScrollY -= ppu_scanline - 2;
 
 	if (actualScrollY < 0) {
 		ppu_flipY = !ppu_flipY;
@@ -518,6 +518,11 @@ void ppu_step() {
 
 		// frame timing .. total ppu frame should be every 29780.5 ppu clocks
 		mainCPU.ppuClocks -= 1;
+
+		// one scanline "ahead"
+		if (nesCart.scanlineClock) {
+			nesCart.scanlineClock();
+		}
 	}
 
 	ppu_scanline++;

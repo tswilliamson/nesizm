@@ -110,3 +110,13 @@ void nes_cpu::reset() {
 	// trigger reset interrupt
 	cpu6502_SoftwareInterrupt(0xFFFC);
 }
+
+void cpu6502_IRQ() {
+	// disable IRQ
+	mainCPU.irqClocks = 0;
+
+	// perform interrupt if they are enabled
+	if ((mainCPU.P & ST_INT) == 0) {
+		cpu6502_SoftwareInterrupt(0xFFFE);
+	}
+}

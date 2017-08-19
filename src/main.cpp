@@ -69,7 +69,8 @@ int main(void) {
 
 		while (!shouldExit) {
 			cpu6502_Step();
-			ppu_step();
+			if (mainCPU.clocks >= mainCPU.ppuClocks) ppu_step();
+			if (mainCPU.irqClocks && mainCPU.clocks >= mainCPU.irqClocks) cpu6502_IRQ();
 		}
 
 		nesCart.unload();
