@@ -233,7 +233,7 @@ inline void PHP() {
 
 // PLP (pop processor status ignoring bit 4)
 inline void PLP() {
-	mainCPU.P |= mainCPU.pop() & ~(ST_BRK);
+	mainCPU.P = mainCPU.pop() & ~(ST_BRK);
 	resolveFromP();
 }
 
