@@ -84,6 +84,8 @@ struct nes_cart {
 
 	void setupMapper2_UNROM();
 
+	void setupMapper3_CNROM();
+
 	void setupMapper4_MMC3();
 	void MMC3_UpdateMapping(int regNumber);
 	static void MMC3_ScanlineClock();

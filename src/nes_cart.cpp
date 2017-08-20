@@ -170,6 +170,9 @@ bool nes_cart::setupMapper() {
 		case 2:
 			setupMapper2_UNROM();
 			return true;
+		case 3:
+			setupMapper3_CNROM();
+			return true;
 		case 4:
 			setupMapper4_MMC3();
 			return true;
@@ -581,7 +584,7 @@ void nes_cart::setupMapper2_UNROM() {
 
 	// read CHR bank (always one ROM.. or RAM?) directly into PPU chrMap
 	if (numCHRBanks == 1) {
-		Bfile_ReadFile_OS(handle, banks[chrBank], 8192, -1);
+		Bfile_ReadFile_OS(handle, banks[chrBank], 8192, 16 + 16384 * numPRGBanks);
 	}
 	ppu_chrMap = banks[chrBank];
 
@@ -596,6 +599,56 @@ void nes_cart::setupMapper2_UNROM() {
 	// RAM bank if one is set up
 	if (numRAMBanks == 1) {
 		mapCPU(0x60, 8, banks[chrBank + 1]);
+	}
+}
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// CNROM (switchable CHR banks)
+
+// registers[0] = current mapped CHR bank
+
+void CNROM_writeSpecial(unsigned int address, unsigned char value) {
+	if (address >= 0x6000) {
+		if (address < 0x8000) {
+			if (nesCart.numRAMBanks) {
+				// RAM
+				mainCPU.map[address >> 8][address & 0xFF] = value;
+			}
+		} else {
+			// CHR bank select
+			value &= nesCart.numCHRBanks - 1;
+
+			if (value != nesCart.registers[0]) {
+				ppu_chrMap = nesCart.cacheCHRBank(value);
+				nesCart.registers[0] = value;
+			}
+		}
+	}
+}
+
+void nes_cart::setupMapper3_CNROM() {
+	writeSpecial = UNROM_writeSpecial;
+
+	// PRG banks are just loaded in
+	cachedPRGCount = numPRGBanks * 2;
+	cachedCHRCount = NUM_CACHED_ROM_BANKS - 1 - numRAMBanks - cachedPRGCount;
+
+	// map first 16 KB of PRG mamory to 80-BF, and last 16 KB to C0-FF
+	unsigned char* firstBank[2] = { cachePRGBank(0), cachePRGBank(1) };
+	mapCPU(0x80, 8, firstBank[0]);
+	mapCPU(0xA0, 8, firstBank[1]);
+	unsigned char* lastBank[2] = { cachePRGBank(numPRGBanks * 2 - 2), cachePRGBank(numPRGBanks * 2 - 1) };
+	mapCPU(0xC0, 8, lastBank[0]);
+	mapCPU(0xE0, 8, lastBank[1]);
+
+	// cache first CHR bank by default
+	ppu_chrMap = nesCart.cacheCHRBank(0);
+	nesCart.registers[0] = 0;
+
+	// RAM bank if one is set up
+	if (numRAMBanks == 1) {
+		mapCPU(0x60, 8, banks[NUM_CACHED_ROM_BANKS - 1]);
 	}
 }
 
@@ -889,7 +942,7 @@ void nes_cart::setupMapper7_AOROM() {
 
 	// read CHR bank (always one ROM.. or RAM?) directly into PPU chrMap
 	if (numCHRBanks == 1) {
-		Bfile_ReadFile_OS(handle, banks[chrBank], 8192, -1);
+		Bfile_ReadFile_OS(handle, banks[chrBank], 8192, 16 + 16384 * numPRGBanks);
 	}
 	ppu_chrMap = banks[chrBank];
 

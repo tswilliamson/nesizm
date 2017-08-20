@@ -20,6 +20,7 @@ static unsigned int memWriteBreakpoint = 0xfffff;
 static cpu_instr_history traceHistory[NUM_TRACED] = { 0 };
 static unsigned int traceNum;
 void HitBreakpoint();
+void IllegalInstruction();
 static int traceLineRemaining = 0;
 #endif
 
@@ -747,7 +748,14 @@ inline void cpu6502_PerformInstruction() {
 #define OPCODE_ZRY(op,str,clk,sz,page,name,spc) OPCODE_START(op,clk,sz) effAddr = (data1 + mainCPU.Y) & 0xFF;	name##_ZERO(effAddr); OPCODE_END(spc) 
 
 		#include "6502_opcodes.inl"
-		default: DebugAssert(false); 
+		default:
+		{
+#if TRACE_DEBUG
+			IllegalInstruction();
+#else
+			DebugAssert(false);
+#endif
+		}
 	};
 
 #if TRACE_DEBUG
@@ -870,6 +878,16 @@ void HitBreakpoint() {
 		traceHistory[(traceNum - i + NUM_TRACED) % NUM_TRACED].output();
 	}
 	OutputLog("Hit breakpoint at %04x!\n", cpuBreakpoint);
+
+	DebugBreak();
+}
+
+void IllegalInstruction() {
+	OutputLog("CPU Instruction Trace:\n");
+	for (int i = NUM_TRACED - 1; i > 0; i--) {
+		traceHistory[(traceNum - i + NUM_TRACED) % NUM_TRACED].output();
+	}
+	OutputLog("Encountered illegal instruction at %04x (0x%02x)!\n", mainCPU.PC, mainCPU.read(mainCPU.PC));
 
 	DebugBreak();
 }
