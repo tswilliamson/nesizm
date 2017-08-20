@@ -10,7 +10,7 @@ extern void PPUBreakpoint();
 // ppu statics
 ppu_registers_type ppu_registers;
 unsigned char ppu_oam[0x100] = { 0 };
-nes_nametable ppu_nameTables[4];
+nes_nametable* ppu_nameTables = NULL;
 unsigned char ppu_palette[0x20] = { 0 };
 int ppu_workingPalette[0x20] = { 0 };
 unsigned char* ppu_chrMap = { 0 };

@@ -7,6 +7,8 @@
 
 nes_cart nesCart;
 
+nes_nametable nes_onboardPPUTables[2];
+
 nes_cart::nes_cart() : writeSpecial(NULL) {
 	handle = 0;
 	file[0] = 0;
@@ -152,6 +154,9 @@ void nes_cart::unload() {
 bool nes_cart::setupMapper() {
 	renderLatch = NULL;
 	writeSpecial = NULL;
+
+	// most mirror configs just use the on board ppu nametables:
+	ppu_nameTables = nes_onboardPPUTables;
 
 	clearCacheData();
 
@@ -549,9 +554,11 @@ void nes_cart::setupMapper1_MMC1() {
 
 void UNROM_writeSpecial(unsigned int address, unsigned char value) {
 	if (address >= 0x6000) {
-		if (address < 0x8000 && nesCart.numRAMBanks) {
-			// RAM
-			mainCPU.map[address >> 8][address & 0xFF] = value;
+		if (address < 0x8000) {
+			if (nesCart.numRAMBanks) {
+				// RAM
+				mainCPU.map[address >> 8][address & 0xFF] = value;
+			}
 		} else {
 			// bank select
 			value &= nesCart.numPRGBanks - 1;
@@ -566,7 +573,7 @@ void UNROM_writeSpecial(unsigned int address, unsigned char value) {
 void nes_cart::setupMapper2_UNROM() {
 	writeSpecial = UNROM_writeSpecial;
 
-	cachedPRGCount = NUM_CACHED_ROM_BANKS - 1;
+	cachedPRGCount = NUM_CACHED_ROM_BANKS - 1 - numRAMBanks;
 	int chrBank = cachedPRGCount;
 
 	// read CHR bank (always one ROM.. or RAM?) directly into PPU chrMap
@@ -585,7 +592,7 @@ void nes_cart::setupMapper2_UNROM() {
 
 	// RAM bank if one is set up
 	if (numRAMBanks == 1) {
-		mapCPU(0x60, 8, banks[4]);
+		mapCPU(0x60, 8, banks[chrBank + 1]);
 	}
 }
 
@@ -821,6 +828,80 @@ void nes_cart::setupMapper4_MMC3() {
 
 	// this will set up all non permanent memory
 	MMC3_UpdateMapping(-1);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// AOROM (switches nametables for single screen mirroring)
+
+// registers[0] = current nametable page (1 or 0)
+
+#define AOROM_NAMEBANK NUM_CACHED_ROM_BANKS - 1
+
+inline void AOROM_MapNameBank(int tableNum) {
+	ppu_nameTables = (nes_nametable*)(nesCart.banks[AOROM_NAMEBANK] + 4096 * tableNum);
+}
+
+void AOROM_writeSpecial(unsigned int address, unsigned char value) {
+	if (address >= 0x6000) {
+		if (address < 0x8000) {
+			if (nesCart.numRAMBanks) {
+				// RAM
+				mainCPU.map[address >> 8][address & 0xFF] = value;
+			}
+		} else {
+			// nametable select
+			int nametable = (value >> 4) & 1;
+			if (nametable != nesCart.registers[0]) {
+				AOROM_MapNameBank(nametable);
+				nesCart.registers[0] = nametable;
+			}
+
+			// bank select
+
+			// mask to the number of 32 kb banks we have
+			value &= nesCart.numPRGBanks / 2 - 1;
+
+			// 32 kb at a time
+			unsigned char* selected[4] = {
+				nesCart.cachePRGBank(value*4),
+				nesCart.cachePRGBank(value*4+1),
+				nesCart.cachePRGBank(value*4+2),
+				nesCart.cachePRGBank(value*4+3)
+			};
+			mapCPU(0x80, 8, selected[0]);
+			mapCPU(0xA0, 8, selected[1]);
+			mapCPU(0xC0, 8, selected[2]);
+			mapCPU(0xE0, 8, selected[3]);
+		}
+	}
+}
+
+void nes_cart::setupMapper7_AOROM() {
+	writeSpecial = AOROM_writeSpecial;
+
+	cachedPRGCount = AOROM_NAMEBANK - 1 - numRAMBanks;
+	int chrBank = cachedPRGCount;
+
+	registers[0] = 0;
+
+	// read CHR bank (always one ROM.. or RAM?) directly into PPU chrMap
+	if (numCHRBanks == 1) {
+		Bfile_ReadFile_OS(handle, banks[chrBank], 8192, -1);
+	}
+	ppu_chrMap = banks[chrBank];
+
+	// map first 16 KB of PRG mamory to 80-BF by default, and last 16 KB to C0-FF
+	unsigned char* firstBank[2] = { cachePRGBank(0), cachePRGBank(1) };
+	mapCPU(0x80, 8, firstBank[0]);
+	mapCPU(0xA0, 8, firstBank[1]);
+	unsigned char* lastBank[2] = { cachePRGBank(numPRGBanks * 2 - 2), cachePRGBank(numPRGBanks * 2 - 1) };
+	mapCPU(0xC0, 8, lastBank[0]);
+	mapCPU(0xE0, 8, lastBank[1]);
+
+	// RAM bank if one is set up
+	if (numRAMBanks == 1) {
+		mapCPU(0x60, 8, banks[chrBank + 1]);
+	}
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////

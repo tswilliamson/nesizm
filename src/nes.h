@@ -88,6 +88,8 @@ struct nes_cart {
 	void MMC3_UpdateMapping(int regNumber);
 	static void MMC3_ScanlineClock();
 
+	void setupMapper7_AOROM();
+
 	void setupMapper9_MMC2();
 };
 
@@ -169,7 +171,7 @@ extern ppu_registers_type ppu_registers;
 extern unsigned char ppu_oam[0x100];
 
 // up to four name tables potentially (most games use 2)
-extern nes_nametable ppu_nameTables[4];
+extern nes_nametable* ppu_nameTables;
 
 // palette ram (first 16 bytes are BG, second are OBJ palettes)
 extern unsigned char ppu_palette[0x20];
