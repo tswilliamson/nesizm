@@ -134,6 +134,7 @@ namespace nes_mirror_type {
 		MT_UNSET,
 		MT_HORIZONTAL,
 		MT_VERTICAL,
+		MT_SINGLE,
 		MT_4PANE
 	};
 }

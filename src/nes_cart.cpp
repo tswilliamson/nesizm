@@ -173,6 +173,9 @@ bool nes_cart::setupMapper() {
 		case 4:
 			setupMapper4_MMC3();
 			return true;
+		case 7:
+			setupMapper7_AOROM();
+			return true;
 		case 9:
 			setupMapper9_MMC2();
 			return true;
@@ -902,6 +905,10 @@ void nes_cart::setupMapper7_AOROM() {
 	if (numRAMBanks == 1) {
 		mapCPU(0x60, 8, banks[chrBank + 1]);
 	}
+
+	// set up single screen mirroring
+	AOROM_MapNameBank(0);
+	ppu_setMirrorType(nes_mirror_type::MT_SINGLE);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////

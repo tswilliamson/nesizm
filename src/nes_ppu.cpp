@@ -313,6 +313,10 @@ inline unsigned char* ppu_resolveMemoryAddress(unsigned int address, bool mirror
 				// $2800 = $2000, and $2c00 = $2400, so ignore bit 11:
 				address = address & 0x07FF;
 				break;
+			case nes_mirror_type::MT_SINGLE:
+				// everything is just the first 1 kb
+				address = address & 0x03FF;
+				break;
 			case nes_mirror_type::MT_4PANE:
 				address = address & 0x0FFF;
 				break;
@@ -712,6 +716,92 @@ void renderOAM() {
 	}
 }
 
+void renderScanline_SingleMirror() {
+	TIME_SCOPE();
+
+	DebugAssert(ppu_scanline >= 1 && ppu_scanline <= 240);
+	DebugAssert(nesCart.renderLatch == NULL);
+
+	int line = ppu_scanline - 1;
+	if (ppu_scrollY < 240) {
+		line += ppu_scrollY;
+	} else {
+		// "negative scroll" which we'll just skip the top lines for
+		line += ppu_scrollY - 256;
+	}
+
+	if ((ppu_registers.PPUMASK & PPUMASK_SHOWBG) && line >= 0) {
+		int tileLine = line >> 3;
+
+		// determine base addresses
+		unsigned char* nameTable;
+		unsigned char* attr;
+		unsigned int chrOffset = ((ppu_registers.PPUCTRL & PPUCTRL_BGDTABLE) << 8) + (line & 7);
+		unsigned char* patternTable = ppu_chrMap + chrOffset;
+
+		if (tileLine >= 30) {
+			tileLine -= 30;
+		}
+		
+		nameTable = &ppu_nameTables[0].table[tileLine << 5];
+		attr = &ppu_nameTables[0].attr[(tileLine >> 2) << 3];
+
+		// pre-build attribute table lookup into one big 32 bit int
+		// this is done backwards so the value is easily popped later
+		int attrX = (ppu_registers.SCROLLX >> 5) & 7;
+		int attrShift = (tileLine & 2) << 1;	// 4 bit shift for bottom row of attribute
+		unsigned int attrPalette = 0;
+		for (int loop = 0; loop < 8; loop++) {
+			attrPalette <<= 4;
+			attrPalette |= ((attr[attrX] >> attrShift) & 0xF);
+			attrX = (attrX + 7) & 7;
+		}
+
+		if ((ppu_registers.SCROLLX & 0x10) == 0) {
+			attrPalette = (attrPalette << 6) | (attrPalette >> 26);
+		} else {
+			attrPalette = (attrPalette << 4) | (attrPalette >> 28);
+		}
+
+		// we render 16 pixels at a time (easy attribute table lookup), 17 times and clip
+		int x = 16 - (ppu_registers.SCROLLX & 15);
+		int tileX = (ppu_registers.SCROLLX >> 4) * 2;	// always start on an even numbered tile
+
+		for (int loop = 0; loop < 17; loop++) {
+			// grab and rotate palette selection
+			int palette = (attrPalette & 0x0C);
+			attrPalette = (attrPalette >> 2) | (attrPalette << 30);
+
+			// keep tileX mirroring
+			tileX &= 0x1F;
+
+			for (int twice = 0; twice < 2; twice++, x += 8) {
+				int chr = nameTable[tileX++] << 4;
+
+				int bitPlane = MortonTable[patternTable[chr]] | (MortonTable[patternTable[chr + 8]] << 1);
+				ppu_scanlineBuffer[x + 7] = palette + (bitPlane & 3); bitPlane >>= 2;
+				ppu_scanlineBuffer[x + 6] = palette + (bitPlane & 3); bitPlane >>= 2;
+				ppu_scanlineBuffer[x + 5] = palette + (bitPlane & 3); bitPlane >>= 2;
+				ppu_scanlineBuffer[x + 4] = palette + (bitPlane & 3); bitPlane >>= 2;
+				ppu_scanlineBuffer[x + 3] = palette + (bitPlane & 3); bitPlane >>= 2;
+				ppu_scanlineBuffer[x + 2] = palette + (bitPlane & 3); bitPlane >>= 2;
+				ppu_scanlineBuffer[x + 1] = palette + (bitPlane & 3); bitPlane >>= 2;
+				ppu_scanlineBuffer[x + 0] = palette + (bitPlane & 3);
+			}
+		}
+	} else {
+		for (int i = 0; i < 288; i++) {
+			ppu_scanlineBuffer[i] = 0;
+		}
+	}
+
+	if ((ppu_registers.PPUCTRL & PPUCTRL_SPRSIZE) == 0) {
+		renderOAM<false, 8>();
+	} else {
+		renderOAM<true, 16>();
+	}
+}
+
 void renderScanline_HorzMirror() {
 	TIME_SCOPE();
 
@@ -980,6 +1070,9 @@ void ppu_setMirrorType(int withType) {
 			break;
 		case nes_mirror_type::MT_VERTICAL:
 			renderScanline = renderScanline_VertMirror;
+			break;
+		case nes_mirror_type::MT_SINGLE:
+			renderScanline = renderScanline_SingleMirror;
 			break;
 		case nes_mirror_type::MT_4PANE:
 			DebugAssert(false);
