@@ -317,6 +317,10 @@ inline unsigned char* ppu_resolveMemoryAddress(unsigned int address, bool mirror
 				// everything is just the first 1 kb
 				address = address & 0x03FF;
 				break;
+			case nes_mirror_type::MT_SINGLE_UPPER:
+				// everything is just the 2nd 1 kb
+				address = (address & 0x03FF) | 0x0400;
+				break;
 			case nes_mirror_type::MT_4PANE:
 				address = address & 0x0FFF;
 				break;
@@ -743,8 +747,14 @@ void renderScanline_SingleMirror() {
 			tileLine -= 30;
 		}
 		
-		nameTable = &ppu_nameTables[0].table[tileLine << 5];
-		attr = &ppu_nameTables[0].attr[(tileLine >> 2) << 3];
+		if (ppu_mirror == nes_mirror_type::MT_SINGLE) {
+			nameTable = &ppu_nameTables[0].table[tileLine << 5];
+			attr = &ppu_nameTables[0].attr[(tileLine >> 2) << 3];
+		} else {
+			DebugAssert(ppu_mirror == nes_mirror_type::MT_SINGLE_UPPER);
+			nameTable = &ppu_nameTables[1].table[tileLine << 5];
+			attr = &ppu_nameTables[1].attr[(tileLine >> 2) << 3];
+		}
 
 		// pre-build attribute table lookup into one big 32 bit int
 		// this is done backwards so the value is easily popped later
@@ -1072,6 +1082,7 @@ void ppu_setMirrorType(int withType) {
 			renderScanline = renderScanline_VertMirror;
 			break;
 		case nes_mirror_type::MT_SINGLE:
+		case nes_mirror_type::MT_SINGLE_UPPER:
 			renderScanline = renderScanline_SingleMirror;
 			break;
 		case nes_mirror_type::MT_4PANE:

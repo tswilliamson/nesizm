@@ -137,6 +137,7 @@ namespace nes_mirror_type {
 		MT_HORIZONTAL,
 		MT_VERTICAL,
 		MT_SINGLE,
+		MT_SINGLE_UPPER,	// same as MT_SINGLE, except nametable is mapped to 0x2400
 		MT_4PANE
 	};
 }

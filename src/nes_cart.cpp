@@ -378,6 +378,11 @@ void MMC1_writeSpecial(unsigned int address, unsigned char value) {
 				// clear shift register
 				nesCart.registers[1] = 0;
 				nesCart.registers[2] = 0;
+
+				// set PRG bank mode
+				if (nesCart.registers[3] != 3) {
+					nesCart.MMC1_Write(0x8000, nesCart.registers[3] | 0x0C);
+				}
 			} else {
 				// set shift register bit
 				nesCart.registers[2] |= ((value & 1) << nesCart.registers[1]);
@@ -402,11 +407,11 @@ void nes_cart::MMC1_Write(unsigned int addr, int regValue) {
 		switch (regValue & 3) {
 			case 0:
 				// one screen lower bank
-				DebugAssert(false);	// unimplemented
+				ppu_setMirrorType(nes_mirror_type::MT_SINGLE);
 				break;
 			case 1:
 				// one screen upper bank
-				DebugAssert(false);	// unimplemented
+				ppu_setMirrorType(nes_mirror_type::MT_SINGLE_UPPER);
 				break;
 			case 2:
 				// vertical
