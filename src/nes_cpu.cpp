@@ -58,8 +58,10 @@ void nes_cpu::writeSpecial(unsigned int addr, unsigned char value) {
 				// UNMAPPED! WILL DO NOTHING
 				break;
 		}
-	} else {
+	} else if (addr < 0x10000) {
 		nesCart.writeSpecial(addr, value);
+	} else {
+		write(addr & 0xFFFF, value);
 	}
 }
 

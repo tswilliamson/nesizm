@@ -81,6 +81,7 @@ struct nes_cart {
 
 	void setupMapper1_MMC1();
 	void MMC1_Write(unsigned int addr, int regValue);
+	void MMC1_SetRAMBank(int value);
 
 	void setupMapper2_UNROM();
 
