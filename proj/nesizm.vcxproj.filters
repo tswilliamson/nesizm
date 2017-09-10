@@ -33,6 +33,9 @@
     <Filter Include="Dependencies\scope_timer">
       <UniqueIdentifier>{fe587b97-6634-4fa8-bcf9-7321d0135ae4}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\snd">
+      <UniqueIdentifier>{634bff64-5cbd-4a14-a4ef-fc362fa7619b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\main.cpp">
@@ -92,6 +95,15 @@
     <ClCompile Include="..\src\scope_timer\scope_timer.cpp">
       <Filter>Dependencies\scope_timer</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\snd_prizm.cpp">
+      <Filter>Source Files\snd</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\snd_winsim.cpp">
+      <Filter>Source Files\snd</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\snd_main.cpp">
+      <Filter>Source Files\snd</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\main.h">
@@ -126,6 +138,9 @@
     </ClInclude>
     <ClInclude Include="..\src\scope_timer\scope_timer.h">
       <Filter>Dependencies\scope_timer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\snd.h">
+      <Filter>Source Files\snd</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

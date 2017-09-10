@@ -54,6 +54,9 @@ void nes_cpu::writeSpecial(unsigned int addr, unsigned char value) {
 			case 0x16:
 				input_writeStrobe(value);
 				break;
+			case 0x17:
+				// APU interrupt not yet supported, check for it:
+				if ((value & 0xC0)
 			default:
 				// UNMAPPED! WILL DO NOTHING
 				break;
