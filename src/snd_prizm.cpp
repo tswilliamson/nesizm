@@ -4,7 +4,8 @@
 #include "platform.h"
 #include "snd.h"
 #include "ptune2_simple\Ptune2_direct.h"
-#include "keys.h"
+#include "scope_timer\scope_timer.h"
+#include "tmu.h"
 
 struct st_scif0 {                                      /* struct SCIF0 */
        union {                                         /* SCSMR        */

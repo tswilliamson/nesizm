@@ -5,6 +5,7 @@
 #include "platform.h"
 #include "debug.h"
 #include "nes.h"
+#include "scope_timer/scope_timer.h"
 
 #define LCD_GRAM	0x202
 #define LCD_BASE	0xB4000000

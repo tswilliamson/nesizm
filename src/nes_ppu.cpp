@@ -4,6 +4,7 @@
 #include "platform.h"
 #include "debug.h"
 #include "nes.h"	
+#include "scope_timer/scope_timer.h"
 
 extern void PPUBreakpoint();
 

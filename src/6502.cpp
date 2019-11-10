@@ -2,6 +2,7 @@
 // main 6502 interpreter and emulation
 #include "platform.h"
 #include "debug.h"
+#include "scope_timer/scope_timer.h"
 
 #define NES 1
 #include "6502.h"
@@ -859,7 +860,6 @@ void cpu_instr_history::output() {
 #define OPCODE_2W(op,str,clk,sz,page,name,spc) if (instr == op) OutputLog("$%04X:%02X %02X %02X  " str, regs.PC, instr, data1, data2, data1 + (data2 << 8));
 #define OPCODE_REL(op,str,clk,sz,page,name,spc) if (instr == op) OutputLog("$%04X:%02X %02X     " str, regs.PC, instr, data1, regs.PC+2+((signed char)data1));
 #include "6502_opcodes.inl"
-#endif
 
 	unsigned int addressMode = modeTable[instr & 0x1F];
 	if (addressMode == AM_IndirectX || addressMode == AM_IndirectY) {
@@ -869,6 +869,7 @@ void cpu_instr_history::output() {
 		OutputLog(" = #$%02X", effByte);
 	}
 	OutputLog("\n");
+#endif
 }
 
 #if TRACE_DEBUG

@@ -1,7 +1,7 @@
 
 #include "platform.h"
 #include "debug.h"
-#include "cpu.h"
+#include "6502.h"
 #include "snd.h"
 
 // TODO : move to setting
@@ -51,6 +51,7 @@ void sndStartup() {
 
 
 void sndChannelInit(int channelNum) {
+#if 0
 	switch (channelNum) {
 		case 1:
 			// init channel 1
@@ -77,10 +78,12 @@ void sndChannelInit(int channelNum) {
 			snd.ch4LFSR = cpu.clocks >> 4;
 			break;
 	}
+#endif
 }
 
 // called from the platform sound system to fill a buffer based on current sound values
 void sndFrame(int* buffer, int buffSize) {
+#if 0
 	// master volume 0-14
 	int masterVol = (cpu.memory.NR50_spkvol & 0x07) + ((cpu.memory.NR50_spkvol & 0x70) >> 4);
 	int masterCtl = cpu.memory.NR52_soundmast;
@@ -359,11 +362,13 @@ void sndFrame(int* buffer, int buffSize) {
 
 	// write back master control flags
 	cpu.memory.NR52_soundmast = masterCtl;
+#endif
 }
 
 
 // called from emulator (once per frame, so not quite every 1/64th of a second) to emulate register updates when sound emulation is turned off
 void sndInactiveFrame() {
+#if 0
 	int masterCtl = cpu.memory.NR52_soundmast;
 
 	{
@@ -501,4 +506,5 @@ void sndInactiveFrame() {
 
 	// write back master control flags
 	cpu.memory.NR52_soundmast = masterCtl;
+#endif
 }

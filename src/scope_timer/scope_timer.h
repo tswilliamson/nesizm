@@ -66,6 +66,7 @@ struct ScopeTimer {
 	static void InitSystem() {}
 	static void DisplayTimes() {}
 	static void Shutdown() {}
+	static void ReportFrame() {}
 };
 #endif
 

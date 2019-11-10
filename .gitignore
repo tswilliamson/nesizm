@@ -31,3 +31,6 @@
 /proj/WindowsSim
 /proj/*.db
 /proj/*.opendb
+/DeviceRelease/*.d
+/DeviceRelease/*.bin
+/DeviceRelease/nesizm.g3a
