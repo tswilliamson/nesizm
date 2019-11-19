@@ -3,8 +3,7 @@
 #include "ptune2_simple/Ptune2_direct.h"
 #include "scope_timer/scope_timer.h"
 
-#include "../../calctype/calctype.inl"
-#include "../../calctype/fonts/arial_small/arial_small.c"		// For Menus
+#include "calctype/fonts/arial_small/arial_small.c"		// For Menus
 // #include "../../calctype/fonts/consolas_intl/consolas_intl.c"	// for FAQS
 
 bool shouldExit = false;

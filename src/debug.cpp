@@ -1,7 +1,7 @@
 #include "platform.h"
 #include "debug.h"
 
-#include "../../calctype/fonts/arial_small/arial_small.h"
+#include "calctype/fonts/arial_small/arial_small.h"
 
 #if DEBUG_MEMWRITE
 unsigned short debugWriteAddress = 0;

@@ -35,26 +35,6 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\calctype\calctype.c">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='WindowsSim|Win32'">true</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="..\..\calctype\calctype_prizm.c">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='WindowsSim|Win32'">true</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="..\..\prizm-winsim\prizmsim.cpp" />
-    <ClCompile Include="..\..\prizm-winsim\winmain.cpp" />
-    <ClCompile Include="..\..\prizm-zx7\compress.c">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='WindowsSim|Win32'">true</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="..\..\prizm-zx7\dzx7.c">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='WindowsSim|Win32'">true</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="..\..\prizm-zx7\optimize.c">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='WindowsSim|Win32'">true</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="..\..\prizm-zx7\zx7.c">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='WindowsSim|Win32'">true</ExcludedFromBuild>
-    </ClCompile>
     <ClCompile Include="..\src\6502.cpp" />
     <ClCompile Include="..\src\debug.cpp" />
     <ClCompile Include="..\src\nes_cart.cpp" />
@@ -72,18 +52,9 @@
     <ClCompile Include="..\src\snd_main.cpp" />
     <ClCompile Include="..\src\snd_prizm.cpp" />
     <ClCompile Include="..\src\snd_winsim.cpp" />
-    <None Include="..\..\calctype\calctype.inl">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='WindowsSim|Win32'">true</ExcludedFromBuild>
-    </None>
-    <None Include="..\..\prizm-zx7\zx7.inl" />
     <None Include="..\src\6502_opcodes.inl" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\calctype\calctype.h">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='WindowsSim|Win32'">true</ExcludedFromBuild>
-    </ClInclude>
-    <ClInclude Include="..\..\prizm-winsim\prizmsim.h" />
-    <ClInclude Include="..\..\prizm-zx7\zx7.h" />
     <ClInclude Include="..\src\6502.h" />
     <ClInclude Include="..\src\nes.h" />
     <ClInclude Include="..\src\nes_cpu.h" />
@@ -284,19 +255,21 @@ clean.bat FXCGSDK=$(ProjectDir)/../../../ DEFINES="-DTARGET=PRIZMEMU -DDEBUG=1" 
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='WindowsSim|Win32'">
     <Link>
       <SubSystem>Console</SubSystem>
-      <AdditionalLibraryDirectories>$(ProjectDir)\..\..\prizm-winsim\freeglut\lib</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(ProjectDir)\..\..\..\utils\winsim\freeglut\lib;$(ProjectDir)\..\..\..\utils\lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;winsim.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ClCompile>
       <PreprocessorDefinitions>TARGET_WINSIM=1;DEBUG=1</PreprocessorDefinitions>
       <TreatWarningAsError>true</TreatWarningAsError>
-      <AdditionalIncludeDirectories>..\src\;..\..\prizm-winsim</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\src\;..\..\..\utils;..\..\..\utils\winsim</AdditionalIncludeDirectories>
       <Optimization>Disabled</Optimization>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <ExceptionHandling>false</ExceptionHandling>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <PostBuildEvent>
-      <Command>copy /Y "$(SolutionDir)..\..\prizm-winsim\freeglut\bin\*.dll" "$(TargetDir)"</Command>
+      <Command>copy /Y "$(SolutionDir)..\..\..\utils\winsim\freeglut\bin\*.dll" "$(TargetDir)"</Command>
     </PostBuildEvent>
     <PostBuildEvent>
       <Message>Copying FreeGLUT dll</Message>

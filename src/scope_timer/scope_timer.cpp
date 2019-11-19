@@ -5,8 +5,8 @@
 #include "../platform.h"
 #include "scope_timer.h"
 
-#include "../../calctype/calctype.h"
-#include "../../calctype/fonts/arial_small/arial_small.h"	
+#include "calctype/calctype.h"
+#include "calctype/fonts/arial_small/arial_small.h"	
 
 #if TARGET_WINSIM
 unsigned int ScopeTimer_FrameCycles = 0;

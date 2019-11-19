@@ -7,8 +7,8 @@
 #include "nes.h"
 
 // used for direct render of frame count
-#include "../../calctype/calctype.h"
-#include "../../calctype/fonts/arial_small/arial_small.h"	
+#include "calctype/calctype.h"
+#include "calctype/fonts/arial_small/arial_small.h"	
 
 static unsigned int ppu_scanlineBufferMem[256 + 16 * 2] = { 0 }; 
 unsigned int* ppu_scanlineBuffer = ppu_scanlineBufferMem;

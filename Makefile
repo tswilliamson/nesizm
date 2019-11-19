@@ -2,12 +2,9 @@
 # Clear the implicit built in rules
 #---------------------------------------------------------------------------------
 .SUFFIXES:
-#---------------------------------------------------------------------------------
-# Set toolchain location in an environment var for future use, this will change
-# to use a system environment var in the future.
-#---------------------------------------------------------------------------------
+
 ifeq ($(strip $(FXCGSDK)),)
-$(error "Please set FXCGSDK in your environment. export FXCGSDK=<path to sdk location>)
+export FXCGSDK := $(realpath ../../)
 endif
 
 include $(FXCGSDK)/common/prizm_rules
@@ -21,7 +18,7 @@ include $(FXCGSDK)/common/prizm_rules
 #---------------------------------------------------------------------------------
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	$(CONFIG)
-SOURCES		:=	src src/zx7 src/ptune2_simple src/scope_timer
+SOURCES		:=	src src/ptune2_simple
 DATA		:=	data  
 INCLUDES	:=
 
@@ -29,17 +26,20 @@ INCLUDES	:=
 # options for code and add-in generation
 #---------------------------------------------------------------------------------
 
-MKG3AFLAGS := -n basic:NESizm -i uns:../unselected.bmp -i sel:../selected.bmp
+MKG3AFLAGS := -n basic:Nesizm -i uns:../unselected.bmp -i sel:../selected.bmp
 
-CFLAGS	= -O2 \
+CBASEFLAGS	= -O2 \
 		  -Wall \
 		  -funroll-loops \
 		  -fno-trapping-math \
 		  -fno-trapv \
 		  -Wno-switch \
 		  $(MACHDEP) $(INCLUDE) $(DEFINES)
+		  
+CFLAGS	=	$(CBASEFLAGS) \
+		  -std=c99
 
-CXXFLAGS	=	$(CFLAGS) \
+CXXFLAGS	=	$(CBASEFLAGS) \
 		  -fpermissive \
 		  -fno-rtti \
 		  -fno-exceptions \
@@ -55,7 +55,7 @@ LDFLAGS	= $(MACHDEP) -O2 -T$(FXCGSDK)/common/prizm.ld -Wl,-static -Wl,-gc-sectio
 #---------------------------------------------------------------------------------
 # any extra libraries we wish to link with the project
 #---------------------------------------------------------------------------------
-LIBS	:=	-lfxcg -lm -lc -lgcc 
+LIBS	:=	-lfxcg -lm -lc -lgcc -lzx7 -lcalctype
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
@@ -70,7 +70,7 @@ LIBDIRS	:=
 ifneq ($(BUILD),$(notdir $(CURDIR)))
 #---------------------------------------------------------------------------------
 
-export OUTPUT	:=	$(CURDIR)/$(BUILD)/$(TARGET)
+export OUTPUT		:=	$(CURDIR)/$(BUILD)/$(TARGET)
 
 export VPATH	:=	$(foreach dir,$(SOURCES),$(CURDIR)/$(dir)) \
 					$(foreach dir,$(DATA),$(CURDIR)/$(dir))
@@ -103,15 +103,17 @@ export OFILES	:=	$(addsuffix .o,$(BINFILES)) \
 #---------------------------------------------------------------------------------
 export INCLUDE	:=	$(foreach dir,$(INCLUDES), -iquote $(CURDIR)/$(dir)) \
 					$(foreach dir,$(LIBDIRS),-I$(dir)/include) \
-					-I$(CURDIR)/$(BUILD) -I$(LIBFXCG_INC)
+					-I$(CURDIR)/$(BUILD) -I$(LIBFXCG_INC) -I$(UTILS_INC)
 
 #---------------------------------------------------------------------------------
 # build a list of library paths
 #---------------------------------------------------------------------------------
 export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib) \
-					-L$(LIBFXCG_LIB)
-
-export OUTPUT	:=	$(CURDIR)/$(BUILD)/$(TARGET)
+					-L$(FXCGSDK)/utils/lib \
+					-L$(LIBFXCG_LIB) 
+					
+export OUTPUT		:=	$(CURDIR)/$(BUILD)/$(TARGET)
+export OUTPUT_FINAL		:=	$(CURDIR)/$(TARGET)
 .PHONY: $(BUILD) clean
 
 #---------------------------------------------------------------------------------
@@ -122,7 +124,7 @@ $(BUILD):
 #---------------------------------------------------------------------------------
 export CYGWIN := nodosfilewarning
 clean:
-	$(RM) -fr $(BUILD) $(OUTPUT).bin $(OUTPUT).g3a
+	$(RM) -fr $(BUILD) $(OUTPUT).bin $(OUTPUT_FINAL).g3a
 
 #---------------------------------------------------------------------------------
 else
@@ -132,9 +134,10 @@ DEPENDS	:=	$(OFILES:.o=.d)
 #---------------------------------------------------------------------------------
 # main targets
 #---------------------------------------------------------------------------------
-$(OUTPUT).g3a: $(OUTPUT).bin
-$(OUTPUT).bin: $(OFILES)
-
+$(OUTPUT_FINAL).g3a: $(OUTPUT).bin
+	$(MKG3A) $(MKG3AFLAGS) $< $@
+	
+$(OUTPUT).bin: $(OFILES) 
 
 -include $(DEPENDS)
 

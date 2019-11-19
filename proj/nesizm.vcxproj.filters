@@ -12,17 +12,8 @@
     <Filter Include="Dependencies">
       <UniqueIdentifier>{f173ffdc-d20a-4353-9134-18f00b441e65}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Dependencies\prizm-winsim">
-      <UniqueIdentifier>{80e0df14-724b-48b1-8ebd-32f08df57407}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Dependencies\prizm-zx7">
-      <UniqueIdentifier>{101f6621-ea55-42c5-a919-df436e845d59}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Dependencies\ptune2_simple">
       <UniqueIdentifier>{693d36c5-6996-45ff-a69e-a5ad57b2d2a1}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Dependencies\calctype">
-      <UniqueIdentifier>{37933317-d9e2-4ed4-8297-a8e5e5b8c6ff}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\nes">
       <UniqueIdentifier>{4cf9d8cc-eabb-4644-96c0-4ab61549d1f5}</UniqueIdentifier>
@@ -43,30 +34,6 @@
     </ClCompile>
     <ClCompile Include="..\src\ptune2_simple\Ptune2_direct.c">
       <Filter>Dependencies\ptune2_simple</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\prizm-zx7\zx7.c">
-      <Filter>Dependencies\prizm-zx7</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\prizm-zx7\compress.c">
-      <Filter>Dependencies\prizm-zx7</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\prizm-zx7\dzx7.c">
-      <Filter>Dependencies\prizm-zx7</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\prizm-zx7\optimize.c">
-      <Filter>Dependencies\prizm-zx7</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\prizm-winsim\winmain.cpp">
-      <Filter>Dependencies\prizm-winsim</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\prizm-winsim\prizmsim.cpp">
-      <Filter>Dependencies\prizm-winsim</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\calctype\calctype.c">
-      <Filter>Dependencies\calctype</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\calctype\calctype_prizm.c">
-      <Filter>Dependencies\calctype</Filter>
     </ClCompile>
     <ClCompile Include="..\src\debug.cpp">
       <Filter>Source Files</Filter>
@@ -115,15 +82,6 @@
     <ClInclude Include="..\src\ptune2_simple\SH7305_CPG_BSC.h">
       <Filter>Dependencies\ptune2_simple</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\prizm-zx7\zx7.h">
-      <Filter>Dependencies\prizm-zx7</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\prizm-winsim\prizmsim.h">
-      <Filter>Dependencies\prizm-winsim</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\calctype\calctype.h">
-      <Filter>Dependencies\calctype</Filter>
-    </ClInclude>
     <ClInclude Include="..\src\platform.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -145,12 +103,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Makefile" />
-    <None Include="..\..\prizm-zx7\zx7.inl">
-      <Filter>Dependencies\prizm-zx7</Filter>
-    </None>
-    <None Include="..\..\calctype\calctype.inl">
-      <Filter>Dependencies\calctype</Filter>
-    </None>
     <None Include="..\src\6502_opcodes.inl">
       <Filter>Source Files\6502</Filter>
     </None>
