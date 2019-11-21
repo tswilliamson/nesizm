@@ -581,6 +581,11 @@ template<bool sprite16,int spriteSize>
 void renderOAM() {
 	TIME_SCOPE();
 
+	// MMC2/4 support
+	if (nesCart.renderLatch) {
+		fastOAMLatchCheck();
+	}
+
 	if ((ppu_registers.PPUMASK & PPUMASK_SHOWLEFTBG) == 0) {
 		for (int i = 16; i < 24; i++) {
 			ppu_scanlineBuffer[i] = 0;
@@ -640,11 +645,6 @@ void renderOAM() {
 		}
 
 		if (numSprites) {
-			// MMC2/4 support
-			if (nesCart.renderLatch) {
-				fastOAMLatchCheck();
-			}
-
 			// mask left 8 pixels
 			if ((ppu_registers.PPUMASK & PPUMASK_SHOWLEFTOBJ) == 0) {
 				for (int i = 0; i < 8; i++) {
@@ -936,7 +936,9 @@ void renderScanline_HorzMirror() {
 	}
 }
 
-void renderScanline_VertMirror() {
+template<bool hasLatch>
+void renderScanline_VertMirror_Latched() {
+
 	TIME_SCOPE();
 
 	DebugAssert(ppu_scanline >= 1 && ppu_scanline <= 240);
@@ -967,57 +969,23 @@ void renderScanline_VertMirror() {
 		nameTable = &ppu_nameTables[nameTableIndex].table[tileLine << 5];
 		attr = &ppu_nameTables[nameTableIndex].attr[(tileLine >> 2) << 3];
 
-		// For MMC2/4... this only supported on a per scanline basis (doesn't allow switching this bank mid scanline)
-		if (nesCart.renderLatch) {
-			// a bit hacky but.. the tiles that are "meant" to be rendered are the first to appear after a render latch
-			bool hadLatch = false;
-			int curTileX = tileX & 0x1F;
-			int numOn2nd = 34 - (32 - curTileX);
-			while (curTileX < 32) {
-				int chr = nameTable[curTileX++];
-
-				if (chr >= 0xFD) {
-					nesCart.renderLatch((chr << 4) + chrOffset + 8);
-					hadLatch = true;
-				} else if (hadLatch) {
-					numOn2nd = 0;
-					break;
-				}
-			}
-
-			// now render the other nametable until scanline is complete
-			curTileX = 0;
-			nameTableIndex = 1 - nameTableIndex;
-			nameTable = &ppu_nameTables[nameTableIndex].table[tileLine << 5];
-
-			while (curTileX < numOn2nd) {
-				int chr = nameTable[curTileX++];
-
-				if (chr >= 0xFD && nesCart.renderLatch) {
-					nesCart.renderLatch((chr << 4) + chrOffset + 8);
-					hadLatch = true;
-				} else if (hadLatch) {
-					break;
-				}
-			}
-
-			nameTableIndex = 1 - nameTableIndex;
-			nameTable = &ppu_nameTables[nameTableIndex].table[tileLine << 5];
-
-			if (hadLatch) {
-				patternTable = ppu_chrMap + chrOffset;
-			}
-		}
-
 		// render tileX up to the end of the current nametable
 		int curTileX = tileX & 0x1F;
 		while (curTileX < 32) {
 			// grab and rotate palette selection
+			bool hadLatch = false;
 			int attrPalette = (attr[(curTileX >> 2)] >> attrShift) >> (curTileX & 2);
 			int palette = (attrPalette & 0x03) << 2;
 
 			for (int twice = 0; twice < 2; twice++, x += 8) {
 				int chr = nameTable[curTileX++] << 4;
+
+				if (hasLatch) {
+					if (chr == 0xFD0 || chr == 0xFE0) {
+						nesCart.renderLatch(chr + chrOffset + 8);
+						hadLatch = true;
+					}
+				}
 
 				int bitPlane = MortonTable[patternTable[chr]] | (MortonTable[patternTable[chr + 8]] << 1);
 				ppu_scanlineBuffer[x + 7] = palette + (bitPlane & 3); bitPlane >>= 2;
@@ -1028,6 +996,10 @@ void renderScanline_VertMirror() {
 				ppu_scanlineBuffer[x + 2] = palette + (bitPlane & 3); bitPlane >>= 2;
 				ppu_scanlineBuffer[x + 1] = palette + (bitPlane & 3); bitPlane >>= 2;
 				ppu_scanlineBuffer[x + 0] = palette + (bitPlane & 3);
+
+				if (hasLatch && hadLatch) {
+					patternTable = ppu_chrMap + chrOffset;
+				}
 			}
 		}
 
@@ -1039,11 +1011,19 @@ void renderScanline_VertMirror() {
 
 		while (x < 256 + 16) {
 			// grab and rotate palette selection
+			bool hadLatch = false;
 			int attrPalette = (attr[(curTileX >> 2)] >> attrShift) >> (curTileX & 2);
 			int palette = (attrPalette & 0x03) << 2;
 
 			for (int twice = 0; twice < 2; twice++, x += 8) {
 				int chr = nameTable[curTileX++] << 4;
+
+				if (hasLatch) {
+					if (chr == 0xFD0 || chr == 0xFE0) {
+						nesCart.renderLatch(chr + chrOffset + 8);
+						hadLatch = true;
+					}
+				}
 
 				int bitPlane = MortonTable[patternTable[chr]] | (MortonTable[patternTable[chr + 8]] << 1);
 				ppu_scanlineBuffer[x + 7] = palette + (bitPlane & 3); bitPlane >>= 2;
@@ -1054,6 +1034,21 @@ void renderScanline_VertMirror() {
 				ppu_scanlineBuffer[x + 2] = palette + (bitPlane & 3); bitPlane >>= 2;
 				ppu_scanlineBuffer[x + 1] = palette + (bitPlane & 3); bitPlane >>= 2;
 				ppu_scanlineBuffer[x + 0] = palette + (bitPlane & 3);
+
+				if (hasLatch && hadLatch) {
+					patternTable = ppu_chrMap + chrOffset;
+				}
+			}
+		}
+
+		if (hasLatch) {
+			// fetch 34th tile
+			if (x < 256 + 24 && curTileX < 32) {
+				int chr = nameTable[curTileX] << 4;
+
+				if (chr == 0xFD0 || chr == 0xFE0) {
+					nesCart.renderLatch(chr + chrOffset + 8);
+				}
 			}
 		}
 	} else {
@@ -1066,6 +1061,14 @@ void renderScanline_VertMirror() {
 		renderOAM<false, 8>();
 	} else {
 		renderOAM<true, 16>();
+	}
+}
+
+void renderScanline_VertMirror() {
+	if (nesCart.renderLatch) {
+		renderScanline_VertMirror_Latched<true>();
+	} else {
+		renderScanline_VertMirror_Latched<false>();
 	}
 }
 
