@@ -7,17 +7,11 @@
 #define NES 1
 #include "6502.h"
 
-#if TARGET_WINSIM
-#define TRACE_DEBUG 1
-#else
-#define TRACE_DEBUG 0
-#endif
-
 #if TRACE_DEBUG
-static unsigned int cpuBreakpoint = 0xc0c0;
+static unsigned int cpuBreakpoint = 0x10000;
 static unsigned int memWriteBreakpoint = 0xfffff;
 
-#define NUM_TRACED 300
+#define NUM_TRACED 500
 static cpu_instr_history traceHistory[NUM_TRACED] = { 0 };
 static unsigned int traceNum;
 void HitBreakpoint();
@@ -905,6 +899,6 @@ void PPUBreakpoint() {
 #else
 void PPUBreakpoint() {
 
-}
+} 
 #endif
 

@@ -86,3 +86,9 @@ void cpu6502_SoftwareInterrupt(unsigned int vectorAddress);
 #include "nes_cpu.h"
 extern nes_cpu mainCPU;
 #endif
+
+#if TARGET_WINSIM
+#define TRACE_DEBUG 1
+#else
+#define TRACE_DEBUG 0
+#endif

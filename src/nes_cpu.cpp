@@ -19,10 +19,10 @@ unsigned char* nes_cpu::getSpecial(unsigned int addr) {
 		// APU and IO registers
 		switch (addr - 0x4000) {
 			case 0x16:
-				specByte = input_readController1();
+				specByte = input_readController1() | 0x40;
 				break;
 			case 0x17:
-				specByte = input_readController2();
+				specByte = input_readController2() | 0x40;
 				break;
 			default:
 				// UNMAPPED! NO DATA!

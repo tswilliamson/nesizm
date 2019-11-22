@@ -6,7 +6,10 @@
 #include "nes.h"	
 #include "scope_timer/scope_timer.h"
 
+#if TRACE_DEBUG
+static unsigned int ppuWriteBreakpoint = 0x10000;
 extern void PPUBreakpoint();
+#endif
 
 // ppu statics
 ppu_registers_type ppu_registers;
@@ -250,6 +253,7 @@ void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
 			if (address >= 0x3F00) {
 				// dirty palette
 				ppu_workingPalette[0] = -1;
+				value = value & 0x3F; // mask palette values
 			}
 
 			// discard writes to CHR ROM when it is ROM
@@ -264,6 +268,13 @@ void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
 			} else {
 				latch = ppu_resolveMemoryAddress(address - 1, false);
 			}
+
+#if TRACE_DEBUG
+			if (address - ((PPUCTRL & PPUCTRL_VRAMINC) ? 32 : 1) == ppuWriteBreakpoint) {
+				*latch = value; // just to prevent confusion
+				PPUBreakpoint();
+			}
+#endif
 
 			break;
 	}

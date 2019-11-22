@@ -659,26 +659,19 @@ void nes_cart::setupMapper2_UNROM() {
 // registers[0] = current mapped CHR bank
 
 void CNROM_writeSpecial(unsigned int address, unsigned char value) {
-	if (address >= 0x6000) {
-		if (address < 0x8000) {
-			if (nesCart.numRAMBanks) {
-				// RAM
-				mainCPU.map[address >> 8][address & 0xFF] = value;
-			}
-		} else {
-			// CHR bank select
-			value &= nesCart.numCHRBanks - 1;
+	if (address >= 0x8000) {
+		// CHR bank select
+		value &= nesCart.numCHRBanks - 1;
 
-			if (value != nesCart.registers[0]) {
-				ppu_chrMap = nesCart.cacheCHRBank(value);
-				nesCart.registers[0] = value;
-			}
+		if (value != nesCart.registers[0]) {
+			ppu_chrMap = nesCart.cacheCHRBank(value);
+			nesCart.registers[0] = value;
 		}
 	}
 }
 
 void nes_cart::setupMapper3_CNROM() {
-	writeSpecial = UNROM_writeSpecial;
+	writeSpecial = CNROM_writeSpecial;
 
 	// PRG banks are just loaded in
 	cachedPRGCount = numPRGBanks * 2;
