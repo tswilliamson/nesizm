@@ -35,6 +35,9 @@ struct cpu_6502 {
 	// clock cycle counter
 	unsigned int clocks;
 
+	// next time instructions check for interrupts, PPU step, etc
+	unsigned int nextClocks;
+
 	// clocks for next IRQ, 0 if disabled
 	unsigned int irqClocks;
 };		

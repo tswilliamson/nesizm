@@ -85,6 +85,7 @@ void nes_cpu::mapDefaults() {
 // reset the CPU (assumes memory mapping is set up properly for this)
 void nes_cpu::reset() {
 	// CPU set to match FCEUX for debugging
+	ppuNMI = false;
 
 	// RAM reset
 	for (int i = 0; i < 0x800; i += 8) {
@@ -110,7 +111,7 @@ void nes_cpu::reset() {
 	clocks = 0;
 
 	// comparing to FCEUX we appear to be just slightly ahead on clocks
-	ppuClocks = 4;
+	ppuClocks = 2510;
 
 	// trigger reset interrupt
 	cpu6502_SoftwareInterrupt(0xFFFC);

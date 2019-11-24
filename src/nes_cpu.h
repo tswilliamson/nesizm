@@ -11,6 +11,9 @@ struct nes_cpu : public cpu_6502 {
 	// clocks for next PPU update
 	unsigned int ppuClocks;
 
+	// indicates that an NMI should occur on completion of next cpu instruction
+	bool ppuNMI;
+
 	FORCE_INLINE unsigned char* getByte(unsigned int addr) {
 		if (addr >= 0x2000 && addr <= 0x401F) {
 			return getSpecial(addr);

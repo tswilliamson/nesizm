@@ -780,13 +780,21 @@ void cpu6502_Step() {
 	TIME_SCOPE();
 
 	// stop at next PPU or IRQ
-	int nextClocks = mainCPU.ppuClocks;
+	mainCPU.nextClocks = mainCPU.ppuClocks;
 	if (mainCPU.irqClocks && mainCPU.irqClocks < mainCPU.ppuClocks) {
-		nextClocks = mainCPU.irqClocks;
+		mainCPU.nextClocks = mainCPU.irqClocks;
+	}
+	if (mainCPU.ppuNMI) {
+		mainCPU.nextClocks = mainCPU.clocks + 7;
 	}
 
-	for (; mainCPU.clocks < nextClocks;) {
+	for (; mainCPU.clocks < mainCPU.nextClocks;) {
 		cpu6502_PerformInstruction();
+	}
+
+	if (mainCPU.ppuNMI) {
+		mainCPU.NMI();
+		mainCPU.ppuNMI = false;
 	}
 }
 

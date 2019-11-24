@@ -155,7 +155,7 @@ unsigned char* ppu_registers_type::latchReg(unsigned int regNum) {
 			break;
 		case 0x07:
 		{
-			unsigned int address = (ADDRHI << 8) | ADDRLO;
+			unsigned int address = ((ADDRHI << 8) | ADDRLO) & 0x3FFF;
 
 			// single read-behind register for ppu reading
 			static unsigned char ppuReadRegister[2] = { 0, 0 };
@@ -195,8 +195,8 @@ void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
 	switch (regNum) {
 		case 0x00:	// PPUCTRL
 			if ((PPUCTRL & PPUCTRL_NMI) == 0 && (value & PPUCTRL_NMI) && (PPUSTATUS & PPUSTAT_NMI)) {
-				// TODO : this shouldn't happen mid-instruction
-				mainCPU.NMI();
+				mainCPU.ppuNMI = true;
+				mainCPU.nextClocks = mainCPU.clocks;	// force an NMI check after instruction
 			}
 			latch = &PPUCTRL;
 			break;
@@ -248,7 +248,7 @@ void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
 			ppu_writeToggle = 1 - ppu_writeToggle;
 			break;
 		case 0x07:
-			unsigned int address = (ADDRHI << 8) | ADDRLO;
+			unsigned int address = ((ADDRHI << 8) | ADDRLO) & 0x3FFF;
 
 			if (address >= 0x3F00) {
 				// dirty palette
@@ -501,10 +501,10 @@ void ppu_step() {
 		ppu_setVBL = (mainCPU.clocks > 30000);
 	} else if (ppu_scanline == 242) {
 		if (ppu_setVBL) {
-			ppu_registers.PPUSTATUS |= PPUCTRL_NMI;
+			ppu_registers.PPUSTATUS |= PPUSTAT_NMI;
 		}
 		if ((ppu_registers.PPUCTRL & PPUCTRL_NMI) && ppu_triggerNMI) {
-			mainCPU.NMI();
+			mainCPU.ppuNMI = true;
 		}
 
 		if (!skipFrame) {
