@@ -476,8 +476,8 @@ void nes_cart::MMC1_Write(unsigned int addr, int regValue) {
 			mapPPU(0x00, 4, chrMem + 4096 * (regValue & 1));
 		} else {
 			// 8 kb mode
-			regValue &= numCHRBanks - 1;
-			unsigned char* chrMem = cacheCHRBank(regValue);
+			regValue &= numCHRBanks * 2 - 1;
+			unsigned char* chrMem = cacheCHRBank(regValue >> 1);
 			mapPPU(0x00, 8, chrMem);
 		}
 	} else if (addr < 0xE000) {

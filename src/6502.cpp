@@ -310,7 +310,7 @@ inline void JSR_MEM(unsigned int addr) {
 inline void RTI() {
 	// RTI (return from interrupt)
 	// TODO : Non- delayed IRQ response behavior?
-	mainCPU.P |= mainCPU.pop() & ~(ST_BRK);
+	mainCPU.P = mainCPU.pop() & ~(ST_BRK);
 	mainCPU.PC = mainCPU.pop() | (mainCPU.pop() << 8);
 	resolveFromP();
 }
