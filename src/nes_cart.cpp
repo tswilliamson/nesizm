@@ -389,6 +389,9 @@ void nes_cart::setupMapper0_NROM() {
 // register 5 holds the RAM chip enable bit (0 = enabled)
 // register 6 holds the bank containing the ram
 
+// register 7 holds the PRG bank in lower 16 KB
+// register 8 holds the PRG bank in higher 16 KB 
+
 void MMC1_writeSpecial(unsigned int address, unsigned char value) {
 	if (address >= 0x6000) {
 		if (address < 0x8000) {
@@ -425,6 +428,26 @@ void MMC1_writeSpecial(unsigned int address, unsigned char value) {
 }
 
 void nes_cart::MMC1_Write(unsigned int addr, int regValue) {
+
+	// SUROM 256 select
+	if (registers[0] == 2 && addr >= 0xA000 && addr < 0xE000) {
+		if (addr < 0xC000 || registers[4] == 1) {
+			int selectedPRGBlock = (regValue & 0x10) * 2;
+			if ((registers[7] & 0x20) != selectedPRGBlock) {
+				registers[7] = (registers[7] & 0x1F) | selectedPRGBlock;
+				registers[8] = (registers[8] & 0x1F) | selectedPRGBlock;
+				unsigned char* prgMem0 = cachePRGBank(registers[7] + 0);
+				mapCPU(0x80, 8, prgMem0);
+				unsigned char* prgMem1 = cachePRGBank(registers[7] + 1);
+				mapCPU(0xA0, 8, prgMem1);
+				unsigned char* prgMem2 = cachePRGBank(registers[8] + 0);
+				mapCPU(0xC0, 8, prgMem2);
+				unsigned char* prgMem3 = cachePRGBank(registers[8] + 1);
+				mapCPU(0xE0, 8, prgMem3);
+			}
+		}
+	}
+
 	if (addr < 0xA000) {
 		// Control
 		// mirroring in bottom 2 bits
@@ -457,10 +480,12 @@ void nes_cart::MMC1_Write(unsigned int addr, int regValue) {
 				unsigned char* firstBank[2] = { cachePRGBank(0), cachePRGBank(1) };
 				mapCPU(0x80, 8, firstBank[0]);
 				mapCPU(0xA0, 8, firstBank[1]);
+				registers[7] = 0;
 			}
 			if (newPRGBankMode == 3) {
 				// fix upper
-				unsigned char* lastBank[2] = { cachePRGBank(numPRGBanks * 2 - 2), cachePRGBank(numPRGBanks * 2 - 1) };
+				registers[8] = ((numPRGBanks - 1) & 0xF) * 2 + (registers[7] & 0x20);
+				unsigned char* lastBank[2] = { cachePRGBank(registers[8]), cachePRGBank(registers[8] + 1) };
 				mapCPU(0xC0, 8, lastBank[0]);
 				mapCPU(0xE0, 8, lastBank[1]);
 			}
@@ -469,26 +494,30 @@ void nes_cart::MMC1_Write(unsigned int addr, int regValue) {
 		registers[4] = (regValue & 0x10) >> 4;
 	} else if (addr < 0xC000) {
 		// CHR Bank 0
-		if (registers[4] == 1) {
-			// 4 kb mode
-			regValue &= numCHRBanks * 2 - 1;
-			unsigned char* chrMem = cacheCHRBank(regValue >> 1);
-			mapPPU(0x00, 4, chrMem + 4096 * (regValue & 1));
-		} else {
-			// 8 kb mode
-			regValue &= numCHRBanks * 2 - 1;
-			unsigned char* chrMem = cacheCHRBank(regValue >> 1);
-			mapPPU(0x00, 8, chrMem);
+		if (numCHRBanks) {
+			if (registers[4] == 1) {
+				// 4 kb mode
+				regValue &= numCHRBanks * 2 - 1;
+				unsigned char* chrMem = cacheCHRBank(regValue >> 1);
+				mapPPU(0x00, 4, chrMem + 4096 * (regValue & 1));
+			} else {
+				// 8 kb mode
+				regValue &= numCHRBanks * 2 - 1;
+				unsigned char* chrMem = cacheCHRBank(regValue >> 1);
+				mapPPU(0x00, 8, chrMem);
+			}
 		}
 	} else if (addr < 0xE000) {
 		// CHR Bank 1
-		if (registers[4] == 1) {
-			// 4 kb mode
-			regValue &= numCHRBanks * 2 - 1;
-			unsigned char* chrMem = cacheCHRBank(regValue >> 1);
-			mapPPU(0x10, 4, chrMem + 4096 * (regValue & 1));
-		} else {
-			// 8 kb mode, ignored
+		if (numCHRBanks) {
+			if (registers[4] == 1) {
+				// 4 kb mode
+				regValue &= numCHRBanks * 2 - 1;
+				unsigned char* chrMem = cacheCHRBank(regValue >> 1);
+				mapPPU(0x10, 4, chrMem + 4096 * (regValue & 1));
+			} else {
+				// 8 kb mode, ignored
+			}
 		}
 	} else {
 		int openBusMode = regValue & 0x10;
@@ -496,12 +525,16 @@ void nes_cart::MMC1_Write(unsigned int addr, int regValue) {
 			MMC1_SetRAMBank(openBusMode);
 		}
 
+		int selectePRGBlock = registers[7] & 0x20;
 		regValue = regValue & (numPRGBanks - 1);
 		// PRG Bank
 		if (registers[3] < 2) {
 			// 32 kb mode
 			regValue &= 0xFE;
 			regValue *= 2;
+			regValue |= selectePRGBlock;
+			registers[7] = regValue;
+			registers[8] = regValue + 2;
 			unsigned char* prgMem0 = cachePRGBank(regValue + 0);
 			mapCPU(0x80, 8, prgMem0);
 			unsigned char* prgMem1 = cachePRGBank(regValue + 1);
@@ -513,6 +546,8 @@ void nes_cart::MMC1_Write(unsigned int addr, int regValue) {
 		} else if (registers[3] == 2) {
 			// changes bank at 0xC000
 			regValue *= 2;
+			regValue |= selectePRGBlock;
+			registers[8] = regValue;
 			unsigned char* prgMem0 = cachePRGBank(regValue + 0);
 			mapCPU(0xC0, 8, prgMem0);
 			unsigned char* prgMem1 = cachePRGBank(regValue + 1);
@@ -520,6 +555,8 @@ void nes_cart::MMC1_Write(unsigned int addr, int regValue) {
 		} else if (registers[3] == 3) {
 			// changes bank at 0x8000
 			regValue *= 2;
+			regValue |= selectePRGBlock;
+			registers[7] = regValue;
 			unsigned char* prgMem0 = cachePRGBank(regValue + 0);
 			mapCPU(0x80, 8, prgMem0);
 			unsigned char* prgMem1 = cachePRGBank(regValue + 1);
