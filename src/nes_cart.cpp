@@ -625,6 +625,8 @@ void nes_cart::setupMapper1_MMC1() {
 		registers[6] = ramBank0;
 
 		// enable by default
+		char* bank = (char*)banks[registers[6]];
+		memset(bank, 0, 8192);
 		MMC1_SetRAMBank(0);
 	}
 

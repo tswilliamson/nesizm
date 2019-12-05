@@ -196,7 +196,7 @@ void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
 		case 0x00:	// PPUCTRL
 			if ((PPUCTRL & PPUCTRL_NMI) == 0 && (value & PPUCTRL_NMI) && (PPUSTATUS & PPUSTAT_NMI)) {
 				mainCPU.ppuNMI = true;
-				mainCPU.nextClocks = mainCPU.clocks;	// force an NMI check after instruction
+				mainCPU.nextClocks = mainCPU.clocks + 1;	// force an NMI check AFTER the next instruction
 			}
 			latch = &PPUCTRL;
 			break;
