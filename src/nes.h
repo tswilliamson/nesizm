@@ -26,8 +26,8 @@ struct nes_cart {
 	int isBatteryBacked;			// 0 if no battery backup
 	int isPAL;						// 1 if PAL, 0 if NTSC
 
-	// up to 16 internal registers
-	unsigned int registers[16];
+	// up to 32 internal registers
+	unsigned int registers[32];
 
 	// called on all writes over 0x4020
 	void(*writeSpecial)(unsigned int address, unsigned char value);

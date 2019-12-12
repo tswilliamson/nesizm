@@ -58,7 +58,11 @@ void ppu_midFrameScrollUpdate() {
 	if (actualScrollY >= 240) {
 		actualScrollY -= 255;
 	}
-	actualScrollY -= ppu_scanline - 2;
+	if (mainCPU.ppuClocks > mainCPU.clocks && mainCPU.ppuClocks - mainCPU.clocks >= 86) {
+		actualScrollY -= ppu_scanline - 2;
+	} else {
+		actualScrollY -= ppu_scanline - 1;
+	}
 
 	if (actualScrollY < 0) {
 		ppu_flipY = !ppu_flipY;
@@ -492,7 +496,7 @@ void ppu_step() {
 			fastSprite0();
 		}
 
-		if (nesCart.scanlineClock) {
+		if (nesCart.scanlineClock && ppu_scanline != 240) {
 			nesCart.scanlineClock();
 		}
 	} else if (ppu_scanline == 241) {
@@ -620,7 +624,7 @@ void renderOAM() {
 				// determine tile index
 				unsigned char* tile;
 				if (sprite16) {
-					tile = patternTable + ((((curObj[1] & 1) << 8) + (curObj[1] & 0xFE)) << 4) + ((yCoord & 8) << 1) + (yCoord & 7);
+					tile = patternTable + ((curObj[1] & 1) << 12) + ((curObj[1] & 0xFE) << 4) + ((yCoord & 8) << 1) + (yCoord & 7);
 				} else {
 					tile = patternTable + (curObj[1] << 4) + yCoord;
 				}

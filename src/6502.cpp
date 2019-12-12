@@ -295,7 +295,7 @@ inline void BEQ(unsigned int data) {
 inline void JMP_MEM(unsigned int addr) {
 	// common infinite loop
 	if (mainCPU.PC == addr + 3) {
-		mainCPU.clocks = mainCPU.ppuClocks;
+		mainCPU.nextClocks = 0;
 	}
 
 	mainCPU.PC = addr;
