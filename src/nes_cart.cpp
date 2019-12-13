@@ -263,6 +263,8 @@ int nes_cart::findOldestUnusedBank(int startIndex, int lastIndexExclusive) {
 
 // caches an 8 KB PRG bank (so index up to 2 * numPRGBanks), returns result bank memory pointer
 unsigned char* nes_cart::cachePRGBank(int index) {
+	DebugAssert(index < numPRGBanks * 2);
+
 	requestIndex++;
 
 	// find bank index within range:

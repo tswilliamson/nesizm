@@ -47,8 +47,16 @@ void resolveScanline_VRAM();
 void finishFrame_VRAM();		
 #endif
 
+inline void handleNegativeScroll() {
+	if (ppu_scrollY >= 0xf0) {
+		ppu_scrollY = -(0x100 - ppu_scrollY);
+	}
+}
+
 void ppu_copyYScrollRegs() {
 	ppu_scrollY = ppu_registers.SCROLLY;
+	handleNegativeScroll();
+
 	ppu_flipY = (ppu_registers.PPUCTRL & PPUCTRL_FLIPYTBL) != 0;
 }
 
@@ -70,6 +78,7 @@ void ppu_midFrameScrollUpdate() {
 	}
 
 	ppu_scrollY = actualScrollY;
+	handleNegativeScroll();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

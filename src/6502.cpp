@@ -12,6 +12,7 @@ static unsigned int cpuBreakpoint = 0x10000;
 static unsigned int memWriteBreakpoint = 0x10000;
 static unsigned int instructionCountBreakpoint = 0;
 static bool bHitMemBreakpoint = false;
+static bool bHitPPUBreakpoint = false;
 
 #define NUM_TRACED 500
 static cpu_instr_history traceHistory[NUM_TRACED] = { 0 };
@@ -19,6 +20,7 @@ static unsigned int traceNum;
 static unsigned int cpuInstructionCount = 0;
 void HitBreakpoint();
 void IllegalInstruction();
+void Do_PPUBreakpoint();
 static int traceLineRemaining = 0;
 #endif
 
@@ -841,6 +843,11 @@ inline void cpu6502_PerformInstruction() {
 		bHitMemBreakpoint = false;
 	}
 
+	if (bHitPPUBreakpoint) {
+		Do_PPUBreakpoint();
+		bHitPPUBreakpoint = false;
+	}
+
 
 	cpuInstructionCount++;
 	if (instructionCountBreakpoint && cpuInstructionCount == instructionCountBreakpoint) {
@@ -934,8 +941,11 @@ void cpu_instr_history::output() {
 			regs.P & ST_CRY ? "C" : "c");
 	}
 
-	for (int i = 0xFF; i > regs.SP; i--) {
-		ADD_LOG(" ");
+	static bool showStackDepth = false;
+	if (showStackDepth) {
+		for (int i = 0xFF; i > regs.SP; i--) {
+			ADD_LOG(" ");
+		}
 	}
 
 #define OPCODE_0W(op,str,clk,sz,page,name,spc) if (instr == op) ADD_LOG("$%04X:%02X        " str, regs.PC, instr);
@@ -985,6 +995,10 @@ void IllegalInstruction() {
 }
 
 void PPUBreakpoint() {
+	bHitPPUBreakpoint = true;
+}
+
+void Do_PPUBreakpoint() {
 	OutputLog("CPU Instruction Trace:\n");
 	for (int i = NUM_TRACED - 1; i > 0; i--) {
 		traceHistory[(traceNum - i + NUM_TRACED) % NUM_TRACED].output();
