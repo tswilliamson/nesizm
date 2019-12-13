@@ -51,6 +51,9 @@ struct cpu_instr_history {
 	unsigned char effByte;  // effective address byte
 	
 	void output();
+	bool isEmpty() const {
+		return instr == 0 && data1 == 0 && regs.A == 0 && regs.X == 0 && regs.Y == 0 && regs.SP == 0;
+	}
 };
 
 #define ST_CRY_BIT (0)

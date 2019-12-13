@@ -179,6 +179,8 @@ bool nes_cart::setupMapper() {
 
 	clearCacheData();
 
+	memset(registers, 0, sizeof(registers));
+
 	switch (mapper) {
 		case 0:
 			setupMapper0_NROM();
@@ -625,6 +627,8 @@ void nes_cart::setupMapper1_MMC1() {
 		registers[6] = ramBank0;
 
 		// enable by default
+		char* bank = (char*)banks[registers[6]];
+		memset(bank, 0, 8192);
 		MMC1_SetRAMBank(0);
 	}
 
@@ -694,15 +698,16 @@ void nes_cart::setupMapper2_UNROM() {
 // CNROM (switchable CHR banks)
 
 // registers[0] = current mapped CHR bank
+#define CNROM_CUR_CHR_BANK nesCart.registers[0]
 
 void CNROM_writeSpecial(unsigned int address, unsigned char value) {
 	if (address >= 0x8000) {
 		// CHR bank select
 		value &= nesCart.numCHRBanks - 1;
 
-		if (value != nesCart.registers[0]) {
+		if (value != CNROM_CUR_CHR_BANK) {
 			ppu_chrMap = nesCart.cacheCHRBank(value);
-			nesCart.registers[0] = value;
+			CNROM_CUR_CHR_BANK = value;
 		}
 	}
 }
@@ -724,7 +729,7 @@ void nes_cart::setupMapper3_CNROM() {
 
 	// cache first CHR bank by default
 	ppu_chrMap = nesCart.cacheCHRBank(0);
-	nesCart.registers[0] = 0;
+	CNROM_CUR_CHR_BANK = 0;
 
 	// RAM bank if one is set up
 	if (numRAMBanks == 1) {
@@ -736,12 +741,28 @@ void nes_cart::setupMapper3_CNROM() {
 // MMC3 (most popular mapper with IRQ)
 
 // register 0-7 holds the 8 bank registers
+#define MMC3_BANK_REG nesCart.registers
 
 // register 8 is the bank select register (control values)
-// register 9 is the IRQ counter latch value
+#define MMC3_BANK_SELECT nesCart.registers[8]
+
+// register 9 is the IRQ counter latch value (the set value on reload)
+#define MMC3_IRQ_SET nesCart.registers[9]
+
 // register 10 is the IRQ counter reload flag
+#define MMC3_IRQ_RELOAD nesCart.registers[10]
+
 // register 11 is the actual IRQ counter value
+#define MMC3_IRQ_COUNTER nesCart.registers[11]
+
 // register 12 is the IRQ interrupt triggle enable/disable flag
+#define MMC3_IRQ_ENABLE nesCart.registers[12]
+
+// register 13 is the IRQ latch (when set, IRQ is dispatched with each A12 jump)
+#define MMC3_IRQ_LATCH nesCart.registers[13]
+
+// registers 16-19 contain an integer of the last time the IRQ counter was reset, used to fix IRQ timing since we are cheating by performing logic at beginning ot scanline
+#define MMC3_IRQ_LASTSET *((unsigned int*) &nesCart.registers[16])
 
 #define MMC3_CHRBANK0 (NUM_CACHED_ROM_BANKS - 2)
 #define MMC3_CHRBANK1 (NUM_CACHED_ROM_BANKS - 1)
@@ -758,10 +779,10 @@ void MMC3_writeSpecial(unsigned int address, unsigned char value) {
 		} else if (address < 0xA000) {
 			if (!(address & 1)) {
 				// bank select
-				if (nesCart.registers[8] != value) {
+				if (MMC3_BANK_SELECT != value) {
 					// upper two bits changing effects the entire current memory mapping
-					int upperBits = (nesCart.registers[8] ^ value) & 0xC0;
-					nesCart.registers[8] = value;
+					int upperBits = (MMC3_BANK_SELECT ^ value) & 0xC0;
+					MMC3_BANK_SELECT = value;
 					if (upperBits) {
 						if (upperBits & 0x40) {
 							// PRG bank mode change
@@ -775,9 +796,9 @@ void MMC3_writeSpecial(unsigned int address, unsigned char value) {
 				}
 			} else {
 				// bank data
-				int targetReg = nesCart.registers[8] & 7;
-				if (nesCart.registers[targetReg] != value) {
-					nesCart.registers[targetReg] = value;
+				int targetReg = MMC3_BANK_SELECT & 7;
+				if (MMC3_BANK_REG[targetReg] != value) {
+					MMC3_BANK_REG[targetReg] = value;
 					nesCart.MMC3_UpdateMapping(targetReg);
 				}
 			}
@@ -799,19 +820,26 @@ void MMC3_writeSpecial(unsigned int address, unsigned char value) {
 		else if (address < 0xE000) {
 			if (!(address & 1)) {
 				// IRQ counter reload value
-				nesCart.registers[9] = value;
+				MMC3_IRQ_SET = value;
+
+				if (MMC3_IRQ_LASTSET + 90 > mainCPU.clocks) {
+					MMC3_IRQ_COUNTER = value;
+				}
 			} else {
 				// set IRQ counter reload flag
-				nesCart.registers[10] = 1;
+				MMC3_IRQ_RELOAD = 1;
 			}
 		}
 		else {
 			if (!(address & 1)) {
 				// disable IRQ interrupt
-				nesCart.registers[12] = 0;
+				MMC3_IRQ_ENABLE = 0;
+
+				// disable IRQ latch
+				MMC3_IRQ_LATCH = 0;
 			} else {
 				// enable IRQ interrupt
-				nesCart.registers[12] = 1;
+				MMC3_IRQ_ENABLE = 1;
 			}
 		}
 	}
@@ -896,7 +924,7 @@ void nes_cart::MMC3_UpdateMapping(int regNumber) {
 
 		// possible bank mode change
 		unsigned char* penultBank = cachePRGBank(numPRGBanks * 2 - 2);
-		if (registers[8] & 0x40) {
+		if (MMC3_BANK_SELECT & 0x40) {
 			// 2nd to last bank set to 80-9F
 			mapCPU(0x80, 8, penultBank);
 		} else {
@@ -908,33 +936,70 @@ void nes_cart::MMC3_UpdateMapping(int regNumber) {
 
 void nes_cart::MMC3_ScanlineClock() {
 	int flipCycles = -1;
-	if (ppu_registers.PPUCTRL & PPUCTRL_OAMTABLE) {
+	int irqDec = 1;
+	
+	const int OAM_LOOKUP_CYCLE = 82; // 82 is derived from: PPU clock 260 / 3 - half the largest instruction size, appears to get us compatible
+
+	if (ppu_registers.PPUCTRL & PPUCTRL_SPRSIZE) {
+		// 8x16 sprites are a special case
+		flipCycles = OAM_LOOKUP_CYCLE;
+
+		// check which sprites are on this scanline to determine irq decrement amount
+		irqDec = 0;
+		unsigned char* curObj = &ppu_oam[252];
+		int lastPatternTable = 0;
+		int numSprites = 0;
+		for (int i = 0; i < 64; i++) {
+			unsigned int yCoord = ppu_scanline - curObj[0] - 2;
+			if (yCoord < 16) {
+				numSprites++;
+				int patternTable = (curObj[1] & 1);
+				if (patternTable > lastPatternTable) {
+					irqDec++;
+				}
+				lastPatternTable = patternTable;
+
+				if (numSprites == 8) {
+					break;
+				}
+			}
+
+			curObj -= 4;
+		}
+		if (numSprites < 8 && lastPatternTable == 0) {
+			irqDec++;
+		}
+	} else if (ppu_registers.PPUCTRL & PPUCTRL_OAMTABLE) {
 		if (!(ppu_registers.PPUCTRL & PPUCTRL_BGDTABLE)) {
 			// BG uses 0x0000, OAM uses 0x1000
-			flipCycles = 82;
+			flipCycles = OAM_LOOKUP_CYCLE;
 		}
 	} else {
 		if (ppu_registers.PPUCTRL & PPUCTRL_BGDTABLE) {
 			// BG uses 0x1000, OAM uses 0x0000
-			flipCycles = 0;
-		} else if (ppu_registers.PPUCTRL & PPUCTRL_SPRSIZE) {
-			// BG uses 0x0000, OAM uses 0x0000, but 8x16 sprites
-			flipCycles = 82;
-		}
+			flipCycles = 1;
+		} 
 	}
 
-	if (flipCycles >= 0) {
+	if (flipCycles >= 0 && (ppu_registers.PPUMASK & (PPUMASK_SHOWBG | PPUMASK_SHOWOBJ))) {
 		// perform counter
-		if (nesCart.registers[10] || nesCart.registers[11] == 0) {
-			// reload counter value
-			nesCart.registers[11] = nesCart.registers[9];
-			nesCart.registers[10] = 0;
-		} else {
-			nesCart.registers[11]--;
+		while (irqDec--) {
+			if (MMC3_IRQ_RELOAD || MMC3_IRQ_COUNTER == 0) {
+				// reload counter value
+				MMC3_IRQ_COUNTER = MMC3_IRQ_SET;
+				MMC3_IRQ_RELOAD = 0;
+				MMC3_IRQ_LASTSET = mainCPU.ppuClocks - (341 / 3); // beginning of the scanline
+			} else {
+				MMC3_IRQ_COUNTER--;
 
-			if (nesCart.registers[11] == 0 && nesCart.registers[12]) {
+				if (MMC3_IRQ_COUNTER == 0 && MMC3_IRQ_ENABLE) {
+					MMC3_IRQ_LATCH = 1;
+				}
+			}
+
+			if (MMC3_IRQ_LATCH) {
 				// trigger an IRQ
-				mainCPU.irqClocks = mainCPU.clocks + flipCycles;
+				mainCPU.irqClocks = mainCPU.ppuClocks - (341 / 3) + flipCycles;
 			}
 		}
 	}
@@ -943,8 +1008,6 @@ void nes_cart::MMC3_ScanlineClock() {
 void nes_cart::setupMapper4_MMC3() {
 	writeSpecial = MMC3_writeSpecial;
 	scanlineClock = MMC3_ScanlineClock;
-
-	memset(registers, 0, sizeof(registers));
 
 	// 2 banks for chr memory to allow fast A12 CHR inversion
 	int cachedCount = MMC3_CHRBANK0 - numRAMBanks;
@@ -970,6 +1033,7 @@ void nes_cart::setupMapper4_MMC3() {
 // AOROM (switches nametables for single screen mirroring)
 
 // registers[0] = current nametable page (1 or 0)
+#define AOROM_CUR_NAMETABLE nesCart.registers[0]
 
 #define AOROM_NAMEBANK NUM_CACHED_ROM_BANKS - 1
 
@@ -987,9 +1051,9 @@ void AOROM_writeSpecial(unsigned int address, unsigned char value) {
 		} else {
 			// nametable select
 			int nametable = (value >> 4) & 1;
-			if (nametable != nesCart.registers[0]) {
+			if (nametable != AOROM_CUR_NAMETABLE) {
 				AOROM_MapNameBank(nametable);
-				nesCart.registers[0] = nametable;
+				AOROM_CUR_NAMETABLE = nametable;
 			}
 
 			// bank select
@@ -1017,8 +1081,6 @@ void nes_cart::setupMapper7_AOROM() {
 
 	cachedPRGCount = AOROM_NAMEBANK - 1 - numRAMBanks;
 	int chrBank = cachedPRGCount;
-
-	registers[0] = 0;
 
 	// read CHR bank (always one ROM.. or RAM?) directly into PPU chrMap
 	if (numCHRBanks == 1) {
