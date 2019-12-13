@@ -10,6 +10,7 @@
 #if TRACE_DEBUG
 static unsigned int cpuBreakpoint = 0x10000;
 static unsigned int memWriteBreakpoint = 0xfffff;
+static bool bHitMemBreakpoint = false;
 
 #define NUM_TRACED 500
 static cpu_instr_history traceHistory[NUM_TRACED] = { 0 };
@@ -88,7 +89,7 @@ inline void writeAddr(unsigned int addr, unsigned int result) {
 
 #if TRACE_DEBUG
 	if (addr == memWriteBreakpoint) {
-		HitBreakpoint();
+		bHitMemBreakpoint = true;
 	}
 #endif
 }
@@ -103,7 +104,7 @@ inline void writeZero(unsigned int addr, unsigned int result) {
 
 #if TRACE_DEBUG
 	if (addr == memWriteBreakpoint) {
-		HitBreakpoint();
+		bHitMemBreakpoint = true;
 	}
 #endif
 }
@@ -773,6 +774,12 @@ inline void cpu6502_PerformInstruction() {
 	if (hist.regs.PC == cpuBreakpoint) {
 		HitBreakpoint();
 	}
+
+	if (bHitMemBreakpoint) {
+		HitBreakpoint();
+		bHitMemBreakpoint = false;
+	}
+
 #endif
 }
 
