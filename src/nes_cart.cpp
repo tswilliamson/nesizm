@@ -283,6 +283,8 @@ unsigned char* nes_cart::cachePRGBank(int index) {
 
 // caches an 8 KB CHR bank, returns result bank memory pointer
 unsigned char* nes_cart::cacheCHRBank(int index) {
+	index &= (numCHRBanks - 1);
+
 	requestIndex++;
 
 	// find bank index within range:
@@ -1015,6 +1017,9 @@ void nes_cart::setupMapper4_MMC3() {
 	cachedCHRCount = cachedCount - cachedPRGCount;
 
 	ppu_chrMap = banks[MMC3_CHRBANK0];
+
+	// map first 8 KB of CHR memory to ppu chr if not ram
+	mapPPU(0x00, 8, cacheCHRBank(0));
 
 	// set fixed page up
 	unsigned char* finalBank = cachePRGBank(numPRGBanks * 2 - 1);
