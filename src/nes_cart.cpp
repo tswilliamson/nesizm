@@ -794,7 +794,7 @@ void MMC3_writeSpecial(unsigned int address, unsigned char value) {
 						}
 						if (upperBits & 0x80) {
 							// CHR mode change, fast A12 switch
-							ppu_chrMap = (upperBits & 0x80) ? nesCart.banks[MMC3_CHRBANK1] : nesCart.banks[MMC3_CHRBANK0];
+							ppu_chrMap = (MMC3_BANK_SELECT & 0x80) ? nesCart.banks[MMC3_CHRBANK1] : nesCart.banks[MMC3_CHRBANK0];
 						}
 					}
 				}
