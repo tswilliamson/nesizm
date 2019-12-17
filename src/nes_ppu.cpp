@@ -28,6 +28,7 @@ static int ppu_writeToggle = 0;
 // partial representation of PPU side registers we maintain for scrolling determination
 static int ppu_scrollY = 0;
 static bool ppu_flipY = false;
+static bool ppu_causeDecrement = false;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Scanline handling
@@ -47,26 +48,21 @@ void resolveScanline_VRAM();
 void finishFrame_VRAM();		
 #endif
 
-inline void handleNegativeScroll() {
-	if (ppu_scrollY >= 0xf0) {
-		ppu_scrollY = -(0x100 - ppu_scrollY);
-	}
-}
-
 void ppu_copyYScrollRegs() {
 	ppu_scrollY = ppu_registers.SCROLLY;
-	handleNegativeScroll();
-
 	ppu_flipY = (ppu_registers.PPUCTRL & PPUCTRL_FLIPYTBL) != 0;
+	ppu_causeDecrement = false;
 }
 
 void ppu_midFrameScrollUpdate() {
+	bool renderingDisabled = (ppu_registers.PPUMASK & PPUMASK_SHOWBG) == 0;
+
 	// update ppu_scrollY to account for current scanline offset
 	int actualScrollY = ppu_scrollY;
 	if (actualScrollY >= 240) {
-		actualScrollY -= 255;
+		actualScrollY -= 256;
 	}
-	if (mainCPU.ppuClocks > mainCPU.clocks && mainCPU.ppuClocks - mainCPU.clocks >= 86) {
+	if (mainCPU.ppuClocks > mainCPU.clocks && mainCPU.ppuClocks - mainCPU.clocks >= 50 && !renderingDisabled) {
 		actualScrollY -= ppu_scanline - 2;
 	} else {
 		actualScrollY -= ppu_scanline - 1;
@@ -78,7 +74,9 @@ void ppu_midFrameScrollUpdate() {
 	}
 
 	ppu_scrollY = actualScrollY;
-	handleNegativeScroll();
+
+	// cause scroll decrement if background rendering is disabled
+	ppu_causeDecrement = renderingDisabled;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -509,6 +507,9 @@ void ppu_step() {
 			nesCart.scanlineClock();
 		}
 	} else if (ppu_scanline == 241) {
+		// good time to reset ppu_scroll
+		ppu_scrollY = 0;
+
 		// blank scanline area, trigger NMI next scanline
 		ppu_triggerNMI = (mainCPU.clocks > 140000);
 		ppu_setVBL = (mainCPU.clocks > 30000);
@@ -680,46 +681,12 @@ void renderOAM() {
 			if ((ppu_registers.PPUSTATUS & PPUSTAT_SPRITE0) == 0) {
 				unsigned int charBuffer[8];
 
-				// simulate the 8 bits from the write, but a little faster
 				unsigned int yCoord0 = ppu_scanline - ppu_oam[0] - 2;
 				if (yCoord0 < spriteSize) {
-					if (ppu_oam[2] & OAMATTR_VFLIP) yCoord0 = spriteSize - yCoord0;
-
-					// determine tile index
-					unsigned char* tile;
-					if (sprite16) {
-						tile = patternTable + ((((ppu_oam[1] & 1) << 8) + (ppu_oam[1] & 0xFE)) << 4) + ((yCoord0 & 8) << 1);
-						yCoord0 &= 7;
-					} else {
-						tile = patternTable + (ppu_oam[1] << 4);
-					}
-
 					unsigned int x = ppu_oam[3];
 
-					unsigned int plane = tile[yCoord0] | tile[yCoord0 + 8];
-
-					if (ppu_oam[2] & OAMATTR_HFLIP) {
-						charBuffer[0] = plane & 1;
-						charBuffer[1] = plane & 2;
-						charBuffer[2] = plane & 4;
-						charBuffer[3] = plane & 8;
-						charBuffer[4] = plane & 16;
-						charBuffer[5] = plane & 32;
-						charBuffer[6] = plane & 64;
-						charBuffer[7] = plane & 128;
-					} else {
-						charBuffer[7] = plane & 1;
-						charBuffer[6] = plane & 2;
-						charBuffer[5] = plane & 4;
-						charBuffer[4] = plane & 8;
-						charBuffer[3] = plane & 16;
-						charBuffer[2] = plane & 32;
-						charBuffer[1] = plane & 64;
-						charBuffer[0] = plane & 128;
-					}
-
-					for (int p = 0; p < 8; p++) {
-						if (charBuffer[p] && ppu_scanlineBuffer[16+x+p] && (x+p != 255)) {
+					for (int p = 0; p < 8; p++, x++) {
+						if ((ppu_oamBuffer[x] & 3) && ppu_scanlineBuffer[16+x] && (x != 255)) {
 							// TODO : this is approximate since it is at start of line!
 							// It could be exact by storing actual upcoming clocks here and filling
 							// PPUSTATUS when queried
@@ -827,6 +794,9 @@ void renderScanline_SingleMirror() {
 	} else {
 		for (int i = 0; i < 288; i++) {
 			ppu_scanlineBuffer[i] = 0;
+		}
+		if (ppu_causeDecrement) {
+			ppu_scrollY--;
 		}
 	}
 
@@ -951,6 +921,9 @@ void renderScanline_HorzMirror() {
 		for (int i = 0; i < 288; i++) {
 			ppu_scanlineBuffer[i] = 0;
 		}
+		if (ppu_causeDecrement) {
+			ppu_scrollY--;
+		}
 	}
 
 	if ((ppu_registers.PPUCTRL & PPUCTRL_SPRSIZE) == 0) {
@@ -967,11 +940,21 @@ void renderScanline_VertMirror_Latched() {
 
 	DebugAssert(ppu_scanline >= 1 && ppu_scanline <= 240);
 	if (ppu_registers.PPUMASK & PPUMASK_SHOWBG) {
-		int line = ppu_scanline + ppu_scrollY - 1;
+		int line = ppu_scanline - 1;
+
+		if (ppu_scrollY < 240) {
+			line += ppu_scrollY;
+		} else {
+			// "negative scroll" which we'll just skip the top lines for
+			line += ppu_scrollY - 256;
+		}
+
 		int tileLine = line >> 3;
 
 		if (tileLine >= 30) {
 			tileLine -= 30;
+		} else if (tileLine < 0) {
+			tileLine += 30;
 		}
 
 		int scrollX = ppu_registers.SCROLLX;
@@ -1078,6 +1061,9 @@ void renderScanline_VertMirror_Latched() {
 	} else {
 		for (int i = 0; i < 288; i++) {
 			ppu_scanlineBuffer[i] = 0;
+		}
+		if (ppu_causeDecrement) {
+			ppu_scrollY--;
 		}
 	}
 
