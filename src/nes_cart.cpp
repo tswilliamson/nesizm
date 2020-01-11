@@ -7,7 +7,7 @@
 
 nes_cart nesCart;
 
-nes_nametable nes_onboardPPUTables[2];
+nes_nametable nes_onboardPPUTables[4];
 
 unsigned char openBus[256] = {
 	0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
@@ -810,10 +810,13 @@ void MMC3_writeSpecial(unsigned int address, unsigned char value) {
 		else if (address < 0xC000) {
 			if (!(address & 1)) {
 				// mirroring
-				if (value & 1) {
-					ppu_setMirrorType(nes_mirror_type::MT_HORIZONTAL);
-				} else {
-					ppu_setMirrorType(nes_mirror_type::MT_VERTICAL);
+				extern int ppu_mirror;
+				if (ppu_mirror != nes_mirror_type::MT_4PANE) {
+					if (value & 1) {
+						ppu_setMirrorType(nes_mirror_type::MT_HORIZONTAL);
+					} else {
+						ppu_setMirrorType(nes_mirror_type::MT_VERTICAL);
+					}
 				}
 			} else {
 				// RAM protect

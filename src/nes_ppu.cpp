@@ -933,7 +933,7 @@ void renderScanline_HorzMirror() {
 	}
 }
 
-template<bool hasLatch>
+template<bool hasLatch, bool is4Pane = false>
 void renderScanline_VertMirror_Latched() {
 
 	TIME_SCOPE();
@@ -951,10 +951,27 @@ void renderScanline_VertMirror_Latched() {
 
 		int tileLine = line >> 3;
 
-		if (tileLine >= 30) {
-			tileLine -= 30;
-		} else if (tileLine < 0) {
-			tileLine += 30;
+		int nameTableIndex = 0;
+		if (is4Pane) {
+			if (tileLine >= 60) {
+				tileLine -= 60;
+			}
+			else if (tileLine < 0) {
+				tileLine += 60;
+			}
+			if (tileLine >= 30) {
+				nameTableIndex = 2;
+				tileLine -= 30;
+			}
+			if (ppu_registers.PPUCTRL & PPUCTRL_FLIPYTBL) {
+				nameTableIndex = nameTableIndex ^ 2;
+			}
+		} else {
+			if (tileLine >= 30) {
+				tileLine -= 30;
+			} else if (tileLine < 0) {
+				tileLine += 30;
+			}
 		}
 
 		int scrollX = ppu_registers.SCROLLX;
@@ -971,7 +988,7 @@ void renderScanline_VertMirror_Latched() {
 		// we render 16 pixels at a time (easy attribute table lookup), 17 times and clip
 		int x = 16 - (scrollX & 15);
 		int tileX = ((scrollX >> 4) * 2) & 0x3F;	// always start on an even numbered tile
-		int nameTableIndex = (tileX & 0x20) >> 5;
+		nameTableIndex += (tileX & 0x20) >> 5;
 		
 		nameTable = &ppu_nameTables[nameTableIndex].table[tileLine << 5];
 		attr = &ppu_nameTables[nameTableIndex].attr[(tileLine >> 2) << 3];
@@ -1012,7 +1029,7 @@ void renderScanline_VertMirror_Latched() {
 
 		// now render the other nametable until scanline is complete
 		curTileX = 0;
-		nameTableIndex = 1 - nameTableIndex;
+		nameTableIndex = nameTableIndex ^ 1;
 		nameTable = &ppu_nameTables[nameTableIndex].table[tileLine << 5];
 		attr = &ppu_nameTables[nameTableIndex].attr[(tileLine >> 2) << 3];
 
@@ -1082,6 +1099,10 @@ void renderScanline_VertMirror() {
 	}
 }
 
+void renderScanline_4PaneMirror() {
+	renderScanline_VertMirror_Latched<false, true>();
+}
+
 void ppu_setMirrorType(int withType) {
 	if (ppu_mirror == withType) {
 		return;
@@ -1100,7 +1121,7 @@ void ppu_setMirrorType(int withType) {
 			renderScanline = renderScanline_SingleMirror;
 			break;
 		case nes_mirror_type::MT_4PANE:
-			DebugAssert(false);
+			renderScanline = renderScanline_4PaneMirror;
 			break;
 	}
 }
