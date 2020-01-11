@@ -203,6 +203,9 @@ bool nes_cart::setupMapper() {
 		case 9:
 			setupMapper9_MMC2();
 			return true;
+		case 11:
+			setupMapper11_ColorDreams();
+			return true;
 		default:
 			return false;
 	}
@@ -1268,4 +1271,52 @@ void nes_cart::setupMapper9_MMC2() {
 	if (numRAMBanks == 1) {
 		mapCPU(0x60, 8, banks[MMC2_CHRBANK0 - 1]);
 	}
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Color Dreams Mapper 11
+
+#define MMC11_PRG_SELECT nesCart.registers[8]
+#define MMC11_CHR_SELECT nesCart.registers[8]
+
+void MMC11_writeSpecial(unsigned int address, unsigned char value) {
+	if (address >= 0x8000) {
+		int prg = (value & 0x03) * 4;
+		int chr = (value & 0xF0) >> 4;
+
+		if (prg != MMC11_PRG_SELECT) {
+			unsigned char* prgBanks[4] = { nesCart.cachePRGBank(prg), nesCart.cachePRGBank(prg+1), nesCart.cachePRGBank(prg+2), nesCart.cachePRGBank(prg+3) };
+			mapCPU(0x80, 8, prgBanks[0]);
+			mapCPU(0xA0, 8, prgBanks[1]);
+			mapCPU(0xC0, 8, prgBanks[2]);
+			mapCPU(0xE0, 8, prgBanks[3]);
+
+			MMC11_PRG_SELECT = prg;
+		}
+
+		if (chr != MMC11_CHR_SELECT) {
+			ppu_chrMap = nesCart.cacheCHRBank(chr);
+
+			MMC11_CHR_SELECT = chr;
+		}
+	}
+}
+
+void nes_cart::setupMapper11_ColorDreams() {
+	writeSpecial = MMC11_writeSpecial;
+
+	cachedPRGCount = 12;
+	cachedCHRCount = NUM_CACHED_ROM_BANKS - cachedPRGCount;
+
+	// map first 32 KB of PRG mamory to 80-FF by default
+	unsigned char* prgBanks[4] = { cachePRGBank(0), cachePRGBank(1), cachePRGBank(2), cachePRGBank(3) };
+	mapCPU(0x80, 8, prgBanks[0]);
+	mapCPU(0xA0, 8, prgBanks[1]);
+	mapCPU(0xC0, 8, prgBanks[2]);
+	mapCPU(0xE0, 8, prgBanks[3]);
+
+	ppu_chrMap = cacheCHRBank(0);
+
+	MMC11_PRG_SELECT = 0;
+	MMC11_CHR_SELECT = 0;
 }
