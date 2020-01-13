@@ -96,6 +96,8 @@ struct nes_cart {
 	void setupMapper9_MMC2();
 
 	void setupMapper11_ColorDreams();
+
+	void setupMapper71_Camerica();
 };
 
 struct nes_nametable {

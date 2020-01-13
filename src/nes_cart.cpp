@@ -206,6 +206,9 @@ bool nes_cart::setupMapper() {
 		case 11:
 			setupMapper11_ColorDreams();
 			return true;
+		case 71:
+			setupMapper71_Camerica();
+			return true;
 		default:
 			return false;
 	}
@@ -1276,34 +1279,34 @@ void nes_cart::setupMapper9_MMC2() {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Color Dreams Mapper 11
 
-#define MMC11_PRG_SELECT nesCart.registers[8]
-#define MMC11_CHR_SELECT nesCart.registers[8]
+#define Mapper11_PRG_SELECT nesCart.registers[8]
+#define Mapper11_CHR_SELECT nesCart.registers[8]
 
-void MMC11_writeSpecial(unsigned int address, unsigned char value) {
+void Mapper11_writeSpecial(unsigned int address, unsigned char value) {
 	if (address >= 0x8000) {
 		int prg = (value & 0x03) * 4;
 		int chr = (value & 0xF0) >> 4;
 
-		if (prg != MMC11_PRG_SELECT) {
+		if (prg != Mapper11_PRG_SELECT) {
 			unsigned char* prgBanks[4] = { nesCart.cachePRGBank(prg), nesCart.cachePRGBank(prg+1), nesCart.cachePRGBank(prg+2), nesCart.cachePRGBank(prg+3) };
 			mapCPU(0x80, 8, prgBanks[0]);
 			mapCPU(0xA0, 8, prgBanks[1]);
 			mapCPU(0xC0, 8, prgBanks[2]);
 			mapCPU(0xE0, 8, prgBanks[3]);
 
-			MMC11_PRG_SELECT = prg;
+			Mapper11_PRG_SELECT = prg;
 		}
 
-		if (chr != MMC11_CHR_SELECT) {
+		if (chr != Mapper11_CHR_SELECT) {
 			ppu_chrMap = nesCart.cacheCHRBank(chr);
 
-			MMC11_CHR_SELECT = chr;
+			Mapper11_CHR_SELECT = chr;
 		}
 	}
 }
 
 void nes_cart::setupMapper11_ColorDreams() {
-	writeSpecial = MMC11_writeSpecial;
+	writeSpecial = Mapper11_writeSpecial;
 
 	cachedPRGCount = 12;
 	cachedCHRCount = NUM_CACHED_ROM_BANKS - cachedPRGCount;
@@ -1317,6 +1320,55 @@ void nes_cart::setupMapper11_ColorDreams() {
 
 	ppu_chrMap = cacheCHRBank(0);
 
-	MMC11_PRG_SELECT = 0;
-	MMC11_CHR_SELECT = 0;
+	Mapper11_PRG_SELECT = 0;
+	Mapper11_CHR_SELECT = 0;
+}
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Camerica Mapper 71
+
+void Mapper71_writeSpecial(unsigned int address, unsigned char value) {
+	if (address >= 0x6000) {
+		if (address < 0x8000) {
+			if (nesCart.numRAMBanks) {
+				// RAM
+				mainCPU.map[address >> 8][address & 0xFF] = value;
+			}
+		}
+		else if (address >= 0xC000) {
+			// bank select
+			value &= (nesCart.numPRGBanks - 1) & (0xF);
+
+			unsigned char* selected[2] = { nesCart.cachePRGBank(value * 2), nesCart.cachePRGBank(value * 2 + 1) };
+			mapCPU(0x80, 8, selected[0]);
+			mapCPU(0xA0, 8, selected[1]);
+		}
+	}
+}
+
+void nes_cart::setupMapper71_Camerica() {
+	writeSpecial = Mapper71_writeSpecial;
+
+	cachedPRGCount = NUM_CACHED_ROM_BANKS - 1 - numRAMBanks;
+	int chrBank = cachedPRGCount;
+
+	// read CHR bank (always one RAM) directly into PPU chrMap
+	if (numCHRBanks == 1) {
+		Bfile_ReadFile_OS(handle, banks[chrBank], 8192, 16 + 16384 * numPRGBanks);
+	}
+	ppu_chrMap = banks[chrBank];
+
+	// map first 16 KB of PRG mamory to 80-BF by default, and last 16 KB to C0-FF
+	unsigned char* firstBank[2] = { cachePRGBank(0), cachePRGBank(1) };
+	mapCPU(0x80, 8, firstBank[0]);
+	mapCPU(0xA0, 8, firstBank[1]);
+	unsigned char* lastBank[2] = { cachePRGBank(numPRGBanks * 2 - 2), cachePRGBank(numPRGBanks * 2 - 1) };
+	mapCPU(0xC0, 8, lastBank[0]);
+	mapCPU(0xE0, 8, lastBank[1]);
+
+	// RAM bank if one is set up
+	if (numRAMBanks == 1) {
+		mapCPU(0x60, 8, banks[chrBank + 1]);
+	}
 }
