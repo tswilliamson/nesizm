@@ -6,6 +6,8 @@
 #include "calctype/fonts/arial_small/arial_small.c"		// For Menus
 // #include "../../calctype/fonts/consolas_intl/consolas_intl.c"	// for FAQS
 
+#include "imageDraw.h"
+
 bool shouldExit = false;
 
 void shutdown() {
@@ -36,6 +38,16 @@ int main(void) {
 	input_Initialize();
 
 #if TARGET_WINSIM
+	{
+		Bdisp_Fill_VRAM(0, 3);
+		PrizmImage* logo = PrizmImage::LoadImage("\\\\dev0\\gfx\\logo.bmp");
+		logo->Blit(5,5);
+		PrizmImage* img = PrizmImage::LoadImage("\\\\dev0\\gfx\\rays.bmp");
+		img->Blit(0, 71);
+		int key = 0;
+		GetKey(&key);
+	}
+
 	char romFileSystem[512] = { 0 };
 	OPENFILENAME openStruct;
 	memset(&openStruct, 0, sizeof(OPENFILENAME));

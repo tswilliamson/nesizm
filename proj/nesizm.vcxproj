@@ -37,6 +37,7 @@
   <ItemGroup>
     <ClCompile Include="..\src\6502.cpp" />
     <ClCompile Include="..\src\debug.cpp" />
+    <ClCompile Include="..\src\imageDraw.cpp" />
     <ClCompile Include="..\src\nes_cart.cpp" />
     <ClCompile Include="..\src\nes_cpu.cpp" />
     <ClCompile Include="..\src\nes_input.cpp" />
@@ -56,6 +57,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\6502.h" />
+    <ClInclude Include="..\src\imageDraw.h" />
     <ClInclude Include="..\src\nes.h" />
     <ClInclude Include="..\src\nes_cpu.h" />
     <ClInclude Include="..\src\ptune2_simple\Ptune2_direct.h" />
@@ -71,7 +73,7 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{0A1E9BF8-05DD-4F73-81D8-18DA73DB5796}</ProjectGuid>
     <Keyword>MakeFileProj</Keyword>
-    <WindowsTargetPlatformVersion>10.0.17134.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DeviceRelease|x64'" Label="Configuration">

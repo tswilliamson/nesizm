@@ -12,12 +12,20 @@
 #include "fxcg\system.h"
 #include "fxcg\serial.h"
 
+typedef signed char int8;
+typedef unsigned char uint8;
+typedef signed short int16;
+typedef unsigned short uint16;
+typedef signed int int32;
+typedef unsigned int uint32;
+
 #if TARGET_WINSIM
 #define ALIGN(x) alignas(x)
 #define LITTLE_E
 #define FORCE_INLINE __forceinline
 #define RESTRICT __restrict
 #include <time.h>
+#undef LoadImage
 #else
 #define ALIGN(x) __attribute__((aligned(x)))
 #define BIG_E
