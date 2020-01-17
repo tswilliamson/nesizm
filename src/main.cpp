@@ -3,7 +3,8 @@
 #include "ptune2_simple/Ptune2_direct.h"
 #include "scope_timer/scope_timer.h"
 
-#include "calctype/fonts/arial_small/arial_small.c"		// For Menus
+#include "calctype/fonts/commodore/commodore.c"		// For Menus
+#include "calctype/fonts/arial_small/arial_small.c"		// For Debug Output
 // #include "../../calctype/fonts/consolas_intl/consolas_intl.c"	// for FAQS
 
 #include "imageDraw.h"
@@ -41,9 +42,18 @@ int main(void) {
 	{
 		Bdisp_Fill_VRAM(0, 3);
 		PrizmImage* logo = PrizmImage::LoadImage("\\\\dev0\\gfx\\logo.bmp");
-		logo->Blit(5,5);
-		PrizmImage* img = PrizmImage::LoadImage("\\\\dev0\\gfx\\rays.bmp");
-		img->Blit(0, 71);
+		logo->Draw_Blit(5,5);
+		PrizmImage* bg = PrizmImage::LoadImage("\\\\dev0\\gfx\\rays.bmp");
+		bg->Draw_Blit(0, 71);
+		PrizmImage* nes = PrizmImage::LoadImage("\\\\dev0\\gfx\\nes.bmp");
+		nes->Draw_OverlayMasked(195, 38, 192);
+		CalcType_Draw(&commodore, "=> Load ROM", 7, 140, COLOR_WHITE, 0, 0);
+		CalcType_Draw(&commodore, "   View FAQ", 7, 156, COLOR_AQUAMARINE, 0, 0);
+		CalcType_Draw(&commodore, "   Options", 7, 172, COLOR_AQUAMARINE, 0, 0);
+		CalcType_Draw(&commodore, "   About", 7, 188, COLOR_AQUAMARINE, 0, 0);
+
+		CalcType_Draw(&commodore, "@TSWilliamson", 255, 5, COLOR_AQUAMARINE, 0, 0);
+		CalcType_Draw(&commodore, "v0.9", 340, 198, 0x302C, 0, 0);
 		int key = 0;
 		GetKey(&key);
 	}

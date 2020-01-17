@@ -9,7 +9,19 @@ struct PrizmImage {
 	uint8* data;
 
 	// blits this image to VRAM
-	void Blit(int32 x, int32 y) const;
+	void Draw_Blit(int32 x, int32 y) const;
+
+	// blits this image to VRAM w/ a black mask
+	void Draw_BlitMasked(int32 x, int32 y) const;
+
+	// overlays this image to VRAM w/ translucency (0-255)
+	void Draw_Overlay(int32 x, int32 y, uint8 alpha) const;
+
+	// overlays this image to VRAM w/ translucency (0-255) and a black mask
+	void Draw_OverlayMasked(int32 x, int32 y, uint8 alpha) const;
+
+	// draws this image to VRAM additively w/ alpha (0-255)
+	void Draw_Additive(int32 x, int32 y, uint8 alpha) const;
 
 #if TARGET_WINSIM
 	// loadable BMP images available on winsim can be zx7 compressed, code can be setup to load/save from src media to
@@ -21,5 +33,9 @@ struct PrizmImage {
 
 private:
 	void BlitBlock(const uint8* colorData, uint32 size, int32 x, int32& y) const;
+	void BlitMaskedBlock(const uint8* colorData, uint32 size, int32 x, int32& y) const;
+	void OverlayBlock(const uint8* colorData, uint32 size, int32 x, int32& y, uint8 alpha) const;
+	void OverlayMaskedBlock(const uint8* colorData, uint32 size, int32 x, int32& y, uint8 alpha) const;
+	void AdditiveBlock(const uint8* colorData, uint32 size, int32 x, int32& y, uint8 alpha) const;
 };
 
