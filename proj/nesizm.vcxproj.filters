@@ -30,6 +30,9 @@
     <Filter Include="Source Files\frontend">
       <UniqueIdentifier>{e65937d6-c204-460d-b348-a78718bc43ca}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\gfx">
+      <UniqueIdentifier>{bfe7b350-05ee-46dd-ad9b-0d8a0307f135}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\main.cpp">
@@ -82,6 +85,15 @@
     </ClCompile>
     <ClCompile Include="..\src\settings.cpp">
       <Filter>Source Files\frontend</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\gfx\logo.cpp">
+      <Filter>Source Files\gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\gfx\nes_gfx.cpp">
+      <Filter>Source Files\gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\gfx\bg_warp.cpp">
+      <Filter>Source Files\gfx</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

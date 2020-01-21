@@ -23,7 +23,7 @@ struct sound_status {
 sound_status snd;
 
 // wave pattern iterator
-static int sndIter = 0;
+// static int sndIter = 0;
 
 const int FREQ_FACTOR = 131072 * 64 / SOUND_RATE;
 

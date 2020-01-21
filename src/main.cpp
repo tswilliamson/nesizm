@@ -11,6 +11,8 @@
 #include "imageDraw.h"
 #include "settings.h"
 
+const bool bRebuildGfx = false;
+
 bool shouldExit = false;
 
 void shutdown() {
@@ -41,17 +43,33 @@ int main(void) {
 	nesCart.allocateBanks(stackBanks);
 
 
-#if TARGET_WINSIM
 	{
 		Bdisp_Fill_VRAM(0, 3);
-		PrizmImage* logo = PrizmImage::LoadImage("\\\\dev0\\gfx\\logo.bmp");
-		logo->Compress();
+
+		extern PrizmImage gfx_logo;
+		extern PrizmImage gfx_bg_warp;
+		extern PrizmImage gfx_nes;
+
+		PrizmImage* logo = &gfx_logo;
+		PrizmImage* bg = &gfx_bg_warp;
+		PrizmImage* nes = &gfx_nes;
+
+#if TARGET_WINSIM
+		if (bRebuildGfx) {
+			logo = PrizmImage::LoadImage("\\\\dev0\\gfx\\logo.bmp");
+			bg = PrizmImage::LoadImage("\\\\dev0\\gfx\\rays.bmp");
+			nes = PrizmImage::LoadImage("\\\\dev0\\gfx\\nes.bmp");
+			logo->Compress();
+			bg->Compress();
+			nes->Compress();
+			logo->ExportZX7("gfx_logo", "src\\gfx\\logo.cpp");
+			bg->ExportZX7("gfx_bg_warp", "src\\gfx\\bg_warp.cpp");
+			nes->ExportZX7("gfx_nes", "src\\gfx\\nes_gfx.cpp");
+		}
+#endif
+
 		logo->Draw_Blit(5,5);
-		PrizmImage* bg = PrizmImage::LoadImage("\\\\dev0\\gfx\\rays.bmp");
-		bg->Compress();
 		bg->Draw_Blit(0, 71);
-		PrizmImage* nes = PrizmImage::LoadImage("\\\\dev0\\gfx\\nes.bmp");
-		nes->Compress();
 		nes->Draw_OverlayMasked(195, 38, 192);
 		CalcType_Draw(&commodore, "=> Load ROM", 7, 140, COLOR_WHITE, 0, 0);
 		CalcType_Draw(&commodore, "   View FAQ", 7, 156, COLOR_AQUAMARINE, 0, 0);
@@ -64,6 +82,7 @@ int main(void) {
 		GetKey(&key);
 	}
 
+#if TARGET_WINSIM
 	char romFileSystem[512] = { 0 };
 	OPENFILENAME openStruct;
 	memset(&openStruct, 0, sizeof(OPENFILENAME));

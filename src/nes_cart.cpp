@@ -320,7 +320,7 @@ inline void mapCPU(unsigned int startAddrHigh, unsigned int numKB, unsigned char
 	// 256 byte increments
 	numKB *= 4;
 
-	for (int i = 0; i < numKB; i++) {
+	for (unsigned int i = 0; i < numKB; i++) {
 		mainCPU.map[i + startAddrHigh] = &ptr[i * 0x100];
 	}
 }
@@ -483,7 +483,7 @@ void nes_cart::MMC1_Write(unsigned int addr, int regValue) {
 		}
 
 		// bank modes
-		int newPRGBankMode = (regValue & 0x0C) >> 2;
+		unsigned int newPRGBankMode = (regValue & 0x0C) >> 2;
 		if (registers[3] != newPRGBankMode) {
 			registers[3] = newPRGBankMode;
 
@@ -532,7 +532,7 @@ void nes_cart::MMC1_Write(unsigned int addr, int regValue) {
 			}
 		}
 	} else {
-		int openBusMode = regValue & 0x10;
+		unsigned int openBusMode = regValue & 0x10;
 		if (openBusMode != registers[5]) {
 			MMC1_SetRAMBank(openBusMode);
 		}
@@ -1066,7 +1066,7 @@ void AOROM_writeSpecial(unsigned int address, unsigned char value) {
 			}
 		} else {
 			// nametable select
-			int nametable = (value >> 4) & 1;
+			unsigned int nametable = (value >> 4) & 1;
 			if (nametable != AOROM_CUR_NAMETABLE) {
 				AOROM_MapNameBank(nametable);
 				AOROM_CUR_NAMETABLE = nametable;
@@ -1284,8 +1284,8 @@ void nes_cart::setupMapper9_MMC2() {
 
 void Mapper11_writeSpecial(unsigned int address, unsigned char value) {
 	if (address >= 0x8000) {
-		int prg = (value & 0x03) * 4;
-		int chr = (value & 0xF0) >> 4;
+		unsigned int prg = (value & 0x03) * 4;
+		unsigned int chr = (value & 0xF0) >> 4;
 
 		if (prg != Mapper11_PRG_SELECT) {
 			unsigned char* prgBanks[4] = { nesCart.cachePRGBank(prg), nesCart.cachePRGBank(prg+1), nesCart.cachePRGBank(prg+2), nesCart.cachePRGBank(prg+3) };

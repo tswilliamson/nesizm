@@ -38,6 +38,9 @@
     <ClCompile Include="..\src\6502.cpp" />
     <ClCompile Include="..\src\debug.cpp" />
     <ClCompile Include="..\src\frontend.cpp" />
+    <ClCompile Include="..\src\gfx\bg_warp.cpp" />
+    <ClCompile Include="..\src\gfx\logo.cpp" />
+    <ClCompile Include="..\src\gfx\nes_gfx.cpp" />
     <ClCompile Include="..\src\imageDraw.cpp" />
     <ClCompile Include="..\src\nes_cart.cpp" />
     <ClCompile Include="..\src\nes_cpu.cpp" />

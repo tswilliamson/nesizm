@@ -679,8 +679,6 @@ void renderOAM() {
 
 			// sprite 0 hit
 			if ((ppu_registers.PPUSTATUS & PPUSTAT_SPRITE0) == 0) {
-				unsigned int charBuffer[8];
-
 				unsigned int yCoord0 = ppu_scanline - ppu_oam[0] - 2;
 				if (yCoord0 < spriteSize) {
 					unsigned int x = ppu_oam[3];
@@ -933,7 +931,7 @@ void renderScanline_HorzMirror() {
 	}
 }
 
-template<bool hasLatch, bool is4Pane = false>
+template<bool hasLatch, bool is4Pane>
 void renderScanline_VertMirror_Latched() {
 
 	TIME_SCOPE();
@@ -1093,9 +1091,9 @@ void renderScanline_VertMirror_Latched() {
 
 void renderScanline_VertMirror() {
 	if (nesCart.renderLatch) {
-		renderScanline_VertMirror_Latched<true>();
+		renderScanline_VertMirror_Latched<true, false>();
 	} else {
-		renderScanline_VertMirror_Latched<false>();
+		renderScanline_VertMirror_Latched<false, false>();
 	}
 }
 
