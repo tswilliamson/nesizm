@@ -77,6 +77,12 @@
     <ClCompile Include="..\src\imageDraw.cpp">
       <Filter>Source Files\frontend</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\frontend.cpp">
+      <Filter>Source Files\frontend</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\settings.cpp">
+      <Filter>Source Files\frontend</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\main.h">
@@ -107,6 +113,12 @@
       <Filter>Source Files\snd</Filter>
     </ClInclude>
     <ClInclude Include="..\src\imageDraw.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\frontend.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\settings.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

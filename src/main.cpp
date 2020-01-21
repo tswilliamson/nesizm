@@ -1,5 +1,6 @@
 #include "platform.h"
 #include "nes.h"
+
 #include "ptune2_simple/Ptune2_direct.h"
 #include "scope_timer/scope_timer.h"
 
@@ -8,6 +9,7 @@
 // #include "../../calctype/fonts/consolas_intl/consolas_intl.c"	// for FAQS
 
 #include "imageDraw.h"
+#include "settings.h"
 
 bool shouldExit = false;
 
@@ -32,11 +34,12 @@ int main(void) {
 
 	ScopeTimer::InitSystem();
 
+	nes_settings.SetDefaults();
+
 	// allocate nes_carts on stack
 	unsigned char stackBanks[NUM_CACHED_ROM_BANKS * 8192] ALIGN(256);
 	nesCart.allocateBanks(stackBanks);
 
-	input_Initialize();
 
 #if TARGET_WINSIM
 	{

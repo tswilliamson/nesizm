@@ -7,6 +7,30 @@
 #include "6502.h"
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// INPUT
+
+// in report order
+enum NesKeys {
+	NES_A = 0,
+	NES_B,
+	NES_SELECT,
+	NES_START,
+	NES_UP,
+	NES_DOWN,
+	NES_LEFT,
+	NES_RIGHT,
+	NES_TURBO_A,
+	NES_TURBO_B,
+	NES_SAVESTATE,
+	NES_LOADSTATE,
+	NES_MAX
+};
+
+#define NES_NUM_CONTROLLER_KEYS (NES_TURBO_B + 1)
+
+bool keyDown_fast(unsigned char keyCode);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // CART
 
 #define NUM_CACHED_ROM_BANKS 20

@@ -5,6 +5,26 @@
 #include "imageDraw.h"
 #include "zx7/zx7.h"
 
+// src image data is always big endian to match calculator specs,
+// so flip bytes for windows
+#if TARGET_WINSIM
+inline uint16 color_correct(uint16 color) {
+	return ((color & 0xFF) << 8) | ((color & 0xFF00) >> 8);
+}
+inline void colorcopy(uint8* dst, const uint8* src, uint32 size) {
+	uint16* dstColor = (uint16*) dst;
+	const uint16* srcColor = (const uint16*) src;
+	size >>= 1;
+
+	for (int c = 0; c < size; ++c, ++dstColor, ++srcColor) {
+		*dstColor = color_correct(*srcColor);
+	}
+}
+#else
+#define color_correct(color) (color)
+#define colorcopy memcpy
+#endif
+
 // size of compressed image chunk (also draws in blocks)
 #define MAX_BLOCK_SIZE 4096
 
@@ -51,7 +71,7 @@ void PrizmImage::BlitBlock(const uint8* colorData, uint32 size, int32 x, int32& 
 	uint8* vram = (uint8*)GetVRAMAddress() + (y * LCD_WIDTH_PX + x) * 2;
 	while (size > 0) {
 		DebugAssert(y < LCD_HEIGHT_PX);
-		memcpy(vram, colorData, width * 2);
+		colorcopy(vram, colorData, width * 2);
 		vram += LCD_WIDTH_PX * 2;
 		colorData += width * 2;
 		size -= width * 2;
@@ -76,8 +96,7 @@ void PrizmImage::Draw_BlitMasked(int32 x, int32 y) const {
 		if (isCompressed) {
 			ZX7Decompress(curData, block, curSize);
 			BlitMaskedBlock(block, curSize, x, y);
-		}
-		else {
+		} else {
 			BlitMaskedBlock(curData, curSize, x, y);
 		}
 
@@ -92,16 +111,16 @@ void PrizmImage::BlitMaskedBlock(const uint8* colorData, uint32 size, int32 x, i
 	DebugAssert(y >= 0);
 
 	uint8* vram = (uint8*)GetVRAMAddress() + (y * LCD_WIDTH_PX + x) * 2;
+	const uint16* curColor = (const uint16*) colorData;
 	while (size > 0) {
 		DebugAssert(y < LCD_HEIGHT_PX);
-		for (uint32 x = 0; x < width * 2; x++) {
-			if (colorData[x] || colorData[x + 1]) {
-				vram[x] = colorData[x];
-				vram[x + 1] = colorData[x + 1];
+		for (uint32 x = 0; x < width; ++x, ++curColor) {
+			if (*curColor) {
+				vram[x] = color_correct(curColor[0]);
 			}
 		}
 		vram += LCD_WIDTH_PX * 2;
-		colorData += width * 2;
+		curColor += width;
 		size -= width * 2;
 		y++;
 	}
@@ -162,8 +181,7 @@ void PrizmImage::Draw_Overlay(int32 x, int32 y, uint8 alpha) const {
 		if (isCompressed) {
 			ZX7Decompress(curData, block, curSize);
 			OverlayBlock(block, curSize, x, y, alpha);
-		}
-		else {
+		} else {
 			OverlayBlock(curData, curSize, x, y, alpha);
 		}
 
@@ -183,7 +201,7 @@ void PrizmImage::OverlayBlock(const uint8* colorData, uint32 size, int32 x, int3
 		DebugAssert(y < LCD_HEIGHT_PX);
 		uint16* curVRAM = (uint16*) vram;
 		for (int x = 0; x < width; x++) {
-			*curVRAM = alphaBlendRGB565(*curColor++, *curVRAM, alpha);
+			*curVRAM = alphaBlendRGB565(color_correct(*curColor++), *curVRAM, alpha);
 			++curVRAM;
 		}
 		vram += LCD_WIDTH_PX * 2;
@@ -226,8 +244,7 @@ void PrizmImage::Draw_OverlayMasked(int32 x, int32 y, uint8 alpha) const {
 		if (isCompressed) {
 			ZX7Decompress(curData, block, curSize);
 			OverlayMaskedBlock(block, curSize, x, y, alpha);
-		}
-		else {
+		} else {
 			OverlayMaskedBlock(curData, curSize, x, y, alpha);
 		}
 
@@ -248,7 +265,7 @@ void PrizmImage::OverlayMaskedBlock(const uint8* colorData, uint32 size, int32 x
 		uint16* curVRAM = (uint16*)vram;
 		for (int x = 0; x < width; x++) {
 			if (curColor[x]) {
-				*curVRAM = alphaBlendRGB565(curColor[x], *curVRAM, alpha);
+				*curVRAM = alphaBlendRGB565(color_correct(curColor[x]), *curVRAM, alpha);
 			}
 			++curVRAM;
 		}
@@ -308,8 +325,7 @@ void PrizmImage::Draw_Additive(int32 x, int32 y, uint8 alpha) const {
 		if (isCompressed) {
 			ZX7Decompress(curData, block, curSize);
 			AdditiveBlock(block, curSize, x, y, alpha);
-		}
-		else {
+		} else {
 			AdditiveBlock(curData, curSize, x, y, alpha);
 		}
 
@@ -329,7 +345,7 @@ void PrizmImage::AdditiveBlock(const uint8* colorData, uint32 size, int32 x, int
 		DebugAssert(y < LCD_HEIGHT_PX);
 		uint16* curVRAM = (uint16*)vram;
 		for (int x = 0; x < width; x++) {
-			*curVRAM = additiveBlendRGB565(*curColor++, *curVRAM, alpha);
+			*curVRAM = additiveBlendRGB565(color_correct(*curColor++), *curVRAM, alpha);
 			++curVRAM;
 		}
 		vram += LCD_WIDTH_PX * 2;
@@ -375,8 +391,8 @@ PrizmImage* PrizmImage::LoadImage(const char* fileName) {
 		uint8* srcPix = rgbPixels + rowSize * y;
 
 		for (int32 x = 0; x < width; x++) {
-			dstPix[1] = ((srcPix[2] & 0xF8) >> 0) | ((srcPix[1] & 0xE0) >> 5);
-			dstPix[0] = ((srcPix[1] & 0x1C) << 3) | ((srcPix[0] & 0xF8) >> 3);
+			dstPix[0] = ((srcPix[2] & 0xF8) >> 0) | ((srcPix[1] & 0xE0) >> 5);
+			dstPix[1] = ((srcPix[1] & 0x1C) << 3) | ((srcPix[0] & 0xF8) >> 3);
 			dstPix += 2;
 			srcPix += 3;
 		}
