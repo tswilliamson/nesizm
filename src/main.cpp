@@ -45,10 +45,13 @@ int main(void) {
 	{
 		Bdisp_Fill_VRAM(0, 3);
 		PrizmImage* logo = PrizmImage::LoadImage("\\\\dev0\\gfx\\logo.bmp");
+		logo->Compress();
 		logo->Draw_Blit(5,5);
 		PrizmImage* bg = PrizmImage::LoadImage("\\\\dev0\\gfx\\rays.bmp");
+		bg->Compress();
 		bg->Draw_Blit(0, 71);
 		PrizmImage* nes = PrizmImage::LoadImage("\\\\dev0\\gfx\\nes.bmp");
+		nes->Compress();
 		nes->Draw_OverlayMasked(195, 38, 192);
 		CalcType_Draw(&commodore, "=> Load ROM", 7, 140, COLOR_WHITE, 0, 0);
 		CalcType_Draw(&commodore, "   View FAQ", 7, 156, COLOR_AQUAMARINE, 0, 0);

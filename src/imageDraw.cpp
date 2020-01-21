@@ -39,6 +39,20 @@ static uint32 GetBlockSize(const PrizmImage& forImage) {
 	return blockSize;
 }
 
+void DecompressBlock(const uint8*& srcData, uint8* intoBlock, uint32 decompressedSize) {
+	uint32 compressedSize = srcData[0] * 256 + srcData[1];
+
+	// if compressed size is 0 then the compression wasn't efficient for this block and was stored decompressed
+	if (compressedSize != 0) {
+		ZX7Decompress(srcData + 2, intoBlock, decompressedSize);
+		// compressed size includes 2 bytes for size, see PrizmImage::Compress
+		srcData += compressedSize;
+	} else {
+		memcpy(intoBlock, srcData + 2, decompressedSize);
+		srcData += decompressedSize + 2;
+	}
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Blitting
 
@@ -52,13 +66,13 @@ void PrizmImage::Draw_Blit(int32 x, int32 y) const {
 	while (sizeLeft > 0) {
 		uint32 curSize = sizeLeft > blockSize ? blockSize : sizeLeft;
 		if (isCompressed) {
-			ZX7Decompress(curData, block, curSize);
+			DecompressBlock(curData, block, curSize);
 			BlitBlock(block, curSize, x, y);
 		} else {
 			BlitBlock(curData, curSize, x, y);
+			curData += curSize;
 		}
 
-		curData += curSize;
 		sizeLeft -= curSize;
 	}
 }
@@ -94,13 +108,13 @@ void PrizmImage::Draw_BlitMasked(int32 x, int32 y) const {
 	while (sizeLeft > 0) {
 		uint32 curSize = sizeLeft > blockSize ? blockSize : sizeLeft;
 		if (isCompressed) {
-			ZX7Decompress(curData, block, curSize);
+			DecompressBlock(curData, block, curSize);
 			BlitMaskedBlock(block, curSize, x, y);
 		} else {
 			BlitMaskedBlock(curData, curSize, x, y);
+			curData += curSize;
 		}
 
-		curData += curSize;
 		sizeLeft -= curSize;
 	}
 }
@@ -110,7 +124,7 @@ void PrizmImage::BlitMaskedBlock(const uint8* colorData, uint32 size, int32 x, i
 	DebugAssert(x >= 0 && x + width <= LCD_WIDTH_PX);
 	DebugAssert(y >= 0);
 
-	uint8* vram = (uint8*)GetVRAMAddress() + (y * LCD_WIDTH_PX + x) * 2;
+	uint16* vram = (uint16*)GetVRAMAddress() + (y * LCD_WIDTH_PX + x);
 	const uint16* curColor = (const uint16*) colorData;
 	while (size > 0) {
 		DebugAssert(y < LCD_HEIGHT_PX);
@@ -119,8 +133,7 @@ void PrizmImage::BlitMaskedBlock(const uint8* colorData, uint32 size, int32 x, i
 				vram[x] = color_correct(curColor[0]);
 			}
 		}
-		vram += LCD_WIDTH_PX * 2;
-		curColor += width;
+		vram += LCD_WIDTH_PX;
 		size -= width * 2;
 		y++;
 	}
@@ -179,13 +192,13 @@ void PrizmImage::Draw_Overlay(int32 x, int32 y, uint8 alpha) const {
 	while (sizeLeft > 0) {
 		uint32 curSize = sizeLeft > blockSize ? blockSize : sizeLeft;
 		if (isCompressed) {
-			ZX7Decompress(curData, block, curSize);
+			DecompressBlock(curData, block, curSize);
 			OverlayBlock(block, curSize, x, y, alpha);
 		} else {
 			OverlayBlock(curData, curSize, x, y, alpha);
+			curData += curSize;
 		}
 
-		curData += curSize;
 		sizeLeft -= curSize;
 	}
 }
@@ -219,7 +232,7 @@ void PrizmImage::OverlayBlock(const uint8* colorData, uint32 size, int32 x, int3
 void PrizmImage::Draw_OverlayMasked(int32 x, int32 y, uint8 alpha) const {
 	if (alpha >= 252) {
 		// alphaBlendRGB565 will be just as good as blit for alpha >= 252
-		Draw_Blit(x, y);
+		Draw_BlitMasked(x, y);
 		return;
 	}
 
@@ -242,13 +255,13 @@ void PrizmImage::Draw_OverlayMasked(int32 x, int32 y, uint8 alpha) const {
 	while (sizeLeft > 0) {
 		uint32 curSize = sizeLeft > blockSize ? blockSize : sizeLeft;
 		if (isCompressed) {
-			ZX7Decompress(curData, block, curSize);
+			DecompressBlock(curData, block, curSize);
 			OverlayMaskedBlock(block, curSize, x, y, alpha);
 		} else {
 			OverlayMaskedBlock(curData, curSize, x, y, alpha);
+			curData += curSize;
 		}
 
-		curData += curSize;
 		sizeLeft -= curSize;
 	}
 }
@@ -323,13 +336,13 @@ void PrizmImage::Draw_Additive(int32 x, int32 y, uint8 alpha) const {
 	while (sizeLeft > 0) {
 		uint32 curSize = sizeLeft > blockSize ? blockSize : sizeLeft;
 		if (isCompressed) {
-			ZX7Decompress(curData, block, curSize);
+			DecompressBlock(curData, block, curSize);
 			AdditiveBlock(block, curSize, x, y, alpha);
 		} else {
 			AdditiveBlock(curData, curSize, x, y, alpha);
+			curData += curSize;
 		}
 
-		curData += curSize;
 		sizeLeft -= curSize;
 	}
 }
@@ -404,9 +417,51 @@ PrizmImage* PrizmImage::LoadImage(const char* fileName) {
 
 	return img;
 }
+
 void PrizmImage::Compress() {
-	// TODO
+	DebugAssert(isCompressed == false);
+
+	const uint32 blockSize = GetBlockSize(*this);
+	const uint8* curData = data;
+	uint32 sizeLeft = width * height * 2;
+
+	// temporary compressed memory, moved back into image data
+	uint8* compressedMem = (uint8*) malloc(width * height * 4);
+	uint8* compressedTarget = compressedMem;
+	while (sizeLeft > 0) {
+		uint32 curSize = sizeLeft > blockSize ? blockSize : sizeLeft;
+
+		uint8* outData = nullptr;
+		uint32 compressedSize = ZX7Compress(curData, curSize, &outData);
+		if (compressedSize > 0) {
+			DebugAssert(compressedSize <= 0xFFFD);
+			compressedSize += 2;
+			compressedTarget[0] = (compressedSize & 0xFF00) >> 8;
+			compressedTarget[1] = (compressedSize & 0x00FF);
+			memcpy(compressedTarget + 2, outData, compressedSize - 2);
+			compressedTarget += compressedSize;
+			free(outData);
+		} else {
+			compressedTarget[0] = 0;
+			compressedTarget[1] = 0;
+			memcpy(compressedTarget + 2, curData, curSize);
+			compressedTarget += curSize + 2;
+		}
+
+		curData += curSize;
+		sizeLeft -= curSize;
+	}
+
+	// copy only the compressed data to our memory and free the buffer
+	uint32 compressedTotalSize = compressedTarget - compressedMem;
+	free(data);
+	data = (uint8*)malloc(compressedTotalSize);
+	memcpy(data, compressedMem, compressedTotalSize);
+	free(compressedMem);
+
+	isCompressed = true;
 }
+
 void PrizmImage::ExportZX7(const char* imageName, const char* targetSrcFile) const {
 	// TODO
 }
