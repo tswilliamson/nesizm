@@ -23,6 +23,13 @@ bool keyDown_fast(unsigned char keyCode) {
 unsigned char curStrobe = 0;
 unsigned int buttonMarch1 = 0;
 unsigned int buttonMarch2 = 0;
+bool isDown[22];
+
+void input_cacheKeys() {
+	for (int buttonNo = 0; buttonNo < 22; buttonNo++) {
+		isDown[buttonNo] = keyDown_fast(nes_settings.keyMap[buttonNo]);
+	}
+}
 
 void input_writeStrobe(unsigned char value) {
 	value &= 1;
@@ -39,7 +46,7 @@ void input_writeStrobe(unsigned char value) {
 }
 
 inline unsigned char readButton(int buttonNo) {
-	return keyDown_fast(nes_settings.keyMap[buttonNo]);
+	return isDown[buttonNo];
 }
 
 unsigned char input_readController1() {

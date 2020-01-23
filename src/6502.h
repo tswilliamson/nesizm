@@ -40,6 +40,14 @@ struct cpu_6502 {
 
 	// clocks for next IRQ, 0 if disabled
 	unsigned int irqClocks;
+};
+
+struct cpu_6502_with_RAM : public cpu_6502 {
+	// Main RAM (zero page at 0x000, stack at 0x100, mirrored every 2 kb to 0x2000)
+	unsigned char RAM[0x800] ALIGN(256);
+
+	// high byte memory map (with wraparound)
+	unsigned char* map[0x101] ALIGN(256);
 };		
 
 struct cpu_instr_history {
@@ -89,9 +97,12 @@ void cpu6502_DeviceInterrupt(unsigned int vectorAddress, bool masked);
 void cpu6502_SoftwareInterrupt(unsigned int vectorAddress);
 
 #if NES
+#include "nes.h"
 #include "nes_cpu.h"
-extern nes_cpu mainCPU;
+extern nes_cpu mainCPU ALIGN(256);
 #endif
+
+#define CPU_RAM(X) mainCPU.RAM[X]
 
 #if TARGET_WINSIM
 #define TRACE_DEBUG 1

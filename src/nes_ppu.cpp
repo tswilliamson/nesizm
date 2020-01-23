@@ -135,71 +135,69 @@ unsigned int* ppu_rgbPalettePtr = ppu_rgbPalette;
 unsigned int* ppu_rgbPalettePtrShifted = ppu_rgbPaletteShifted;
 
 
-unsigned char* ppu_registers_type::latchReg(unsigned int regNum) {
-	switch (regNum) {
-		case 0x02: 
-		{
-			static unsigned char latchedStatus;
-			latchedStatus = PPUSTATUS;
-			latch = &latchedStatus;
+unsigned char ppu_registers_type::latchReg(unsigned int addr) {
+	addr = addr & 0x7;
+	if (addr == 0x02) {
+		static unsigned char latchedStatus;
+		latchedStatus = PPUSTATUS;
+		latch = &latchedStatus;
 
-			// suppress NMI on the exact clock cycle in the PPU it may be triggered (some games depend on this)
-			if (ppu_scanline == 243 && ppu_triggerNMI) {
-				if (mainCPU.clocks + 1 == mainCPU.ppuClocks) {
-					// one before, so donn't set the VBL as well
-					ppu_setVBL = false;
-					ppu_triggerNMI = false;
-				} else if (mainCPU.clocks == mainCPU.ppuClocks) {
-					ppu_triggerNMI = false;
-				}
+		// suppress NMI on the exact clock cycle in the PPU it may be triggered (some games depend on this)
+		if (ppu_scanline == 243 && ppu_triggerNMI) {
+			if (mainCPU.clocks + 1 == mainCPU.ppuClocks) {
+				// one before, so donn't set the VBL as well
+				ppu_setVBL = false;
+				ppu_triggerNMI = false;
+			} else if (mainCPU.clocks == mainCPU.ppuClocks) {
+				ppu_triggerNMI = false;
 			}
-
-			// vblank flag cleared after read
-			PPUSTATUS &= ~PPUSTAT_NMI;
-
-			// switch write toggle to 0
-			ppu_writeToggle = 0;
-			break;
 		}
-		case 0x04:
-			latch = &ppu_oam[OAMADDR];
-			break;
-		case 0x07:
-		{
-			unsigned int address = ((ADDRHI << 8) | ADDRLO) & 0x3FFF;
 
-			// single read-behind register for ppu reading
-			static unsigned char ppuReadRegister[2] = { 0, 0 };
-			static int curPPURead = 1;
-			if (address < 0x3F00) {
-				latch = &ppuReadRegister[curPPURead];
-				curPPURead = 1 - curPPURead;
-				ppuReadRegister[curPPURead] = *ppu_resolveMemoryAddress(address, false);
-			} else {
-				// palette special case
-				latch = ppu_resolveMemoryAddress(address, false);
-				ppuReadRegister[curPPURead] = *ppu_resolveMemoryAddress(address, true);
-			}
+		// vblank flag cleared after read
+		PPUSTATUS &= ~PPUSTAT_NMI;
 
-			// auto increment
-			if (PPUCTRL & PPUCTRL_VRAMINC) {
-				address += 32;
-			} else {
-				address += 1;
-			}
-			ADDRHI = (address & 0xFF00) >> 8;
-			ADDRLO = (address & 0xFF);
+		// switch write toggle to 0
+		ppu_writeToggle = 0;
 
-			break;
+		return latchedStatus;
+	} else if (addr == 0x07) {
+		unsigned int address = ((ADDRHI << 8) | ADDRLO) & 0x3FFF;
+
+		// single read-behind register for ppu reading
+		static unsigned char ppuReadRegister[2] = { 0, 0 };
+		static int curPPURead = 1;
+		if (address < 0x3F00) {
+			latch = &ppuReadRegister[curPPURead];
+			curPPURead = 1 - curPPURead;
+			ppuReadRegister[curPPURead] = *ppu_resolveMemoryAddress(address, false);
+		} else {
+			// palette special case
+			latch = ppu_resolveMemoryAddress(address, false);
+			ppuReadRegister[curPPURead] = *ppu_resolveMemoryAddress(address, true);
 		}
+
+		// auto increment
+		if (PPUCTRL & PPUCTRL_VRAMINC) {
+			address += 32;
+		} else {
+			address += 1;
+		}
+		ADDRHI = (address & 0xFF00) >> 8;
+		ADDRLO = (address & 0xFF);
+
+		return *latch;
+	} else if (addr == 0x04) {
+		latch = &ppu_oam[OAMADDR];
+		return *latch;
+	} else {
 		// the rest are write only registers, simply return current latch
 		// case 0x00:  PPUCTRL
 		// case 0x01:  PPUMASK
 		// case 0x03:  OAMADDR
 		// case 0x05:  SCROLLX/Y
 		// case 0x06:  ADDRHI/LO
+		return *latch;
 	}
-	return latch;
 }
 
 void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
@@ -544,6 +542,8 @@ void ppu_step() {
 		{
 			ScopeTimer::DisplayTimes();
 		}
+
+		input_cacheKeys();
 	} else if (ppu_scanline < 262) {
 		// inside vblank
 	} else {

@@ -4,7 +4,6 @@
 // NES emulator specific header
 
 #define NES 1
-#include "6502.h"
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // INPUT
@@ -186,7 +185,7 @@ struct ppu_registers_type {
 
 	unsigned char* latch;			// cur latch pointer (to the registers above)
 
-	unsigned char* latchReg(unsigned int regNum);
+	unsigned char latchReg(unsigned int addr);
 	void writeReg(unsigned int regNum, unsigned char value);
 
 	ppu_registers_type() {
@@ -243,8 +242,12 @@ extern unsigned int* ppu_rgbPalettePtrShifted;
 
 void input_Initialize();
 
+void input_cacheKeys();
+
 void input_writeStrobe(unsigned char value);
 
 unsigned char input_readController1();
 
 unsigned char input_readController2();
+
+#include "6502.h"

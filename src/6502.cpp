@@ -88,7 +88,7 @@ void resolveFromP() {
 	mainCPU.carryResult = (mainCPU.P & ST_CRY);
 }
 
-inline void writeAddr(unsigned int addr, unsigned int result) {
+FORCE_INLINE void writeAddr(unsigned int addr, unsigned int result) {
 	mainCPU.write(addr, result);
 
 #if TRACE_DEBUG
@@ -98,13 +98,13 @@ inline void writeAddr(unsigned int addr, unsigned int result) {
 #endif
 }
 
-inline void latchWriteAddr(unsigned int addr, unsigned int result) {
+FORCE_INLINE void latchWriteAddr(unsigned int addr, unsigned int result) {
 	mainCPU.read(addr);
 	writeAddr(addr, result);
 }
 
-inline void writeZero(unsigned int addr, unsigned int result) {
-	mainCPU.RAM[addr] = result;
+FORCE_INLINE void writeZero(unsigned int addr, unsigned int result) {
+	CPU_RAM(addr) = result;
 
 #if TRACE_DEBUG
 	if (addr == memWriteBreakpoint) {
@@ -117,123 +117,123 @@ inline void writeZero(unsigned int addr, unsigned int result) {
 // STORE / LOAD
 
 // LDA #$NN (load A immediate)
-inline void LDA(unsigned int data) {
+FORCE_INLINE void LDA(unsigned int data) {
 	mainCPU.A = data;
 	mainCPU.zeroResult = mainCPU.A;
 	mainCPU.negativeResult = mainCPU.A;
 }
 
-inline void LDA_MEM(unsigned int address) {
+FORCE_INLINE void LDA_MEM(unsigned int address) {
 	LDA(mainCPU.read(address));
 }
 
-inline void LDA_ZERO(unsigned int address) {
-	LDA(mainCPU.RAM[address]);
+FORCE_INLINE void LDA_ZERO(unsigned int address) {
+	LDA(CPU_RAM(address));
 }
 
-inline void LDX(unsigned int data) {
+FORCE_INLINE void LDX(unsigned int data) {
 	mainCPU.X = data;
 	mainCPU.zeroResult = mainCPU.X;
 	mainCPU.negativeResult = mainCPU.X;
 }
 
-inline void LDX_MEM(unsigned int address) {
+FORCE_INLINE void LDX_MEM(unsigned int address) {
 	LDX(mainCPU.read(address));
 }
 
-inline void LDX_ZERO(unsigned int address) {
-	LDX(mainCPU.RAM[address]);
+FORCE_INLINE void LDX_ZERO(unsigned int address) {
+	LDX(CPU_RAM(address));
 }
 
-inline void LDY(unsigned int data) {
+FORCE_INLINE void LDY(unsigned int data) {
 	mainCPU.Y = data;
 	mainCPU.zeroResult = mainCPU.Y;
 	mainCPU.negativeResult = mainCPU.Y;
 }
 
-inline void LDY_MEM(unsigned int address) {
+FORCE_INLINE void LDY_MEM(unsigned int address) {
 	LDY(mainCPU.read(address));
 }
 
-inline void LDY_ZERO(unsigned int address) {
-	LDY(mainCPU.RAM[address]);
+FORCE_INLINE void LDY_ZERO(unsigned int address) {
+	LDY(CPU_RAM(address));
 }
 
-inline void STA_MEM(unsigned int address) {
+FORCE_INLINE void STA_MEM(unsigned int address) {
 	latchWriteAddr(address, mainCPU.A);
 }
 
-inline void STA_ZERO(unsigned int address) {
+FORCE_INLINE void STA_ZERO(unsigned int address) {
 	writeZero(address, mainCPU.A);
 }
 
-inline void STX_MEM(unsigned int address) {
+FORCE_INLINE void STX_MEM(unsigned int address) {
 	latchWriteAddr(address, mainCPU.X);
 }
 
-inline void STX_ZERO(unsigned int address) {
+FORCE_INLINE void STX_ZERO(unsigned int address) {
 	writeZero(address, mainCPU.X);
 }
 
-inline void STY_MEM(unsigned int address) {
+FORCE_INLINE void STY_MEM(unsigned int address) {
 	latchWriteAddr(address, mainCPU.Y);
 }
 
-inline void STY_ZERO(unsigned int address) {
+FORCE_INLINE void STY_ZERO(unsigned int address) {
 	writeZero(address, mainCPU.Y);
 }
 
-inline void TAX() {
+FORCE_INLINE void TAX() {
 	mainCPU.X = mainCPU.A;
 	mainCPU.zeroResult = mainCPU.A;
 	mainCPU.negativeResult = mainCPU.A;
 }
 
-inline void TXA() {
+FORCE_INLINE void TXA() {
 	mainCPU.A = mainCPU.X;
 	mainCPU.zeroResult = mainCPU.A;
 	mainCPU.negativeResult = mainCPU.A;
 }
 
-inline void TAY() {
+FORCE_INLINE void TAY() {
 	mainCPU.Y = mainCPU.A;
 	mainCPU.zeroResult = mainCPU.A;
 	mainCPU.negativeResult = mainCPU.A;
 }
 
-inline void TYA() {
+FORCE_INLINE void TYA() {
 	mainCPU.A = mainCPU.Y;
 	mainCPU.zeroResult = mainCPU.A;
 	mainCPU.negativeResult = mainCPU.A;
 }
 
-inline void TSX() {
+FORCE_INLINE void TSX() {
 	mainCPU.X = mainCPU.SP;
 	mainCPU.zeroResult = mainCPU.X;
 	mainCPU.negativeResult = mainCPU.X;
 }
 
-inline void TXS() {
+FORCE_INLINE void TXS() {
 	mainCPU.SP = mainCPU.X;
 }
 
-inline void PHA() {
+FORCE_INLINE void PHA() {
 	mainCPU.push(mainCPU.A);
 }
 
-inline void PLA() {
+FORCE_INLINE void PLA() {
 	mainCPU.A = mainCPU.pop();
 	mainCPU.zeroResult = mainCPU.A;
 	mainCPU.negativeResult = mainCPU.A;
 }
 
-inline void PHP() {
+FORCE_INLINE void PHP() {
 	resolveToP();
 	mainCPU.push(mainCPU.P | ST_UNUSED | ST_BRK);
 }
 
 // PLP (pop processor status ignoring bit 4)
-inline void PLP() {
+FORCE_INLINE void PLP() {
 	mainCPU.P = mainCPU.pop() & ~(ST_BRK);
 	resolveFromP();
 }
@@ -241,70 +241,74 @@ inline void PLP() {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // BRANCH / JUMP
 
-inline void takeBranch(unsigned int data) {
+FORCE_INLINE void takeBranch(unsigned int data) {
 	unsigned int oldPC = mainCPU.PC;
 	mainCPU.PC += (char) (data);
-	mainCPU.clocks += 1 + ((oldPC & 0xFF00) != (mainCPU.PC & 0xFF00) ? 1 : 0);
+	mainCPU.clocks++;
+	if ((oldPC ^ mainCPU.PC) & 0x100) mainCPU.clocks++;
 }
 
-inline void BPL(unsigned int data) {
-	if ((~mainCPU.negativeResult) & ST_NEG) {
+FORCE_INLINE void BPL(unsigned int data) {
+	if (!(mainCPU.negativeResult & ST_NEG)) {
 		takeBranch(data);
 	}
 }
 
-inline void BMI(unsigned int data) {
+FORCE_INLINE void BMI(unsigned int data) {
 	if (mainCPU.negativeResult & ST_NEG) {
 		takeBranch(data);
 	}
 }
 
-inline void BVC(unsigned int data) {
-	if ((~mainCPU.P) & ST_OVR) {
+FORCE_INLINE void BVC(unsigned int data) {
+	if (!(mainCPU.P & ST_OVR)) {
 		takeBranch(data);
 	}
 }
 
-inline void BVS(unsigned int data) {
+FORCE_INLINE void BVS(unsigned int data) {
 	if (mainCPU.P & ST_OVR) {
 		takeBranch(data);
 	}
 }
 
-inline void BCC(unsigned int data) {
+FORCE_INLINE void BCC(unsigned int data) {
 	if (mainCPU.carryResult == 0) {
 		takeBranch(data);
 	}
 }
 
-inline void BCS(unsigned int data) {
+FORCE_INLINE void BCS(unsigned int data) {
 	if (mainCPU.carryResult) {
 		takeBranch(data);
 	}
 }
 
-inline void BNE(unsigned int data) {
+FORCE_INLINE void BNE(unsigned int data) {
 	if (mainCPU.zeroResult) {
 		takeBranch(data);
 	}
 }
 
-inline void BEQ(unsigned int data) {
+FORCE_INLINE void BEQ(unsigned int data) {
 	if (!mainCPU.zeroResult) {
 		takeBranch(data);
 	}
 }
 
-inline void JMP_MEM(unsigned int addr) {
+FORCE_INLINE void JMP_MEM(unsigned int addr) {
 	// common infinite loop
 	if (mainCPU.PC == addr + 3) {
-		mainCPU.nextClocks = 0;
+		// skip ahead until next interrupt
+		for (; mainCPU.clocks < mainCPU.nextClocks;) {
+			mainCPU.clocks += 3;
+		}
 	}
 
 	mainCPU.PC = addr;
 }
 
-inline void JSR_MEM(unsigned int addr) {
+FORCE_INLINE void JSR_MEM(unsigned int addr) {
 	// JSR (subroutine)
 	mainCPU.push(mainCPU.PC >> 8);
 	mainCPU.push(mainCPU.PC & 0xFF);
@@ -312,7 +316,7 @@ inline void JSR_MEM(unsigned int addr) {
 	mainCPU.PC = addr;
 }
 
-inline void RTI() {
+FORCE_INLINE void RTI() {
 	// RTI (return from interrupt)
 	// TODO : Non- delayed IRQ response behavior?
 	mainCPU.P = mainCPU.pop() & ~(ST_BRK);
@@ -320,7 +324,7 @@ inline void RTI() {
 	resolveFromP();
 }
 			
-inline void RTS() {
+FORCE_INLINE void RTS() {
 	// RTS
 	mainCPU.PC = mainCPU.pop() | (mainCPU.pop() << 8);
 	mainCPU.PC++;
@@ -329,7 +333,7 @@ inline void RTS() {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ALU
 
-inline void ADC(unsigned int data) {
+FORCE_INLINE void ADC(unsigned int data) {
 	unsigned int result = mainCPU.A + data + (mainCPU.carryResult ? 1 : 0);
 	mainCPU.P =
 		(mainCPU.P & (ST_INT | ST_BRK | ST_BCD | ST_UNUSED)) |					// keep flags
@@ -340,15 +344,15 @@ inline void ADC(unsigned int data) {
 	mainCPU.negativeResult = mainCPU.A;
 }
 
-inline void ADC_MEM(unsigned int address) {
+FORCE_INLINE void ADC_MEM(unsigned int address) {
 	ADC(mainCPU.read(address));
 }
 
-inline void ADC_ZERO(unsigned int address) {
-	ADC(mainCPU.RAM[address]);
+FORCE_INLINE void ADC_ZERO(unsigned int address) {
+	ADC(CPU_RAM(address));
 }
 
-inline void SBC(unsigned int data) {
+FORCE_INLINE void SBC(unsigned int data) {
 	// TODO : possibly move overflow calculation to flag resolve?
 	unsigned int result = mainCPU.A - data - (mainCPU.carryResult ? 0 : 1);
 	mainCPU.P =
@@ -360,64 +364,64 @@ inline void SBC(unsigned int data) {
 	mainCPU.negativeResult = mainCPU.A;
 }
 
-inline void SBC_MEM(unsigned int address) {
+FORCE_INLINE void SBC_MEM(unsigned int address) {
 	SBC(mainCPU.read(address));
 }
 
-inline void SBC_ZERO(unsigned int address) {
-	SBC(mainCPU.RAM[address]);
+FORCE_INLINE void SBC_ZERO(unsigned int address) {
+	SBC(CPU_RAM(address));
 }
 
-inline void DEC_MEM(unsigned int address) {
+FORCE_INLINE void DEC_MEM(unsigned int address) {
 	unsigned int result = (mainCPU.read(address) - 1) & 0xFF;
 	mainCPU.zeroResult = result;
 	mainCPU.negativeResult = result;
 	writeAddr(address, result);
 }
 
-inline void DEC_ZERO(unsigned int address) {
-	unsigned int result = (mainCPU.RAM[address] - 1) & 0xFF;
+FORCE_INLINE void DEC_ZERO(unsigned int address) {
+	unsigned int result = (CPU_RAM(address) - 1) & 0xFF;
 	mainCPU.zeroResult = result;
 	mainCPU.negativeResult = result;
 	writeZero(address, result);
 }
 
-inline void INC_MEM(unsigned int address) {
+FORCE_INLINE void INC_MEM(unsigned int address) {
 	unsigned int result = (mainCPU.read(address) + 1) & 0xFF;
 	mainCPU.zeroResult = result;
 	mainCPU.negativeResult = result;
 	writeAddr(address, result);
 }
 
-inline void INC_ZERO(unsigned int address) {
-	unsigned int result = (mainCPU.RAM[address] + 1) & 0xFF;
+FORCE_INLINE void INC_ZERO(unsigned int address) {
+	unsigned int result = (CPU_RAM(address) + 1) & 0xFF;
 	mainCPU.zeroResult = result;
 	mainCPU.negativeResult = result;
 	writeZero(address, result);
 }
 
-inline void DEX() {
+FORCE_INLINE void DEX() {
 	// DEX (decrement X)
 	mainCPU.X = (mainCPU.X - 1) & 0xFF;
 	mainCPU.zeroResult = mainCPU.X;
 	mainCPU.negativeResult = mainCPU.X;
 }
 
-inline void INX() {
+FORCE_INLINE void INX() {
 	// INX (increment X)
 	mainCPU.X = (mainCPU.X + 1) & 0xFF;
 	mainCPU.zeroResult = mainCPU.X;
 	mainCPU.negativeResult = mainCPU.X;
 }
 
-inline void DEY() {
+FORCE_INLINE void DEY() {
 	// DEY (decrement Y)
 	mainCPU.Y = (mainCPU.Y - 1) & 0xFF;
 	mainCPU.zeroResult = mainCPU.Y;
 	mainCPU.negativeResult = mainCPU.Y;
 }
 
-inline void INY() {
+FORCE_INLINE void INY() {
 	// INY (increment Y)
 	mainCPU.Y = (mainCPU.Y + 1) & 0xFF;
 	mainCPU.zeroResult = mainCPU.Y;
@@ -427,111 +431,111 @@ inline void INY() {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // COMPARE / TEST
 
-inline void CMP(unsigned int data) {
+FORCE_INLINE void CMP(unsigned int data) {
 	mainCPU.carryResult = (data <= mainCPU.A);
 	mainCPU.zeroResult = (mainCPU.A - data);
 	mainCPU.negativeResult = mainCPU.zeroResult;
 }
 
-inline void CMP_MEM(unsigned int addr) {
+FORCE_INLINE void CMP_MEM(unsigned int addr) {
 	CMP(mainCPU.read(addr));
 }
 
-inline void CMP_ZERO(unsigned int addr) {
-	CMP(mainCPU.RAM[addr]);
+FORCE_INLINE void CMP_ZERO(unsigned int addr) {
+	CMP(CPU_RAM(addr));
 }
 
-inline void CPX(unsigned int data) {
+FORCE_INLINE void CPX(unsigned int data) {
 	mainCPU.carryResult = (data <= mainCPU.X);
 	mainCPU.zeroResult = (mainCPU.X - data);
 	mainCPU.negativeResult = mainCPU.zeroResult;
 }
 
-inline void CPX_MEM(unsigned int addr) {
+FORCE_INLINE void CPX_MEM(unsigned int addr) {
 	CPX(mainCPU.read(addr));
 }
 
-inline void CPX_ZERO(unsigned int addr) {
-	CPX(mainCPU.RAM[addr]);
+FORCE_INLINE void CPX_ZERO(unsigned int addr) {
+	CPX(CPU_RAM(addr));
 }
 
-inline void CPY(unsigned int data) {
+FORCE_INLINE void CPY(unsigned int data) {
 	mainCPU.carryResult = (data <= mainCPU.Y);
 	mainCPU.zeroResult = (mainCPU.Y - data);
 	mainCPU.negativeResult = mainCPU.zeroResult;
 }
 
-inline void CPY_MEM(unsigned int addr) {
+FORCE_INLINE void CPY_MEM(unsigned int addr) {
 	CPY(mainCPU.read(addr));
 }
 
-inline void CPY_ZERO(unsigned int addr) {
-	CPY(mainCPU.RAM[addr]);
+FORCE_INLINE void CPY_ZERO(unsigned int addr) {
+	CPY(CPU_RAM(addr));
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // MISC
 
-inline void BRK() {
+FORCE_INLINE void BRK() {
 	// BRK moves forward an instruction
 	cpu6502_SoftwareInterrupt(0xFFFE);
 }
 
-inline void NOP() {
+FORCE_INLINE void NOP() {
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // BITWISE
 
-inline void ORA(unsigned int data) {
+FORCE_INLINE void ORA(unsigned int data) {
 	mainCPU.A = mainCPU.A | data;
 	mainCPU.zeroResult = mainCPU.A;
 	mainCPU.negativeResult = mainCPU.A;
 }
 
-inline void ORA_MEM(unsigned int address) {
+FORCE_INLINE void ORA_MEM(unsigned int address) {
 	ORA(mainCPU.read(address));
 }
 
-inline void ORA_ZERO(unsigned int address) {
-	ORA(mainCPU.RAM[address]);
+FORCE_INLINE void ORA_ZERO(unsigned int address) {
+	ORA(CPU_RAM(address));
 }
 
-inline void AND(unsigned int data) {
+FORCE_INLINE void AND(unsigned int data) {
 	mainCPU.A = mainCPU.A & data;
 	mainCPU.zeroResult = mainCPU.A;
 	mainCPU.negativeResult = mainCPU.A;
 }
 
-inline void AND_MEM(unsigned int address) {
+FORCE_INLINE void AND_MEM(unsigned int address) {
 	AND(mainCPU.read(address));
 }
 
-inline void AND_ZERO(unsigned int address) {
-	AND(mainCPU.RAM[address]);
+FORCE_INLINE void AND_ZERO(unsigned int address) {
+	AND(CPU_RAM(address));
 }
 
-inline void EOR(unsigned int data) {
+FORCE_INLINE void EOR(unsigned int data) {
 	mainCPU.A = mainCPU.A ^ data;
 	mainCPU.zeroResult = mainCPU.A;
 	mainCPU.negativeResult = mainCPU.A;
 }
 
-inline void EOR_MEM(unsigned int address) {
+FORCE_INLINE void EOR_MEM(unsigned int address) {
 	EOR(mainCPU.read(address));
 }
 
-inline void EOR_ZERO(unsigned int address) {
-	EOR(mainCPU.RAM[address]);
+FORCE_INLINE void EOR_ZERO(unsigned int address) {
+	EOR(CPU_RAM(address));
 }
 
-inline void ASL() {
+FORCE_INLINE void ASL() {
 	mainCPU.carryResult = (mainCPU.A & 0x80);
 	mainCPU.A = (mainCPU.A << 1) & 0xFF;
 	mainCPU.zeroResult = mainCPU.A;
 	mainCPU.negativeResult = mainCPU.A;
 }
 
-inline void ASL_MEM(unsigned int address) {
+FORCE_INLINE void ASL_MEM(unsigned int address) {
 	unsigned int data = mainCPU.read(address);
 
 	mainCPU.carryResult = (data & 0x80);
@@ -542,8 +546,8 @@ inline void ASL_MEM(unsigned int address) {
 	writeAddr(address, data);
 }
 
-inline void ASL_ZERO(unsigned int address) {
-	unsigned int data = mainCPU.RAM[address];
+FORCE_INLINE void ASL_ZERO(unsigned int address) {
+	unsigned int data = CPU_RAM(address);
 
 	mainCPU.carryResult = (data & 0x80);
 	int result = (data << 1) & 0xFF;
@@ -553,14 +557,14 @@ inline void ASL_ZERO(unsigned int address) {
 	writeZero(address, result);
 }
 
-inline void LSR() {
+FORCE_INLINE void LSR() {
 	mainCPU.carryResult = (mainCPU.A & 0x01);
 	mainCPU.A >>= 1;
 	mainCPU.zeroResult = mainCPU.A;
 	mainCPU.negativeResult = 0;
 }
 
-inline void LSR_MEM(unsigned int address) {
+FORCE_INLINE void LSR_MEM(unsigned int address) {
 	unsigned int data = mainCPU.read(address);
 
 	mainCPU.carryResult = (data & 0x01);
@@ -571,8 +575,8 @@ inline void LSR_MEM(unsigned int address) {
 	writeAddr(address, data);
 }
 
-inline void LSR_ZERO(unsigned int address) {
-	unsigned int data = mainCPU.RAM[address];
+FORCE_INLINE void LSR_ZERO(unsigned int address) {
+	unsigned int data = CPU_RAM(address);
 
 	mainCPU.carryResult = (data & 0x01);
 	data >>= 1;
@@ -582,7 +586,7 @@ inline void LSR_ZERO(unsigned int address) {
 	writeZero(address, data);
 }
 
-inline void ROL() {
+FORCE_INLINE void ROL() {
 	mainCPU.A = (mainCPU.A << 1) | (mainCPU.carryResult ? 0x01 : 0);
 	mainCPU.carryResult = mainCPU.A & 0x100;
 	mainCPU.zeroResult = mainCPU.A & 0xFF;
@@ -590,7 +594,7 @@ inline void ROL() {
 	mainCPU.negativeResult = mainCPU.A;
 }
 
-inline void ROL_MEM(unsigned int address) {
+FORCE_INLINE void ROL_MEM(unsigned int address) {
 	unsigned int data = mainCPU.read(address);
 
 	data = (data << 1) | (mainCPU.carryResult ? 0x01 : 0);
@@ -601,8 +605,8 @@ inline void ROL_MEM(unsigned int address) {
 	writeAddr(address, data);
 }
 
-inline void ROL_ZERO(unsigned int address) {
-	unsigned int data = mainCPU.RAM[address];
+FORCE_INLINE void ROL_ZERO(unsigned int address) {
+	unsigned int data = CPU_RAM(address);
 
 	data = (data << 1) | (mainCPU.carryResult ? 0x01 : 0);
 	mainCPU.carryResult = data & 0x100;
@@ -613,7 +617,7 @@ inline void ROL_ZERO(unsigned int address) {
 }
 
 
-inline void ROR() {
+FORCE_INLINE void ROR() {
 	unsigned int result = (mainCPU.A >> 1) | (mainCPU.carryResult ? 0x80 : 0);
 	mainCPU.carryResult = mainCPU.A & 0x01;
 
@@ -622,7 +626,7 @@ inline void ROR() {
 	mainCPU.negativeResult = mainCPU.A;
 }
 
-inline void ROR_MEM(unsigned int address) {
+FORCE_INLINE void ROR_MEM(unsigned int address) {
 	unsigned int data = mainCPU.read(address);
 
 	unsigned int result = (data >> 1) | (mainCPU.carryResult ? 0x80 : 0);
@@ -633,8 +637,8 @@ inline void ROR_MEM(unsigned int address) {
 	writeAddr(address, result);
 }
 
-inline void ROR_ZERO(unsigned int address) {
-	int data = mainCPU.RAM[address];
+FORCE_INLINE void ROR_ZERO(unsigned int address) {
+	int data = CPU_RAM(address);
 
 	unsigned int result = (data >> 1) | (mainCPU.carryResult ? 0x80 : 0);
 	mainCPU.carryResult = data & 0x01;
@@ -644,72 +648,75 @@ inline void ROR_ZERO(unsigned int address) {
 	writeZero(address, result);
 }
 
-inline void BIT(unsigned int data) {
+FORCE_INLINE void BIT(unsigned int data) {
 	mainCPU.P =
 		(mainCPU.P & (ST_INT | ST_BCD | ST_BRK | ST_CRY | ST_UNUSED)) |		// keep flags
-		(data & (ST_OVR));													// these are copied in (bits 6-7)
+		(data & (ST_OVR | ST_NEG));											// these are copied in (bits 6-7)
 	mainCPU.zeroResult = (data & mainCPU.A);
 	mainCPU.negativeResult = data;
 }
 
-inline void BIT_MEM(unsigned int address) {
+FORCE_INLINE void BIT_MEM(unsigned int address) {
 	BIT(mainCPU.read(address));
 }
 
-inline void BIT_ZERO(unsigned int address) {
-	BIT(mainCPU.RAM[address]);
+FORCE_INLINE void BIT_ZERO(unsigned int address) {
+	BIT(CPU_RAM(address));
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // STATUS FLAGS
 
-inline void CLC() {
+FORCE_INLINE void CLC() {
 	// (clear carry)
 	mainCPU.carryResult = 0;
 }
 
-inline void SEC() {
+FORCE_INLINE void SEC() {
 	// (set carry)
 	mainCPU.carryResult = 1;
 }
 
-inline void CLI() {
+FORCE_INLINE void CLI() {
 	// (clear interrupt)
 	// TODO : Delayed IRQ response behavior?
 	mainCPU.P &= ~ST_INT;
 }
 
-inline void SEI() {
+FORCE_INLINE void SEI() {
 	// (set interrupt)
 	mainCPU.P |= ST_INT;
 }
 
-inline void CLV() {
+FORCE_INLINE void CLV() {
 	// (clear overflow)
 	mainCPU.P &= ~ST_OVR;
 }
 
-inline void CLD() {
+FORCE_INLINE void CLD() {
 	// (clear decimal)
 	mainCPU.P &= ~ST_BCD;
 }
 
-inline void SED() {
+FORCE_INLINE void SED() {
 	// (set decimal)
 	mainCPU.P |= ST_BCD;
 }
 
-inline void cpu6502_PerformInstruction() {
-	int effAddr = -1;
+#if TRACE_DEBUG
+static unsigned int effAddr = -1;
+static unsigned int effByte = 0;
+unsigned int eff_address(unsigned int addr) { effAddr = addr; if (effAddr < 0x2000 || effAddr >= 0x6000) effByte = mainCPU.readNonIO(effAddr); return effAddr; }
+#else
+#define eff_address(X) (X)
+#endif
 
+FORCE_INLINE void cpu6502_PerformInstruction() {
 #if TRACE_DEBUG
 	cpu_instr_history hist;
 	resolveToP();
 	memcpy(&hist.regs, &mainCPU, sizeof(cpu_6502));
-	int effByte = 0;
-#define EFF_ADDR(X) { effAddr = (X); if (effAddr < 0x2000 || effAddr >= 0x6000) effByte = mainCPU.readNonIO(effAddr); }
 #else
-#define EFF_ADDR(X) { effAddr = (X); }
 #endif
 
 	// TODO : cache into single read (with instruction overlap in bank pages)
@@ -745,61 +752,52 @@ inline void cpu6502_PerformInstruction() {
 
 #define OPCODE_ABS(op,str,clk,sz,page,name,spc) \
 	OPCODE_START(op,clk,sz) \
-		EFF_ADDR(data1 + (data2 << 8));	\
-		name##_MEM(effAddr); \
+		name##_MEM(eff_address(data1 + (data2 << 8))); \
 	OPCODE_END(spc) 
 
 #define OPCODE_ABX(op,str,clk,sz,page,name,spc) \
 	OPCODE_START(op,clk,sz) \
-		EFF_ADDR(data1 + (data2 << 8) + (mainCPU.X)); \
 		if (page && ((data1 + mainCPU.X) & 0x100)) mainCPU.clocks++; \
-		name##_MEM(effAddr); \
+		name##_MEM((data1 + (data2 << 8) + (mainCPU.X))); \
 	OPCODE_END(spc) 
 
 #define OPCODE_ABY(op,str,clk,sz,page,name,spc) \
 	OPCODE_START(op,clk,sz) \
-		EFF_ADDR(data1 + (data2 << 8) + (mainCPU.Y)); \
 		if (page && ((data1 + mainCPU.Y) & 0x100)) mainCPU.clocks++;	\
-		name##_MEM(effAddr); \
+		name##_MEM((data1 + (data2 << 8) + (mainCPU.Y))); \
 	OPCODE_END(spc) 
 
 #define OPCODE_IND(op,str,clk,sz,page,name,spc) \
 	OPCODE_START(op,clk,sz) \
-		int target = (data2 << 8); \
-		EFF_ADDR(mainCPU.read(data1 + target) + (mainCPU.read(((data1 + 1) & 0xFF) + target) << 8)); \
-		name##_MEM(effAddr); \
+		unsigned int target = (data2 << 8); \
+		name##_MEM(eff_address(mainCPU.read(data1 + target) + (mainCPU.read(((data1 + 1) & 0xFF) + target) << 8))); \
 	OPCODE_END(spc)
 
 #define OPCODE_INX(op,str,clk,sz,page,name,spc) \
 	OPCODE_START(op,clk,sz) \
 		int target = (data1 + mainCPU.X) & 0xFF; \
-		EFF_ADDR(mainCPU.RAM[target] + (mainCPU.RAM[(target + 1) & 0xFF] << 8)); \
-		name##_MEM(effAddr); \
+		name##_MEM(eff_address(CPU_RAM(target) + (CPU_RAM((target + 1) & 0xFF) << 8))); \
 	OPCODE_END(spc)
 
 #define OPCODE_INY(op,str,clk,sz,page,name,spc) \
 	OPCODE_START(op,clk,sz) \
-		EFF_ADDR(mainCPU.RAM[data1] + (mainCPU.RAM[(data1 + 1) & 0xFF] << 8) + mainCPU.Y); \
-		if (page && ((mainCPU.RAM[data1] + mainCPU.Y) & 0x100)) mainCPU.clocks++; \
-		name##_MEM(effAddr); \
+		if (page && ((CPU_RAM(data1) + mainCPU.Y) & 0x100)) mainCPU.clocks++; \
+		name##_MEM(eff_address(CPU_RAM(data1) + (CPU_RAM((data1 + 1) & 0xFF) << 8) + mainCPU.Y)); \
 	OPCODE_END(spc) 
 
 #define OPCODE_ZRO(op,str,clk,sz,page,name,spc) \
 	OPCODE_START(op,clk,sz) \
-		EFF_ADDR(data1); \
-		name##_ZERO(data1); \
+		name##_ZERO(eff_address(data1)); \
 	OPCODE_END(spc)
 
 #define OPCODE_ZRX(op,str,clk,sz,page,name,spc) \
 	OPCODE_START(op,clk,sz) \
-		EFF_ADDR((data1 + mainCPU.X) & 0xFF); \
-		name##_ZERO(effAddr); \
+		name##_ZERO(eff_address((data1 + mainCPU.X) & 0xFF)); \
 	OPCODE_END(spc) 
 
 #define OPCODE_ZRY(op,str,clk,sz,page,name,spc) \
 	OPCODE_START(op,clk,sz) \
-		EFF_ADDR((data1 + mainCPU.Y) & 0xFF); \
-		name##_ZERO(effAddr); \
+		name##_ZERO(eff_address((data1 + mainCPU.Y) & 0xFF)); \
 	OPCODE_END(spc)
 
 	switch (instr) {

@@ -5,38 +5,16 @@
 #include "debug.h"
 #include "nes.h"
 
-nes_cpu mainCPU;
-
-unsigned char* nes_cpu::getSpecial(unsigned int addr) {
-	if (addr < 0x4000) {
-		DebugAssert(addr >= 0x2000);	// assumed to be PPU register then
-		return ppu_registers.latchReg(addr & 0x07);
-	} 
-
-	static unsigned char specByte = 0;
-
-	if (addr < 0x4020) {
-		// APU and IO registers
-		switch (addr - 0x4000) {
-			case 0x16:
-				specByte = input_readController1() | 0x40;
-				break;
-			case 0x17:
-				specByte = input_readController2() | 0x40;
-				break;
-			default:
-				// UNMAPPED! NO DATA!
-				specByte = 0;
-		}
-	} 
-
-	return &specByte;
-}
+nes_cpu mainCPU ALIGN(256);
 
 unsigned char nes_cpu::readSpecial(unsigned int addr) {
-	unsigned char *spec = getSpecial(addr);
-	unsigned char ret = *spec;
-	return ret;
+	if (addr == 0x4016) {
+		return input_readController1() | 0x40;
+	} else if (addr == 0x4017) {
+		return input_readController2() | 0x40;
+	} else {
+		return 0;
+	}
 }
 
 void nes_cpu::writeSpecial(unsigned int addr, unsigned char value) {
