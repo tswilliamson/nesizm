@@ -1,5 +1,6 @@
 #include "platform.h"
 #include "nes.h"
+#include "debug.h"
 
 #include "ptune2_simple/Ptune2_direct.h"
 #include "scope_timer/scope_timer.h"
@@ -26,8 +27,9 @@ int main(void) {
 	// prepare for full color mode
 	Bdisp_EnableColor(1);
 	EnableStatusArea(3);
+	DrawFrame(0);
 
-	Ptune2_LoadSetting(PT2_DOUBLE);
+	//Ptune2_LoadSetting(PT2_DOUBLE);
 
 	reset_printf();
 	memset(GetVRAMAddress(), 0, LCD_HEIGHT_PX * LCD_WIDTH_PX * 2);
@@ -42,9 +44,27 @@ int main(void) {
 	unsigned char stackBanks[NUM_CACHED_ROM_BANKS * 8192] ALIGN(256);
 	nesCart.allocateBanks(stackBanks);
 
+#if TARGET_WINSIM
+	// Dumps the palette overlay table to the log
+	const int bitShift = 0;
+	OutputLog("uint8 PatternTable[8 * 256] = {\n");
+	for (uint32 i = 0; i < 256; i++) {
+		uint8 bytes[8];
+		for (int32 b = 7; b >= 0; b--) {
+			uint32 bit = (i & (1 << b)) ? 1 << bitShift : 0;
+			bytes[7-b] = bit;
+		}
+		if (i % 8 == 0) OutputLog("\t");
+		OutputLog("%d,%d,%d,%d,%d,%d,%d,%d,", bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7]);
+		if (i % 8 == 7) OutputLog("\n");
+	}
+	OutputLog("};\n\n");
+#endif
+
 
 	{
 		Bdisp_Fill_VRAM(0, 3);
+		DrawFrame(0);
 
 		extern PrizmImage gfx_logo;
 		extern PrizmImage gfx_bg_warp;
@@ -67,7 +87,6 @@ int main(void) {
 			nes->ExportZX7("gfx_nes", "src\\gfx\\nes_gfx.cpp");
 		}
 #endif
-
 		logo->Draw_Blit(5,5);
 		bg->Draw_Blit(0, 71);
 		nes->Draw_OverlayMasked(195, 38, 192);
@@ -78,6 +97,7 @@ int main(void) {
 
 		CalcType_Draw(&commodore, "@TSWilliamson", 255, 5, COLOR_AQUAMARINE, 0, 0);
 		CalcType_Draw(&commodore, "v0.9", 340, 198, 0x302C, 0, 0);
+	
 		int key = 0;
 		GetKey(&key);
 	}
@@ -125,7 +145,7 @@ int main(void) {
 		GetKey(&key);
 	}
 
-	Ptune2_LoadSetting(PT2_DEFAULT);
+	//Ptune2_LoadSetting(PT2_DEFAULT);
 
 	ScopeTimer::Shutdown();
 

@@ -24,24 +24,70 @@ _RenderToScanlineOld:
 	mov.l .PPUBuffer, r0
 	mov.l @r0, r0
 
-	// r0 += (x + 7) (byte offset)
-	add r7, r0
-	add #7, r0
+	// r7 = ppu_scanlineBuffer+x (byte offset)
+	add r0, r7
+
+	mov r6, r0
 	
 	// for 8 pixels: palette (r6) = P, topPlane (r5) = T, bottomPlane (r4) = B:
 	//  buffer[x--] = PPPPPPTB, topPlane >>= 1, bottomPlane >> 1
-.rept 8
-	shlr2 r6   					// palette >>= 2
+	shlr2 r0   					// palette >>= 2
 	rotcr r5   					// topplane >> T
-	rotcl r6   					// palette = (palette << 1) | T
+	rotcl r0   					// palette = (palette << 1) | T
 	rotcr r4   					// bottomPlane >> T
-	rotcl r6   					// palette = (palette << 1) | T
-	mov.b r6,@r0				// buffer[x] = palette
-	dt r0						// x--
-.endr
-	rts
-	nop
+	rotcl r0   					// palette = (palette << 1) | T
+	mov.b r0,@(7,r7)			// buffer[x] = palette
 	
+	shlr2 r0  
+	rotcr r5  
+	rotcl r0  
+	rotcr r4  
+	rotcl r0  
+	mov.b r0,@(6,r7)
+	
+	shlr2 r0  
+	rotcr r5  
+	rotcl r0  
+	rotcr r4  
+	rotcl r0  
+	mov.b r0,@(5,r7)
+	
+	shlr2 r0  
+	rotcr r5  
+	rotcl r0  
+	rotcr r4  
+	rotcl r0  
+	mov.b r0,@(4,r7)
+	
+	shlr2 r0  
+	rotcr r5  
+	rotcl r0  
+	rotcr r4  
+	rotcl r0  
+	mov.b r0,@(3,r7)
+	
+	shlr2 r0  
+	rotcr r5  
+	rotcl r0  
+	rotcr r4  
+	rotcl r0  
+	mov.b r0,@(2,r7)
+	
+	shlr2 r0  
+	rotcr r5  
+	rotcl r0  
+	rotcr r4  
+	rotcl r0  
+	mov.b r0,@(1,r7)
+	
+	shlr2 r0  
+	rotcr r5  
+	rotcl r0  
+	rotcr r4  
+	rotcl r0  
+	rts
+	mov.b r0,@r7
+
     .text; .align 4
 .PPUBuffer:
 	.long	_ppu_scanlineBuffer
