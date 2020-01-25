@@ -231,11 +231,10 @@ extern unsigned int ppu_scanline;
 extern unsigned int ppu_frameCounter;
 
 // pointer to buffer representing palette entries for current scanline
-extern unsigned int* ppu_scanlineBuffer;
+extern uint8* ppu_scanlineBuffer;
 
 // pointer to current 565 color palette (can change due to emphasis bits)
-extern unsigned int* ppu_rgbPalettePtr;
-extern unsigned int* ppu_rgbPalettePtrShifted;
+extern unsigned short* ppu_rgbPalettePtr;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // INPUT

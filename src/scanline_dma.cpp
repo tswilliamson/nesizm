@@ -23,8 +23,8 @@ static unsigned short* scanGroup[2] = { (unsigned short*) 0xE5007000, (unsigned 
 static int curDMABuffer = 0;
 
 // scanline buffer goes in on chip mem 2
-unsigned int ppu_scanlineBufferPtr[256 + 16 * 2];
-unsigned int* ppu_scanlineBuffer = ppu_scanlineBufferPtr;
+unsigned char ppu_scanlineBufferPtr[256 + 16 * 2];
+unsigned char* ppu_scanlineBuffer = ppu_scanlineBufferPtr;
 
 static int curScan = 0;
 
@@ -59,7 +59,9 @@ void DmaDrawStrip(void* srcAddress, unsigned int size) {
 	*DMA0_CHCR_0 |= 1;//Enable channel0 DMA
 }
 
-inline void flushScanBuffer(int startX, int endX, int startY, int endY, int scanBufferSize) {
+void flushScanBuffer(int startX, int endX, int startY, int endY, int scanBufferSize) {
+	TIME_SCOPE();
+
 	DmaWaitNext();
 
 	Bdisp_WriteDDRegister3_bit7(1);
@@ -72,6 +74,19 @@ inline void flushScanBuffer(int startX, int endX, int startY, int endY, int scan
 	curScan = 0;
 }
 
+#if 0
+inline void RenderScanlineBuffer(unsigned char* scanlineSrc, unsigned int* scanlineDest) {
+	for (int i = 0; i < 128; i++, scanlineSrc += 2) {
+		*(scanlineDest++) = (ppu_workingPalette[scanlineSrc[0]] << 16) | ppu_workingPalette[scanlineSrc[1]];
+	}
+}
+#else
+extern "C" {
+	void RenderScanlineBuffer_ASM(unsigned char* scanlineSrc, unsigned int* scanlineDest);
+};
+#define RenderScanlineBuffer RenderScanlineBuffer_ASM
+#endif
+
 void resolveScanline_DMA() {
 	TIME_SCOPE();
 
@@ -79,11 +94,9 @@ void resolveScanline_DMA() {
 	const int scanBufferSize = bufferLines * 256 * 2;
 
 	// resolve le line
-	unsigned int* scanlineSrc = &ppu_scanlineBuffer[16];	// with clipping
+	unsigned char* scanlineSrc = &ppu_scanlineBuffer[16];	// with clipping
 	unsigned int* scanlineDest = (unsigned int*) (scanGroup[curDMABuffer] + 256 * curScan);
-	for (int i = 0; i < 128; i++, scanlineSrc += 2) {
-		*(scanlineDest++) = (ppu_rgbPalettePtrShifted[ppu_workingPalette[scanlineSrc[0]]]) | ppu_rgbPalettePtr[ppu_workingPalette[scanlineSrc[1]]];
-	}
+	RenderScanlineBuffer(scanlineSrc, scanlineDest);
 
 	curScan++;
 	if (curScan == bufferLines) {

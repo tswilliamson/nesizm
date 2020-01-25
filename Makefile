@@ -18,7 +18,7 @@ include $(FXCGSDK)/common/prizm_rules
 #---------------------------------------------------------------------------------
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	$(CONFIG)
-SOURCES		:=	src src/ptune2_simple src/scope_timer src/gfx
+SOURCES		:=	src src/ptune2_simple src/scope_timer src/gfx src/asm
 DATA		:=	data  
 INCLUDES	:=  src
 
@@ -39,18 +39,18 @@ CBASEFLAGS	= -O2 \
 CFLAGS	=	$(CBASEFLAGS) \
 		  -std=c99
 
-CXXFLAGS	=	$(CBASEFLAGS) \
+CXXFLAGS	=  $(CBASEFLAGS) \
 		  -fpermissive \
 		  -fno-rtti \
 		  -fno-exceptions \
 		  -fno-threadsafe-statics \
-		  -fno-use-cxa-get-exception-ptr 
+		  -fno-use-cxa-get-exception-ptr
 
 ASFLAGS	=	$(CFLAGS) 
 
 # add -S -fverbose-asm for assembly output
 
-LDFLAGS	= $(MACHDEP) -O2 -T$(FXCGSDK)/common/prizm.ld -Wl,-static -Wl,-gc-sections
+LDFLAGS	= $(MACHDEP) -O2 -T$(FXCGSDK)/common/prizm.ld -Wl,-static -g
 
 #---------------------------------------------------------------------------------
 # any extra libraries we wish to link with the project

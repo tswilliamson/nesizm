@@ -83,7 +83,7 @@ void ppu_midFrameScrollUpdate() {
 // Palette
 
 // TODO : handle emphasis bits
-static unsigned int ppu_rgbPalette[64] = {
+static unsigned short ppu_rgbPalette[64] = {
 	/*
 	Blargg 2C02 palette
 	0x5AAB, 0x010F, 0x0892, 0x3011, 0x480D, 0x6006, 0x5820, 0x40C0, 
@@ -119,20 +119,7 @@ static unsigned int ppu_rgbPalette[64] = {
 	0xFF34, 0xE7F4, 0xAF98, 0xB7FA, 0xA7FE, 0xCE39, 0x0000, 0x0000
 };
 
-static unsigned int ppu_rgbPaletteShifted[64] = {
-	// FCEUX palette
-	0x7BAF0000, 0x28D20000, 0x00150000, 0x48140000, 0x900F0000, 0xA8020000, 0xA8000000, 0x80400000, 
-	0x41600000, 0x02200000, 0x02800000, 0x01E30000, 0x19EC0000, 0x00000000, 0x00000000, 0x00000000, 
-	0xC5F80000, 0x039E0000, 0x21DE0000, 0x801E0000, 0xC0180000, 0xE80B0000, 0xD9400000, 0xCA620000, 
-	0x8B800000, 0x04A00000, 0x05400000, 0x04870000, 0x04110000, 0x00000000, 0x00000000, 0x00000000, 
-	0xFFFF0000, 0x45FF0000, 0x64BF0000, 0xD45F0000, 0xFBDF0000, 0xFBB70000, 0xFBAC0000, 0xFCC70000, 
-	0xF5E80000, 0x86820000, 0x56E90000, 0x5FD30000, 0x075B0000, 0x7BCF0000, 0x00000000, 0x00000000, 
-	0xFFFF0000, 0xAF3F0000, 0xCEBF0000, 0xDE5F0000, 0xFE3F0000, 0xFE3B0000, 0xFDF60000, 0xFED50000, 
-	0xFF340000, 0xE7F40000, 0xAF980000, 0xB7FA0000, 0xA7FE0000, 0xCE390000, 0x00000000, 0x00000000
-};
-
-unsigned int* ppu_rgbPalettePtr = ppu_rgbPalette;
-unsigned int* ppu_rgbPalettePtrShifted = ppu_rgbPaletteShifted;
+unsigned short* ppu_rgbPalettePtr = ppu_rgbPalette;
 
 
 unsigned char ppu_registers_type::latchReg(unsigned int addr) {
@@ -311,9 +298,9 @@ void ppu_oamDMA(unsigned int addr) {
 inline void ppu_resolveWorkingPalette() {
 	for (int i = 0; i < 0x20; i++) {
 		if (i & 3) {
-			ppu_workingPalette[i] = ppu_palette[i];
+			ppu_workingPalette[i] = ppu_rgbPalettePtr[ppu_palette[i]];
 		} else {
-			ppu_workingPalette[i] = ppu_palette[0];
+			ppu_workingPalette[i] = ppu_rgbPalettePtr[ppu_palette[0]];
 		}
 	}
 }
@@ -424,19 +411,22 @@ void fastOAMLatchCheck() {
 }
 
 // TODO : scanline check faster to do with table or function ptr?
+
 void ppu_step() {
 	TIME_SCOPE();
+	
+	// calculated once per frame on scanline 1
+	static bool skipFrame = false;
 
 	// cpu time for next scanline
 	mainCPU.ppuClocks += (341 / 3) + (ppu_scanline % 3 != 0 ? 1 : 0);
 
 	// TODO: we should be able to render 224 via DMA
 #if TARGET_PRIZM
-	#define FRAME_SKIP 1
+	#define FRAME_SKIP 0
 #else
 	#define FRAME_SKIP 0
 #endif
-	const bool skipFrame = (ppu_frameCounter % (FRAME_SKIP + 1) != 0);
     
 	/*
 		262 scanlines, we render 13-228 (middle 216 screen lines)
@@ -445,6 +435,8 @@ void ppu_step() {
 		to get sprite 0 timing right use a different ppuClocks value / update function
 	*/
 	if (ppu_scanline == 1) {
+		skipFrame = (ppu_frameCounter % (FRAME_SKIP + 1) != 0);
+
 		// inactive scanline with even/odd clock cycle thing
 		ppu_registers.PPUSTATUS &= ~PPUSTAT_NMI;			// clear vblank flag
 		ppu_registers.PPUSTATUS &= ~PPUSTAT_SPRITE0;		// clear sprite 0 collision flag
@@ -565,6 +557,8 @@ void ppu_step() {
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Scanline Rendering (to buffer)
 
+// 16 byte overlay for bit plane -> 8 bit palette plane
+
 // Credit to Stanford bit twiddling hacks
 static const unsigned short MortonTable[256] = 
 {
@@ -602,9 +596,65 @@ static const unsigned short MortonTable[256] =
   0x5540, 0x5541, 0x5544, 0x5545, 0x5550, 0x5551, 0x5554, 0x5555
 };
 
+// table of 8 byte wide bit overlays per all possible 256 byte combinations
+uint8 OverlayTable[8 * 256] = {
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,1,
+	0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,1,0,1,0,0,0,0,0,1,0,1,1,0,0,0,0,1,1,0,0,0,0,0,0,1,1,0,1,0,0,0,0,1,1,1,0,0,0,0,0,1,1,1,1,
+	0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,1,0,0,0,0,1,0,0,1,1,0,0,0,1,0,1,0,0,0,0,0,1,0,1,0,1,0,0,0,1,0,1,1,0,0,0,0,1,0,1,1,1,
+	0,0,0,1,1,0,0,0,0,0,0,1,1,0,0,1,0,0,0,1,1,0,1,0,0,0,0,1,1,0,1,1,0,0,0,1,1,1,0,0,0,0,0,1,1,1,0,1,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,1,
+	0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,1,0,0,1,0,0,1,0,0,0,0,1,0,0,1,0,1,0,0,1,0,0,1,1,0,0,0,1,0,0,1,1,1,
+	0,0,1,0,1,0,0,0,0,0,1,0,1,0,0,1,0,0,1,0,1,0,1,0,0,0,1,0,1,0,1,1,0,0,1,0,1,1,0,0,0,0,1,0,1,1,0,1,0,0,1,0,1,1,1,0,0,0,1,0,1,1,1,1,
+	0,0,1,1,0,0,0,0,0,0,1,1,0,0,0,1,0,0,1,1,0,0,1,0,0,0,1,1,0,0,1,1,0,0,1,1,0,1,0,0,0,0,1,1,0,1,0,1,0,0,1,1,0,1,1,0,0,0,1,1,0,1,1,1,
+	0,0,1,1,1,0,0,0,0,0,1,1,1,0,0,1,0,0,1,1,1,0,1,0,0,0,1,1,1,0,1,1,0,0,1,1,1,1,0,0,0,0,1,1,1,1,0,1,0,0,1,1,1,1,1,0,0,0,1,1,1,1,1,1,
+	0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,1,0,0,0,0,1,0,0,1,0,0,0,0,1,1,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,1,0,1,0,0,0,1,1,0,0,1,0,0,0,1,1,1,
+	0,1,0,0,1,0,0,0,0,1,0,0,1,0,0,1,0,1,0,0,1,0,1,0,0,1,0,0,1,0,1,1,0,1,0,0,1,1,0,0,0,1,0,0,1,1,0,1,0,1,0,0,1,1,1,0,0,1,0,0,1,1,1,1,
+	0,1,0,1,0,0,0,0,0,1,0,1,0,0,0,1,0,1,0,1,0,0,1,0,0,1,0,1,0,0,1,1,0,1,0,1,0,1,0,0,0,1,0,1,0,1,0,1,0,1,0,1,0,1,1,0,0,1,0,1,0,1,1,1,
+	0,1,0,1,1,0,0,0,0,1,0,1,1,0,0,1,0,1,0,1,1,0,1,0,0,1,0,1,1,0,1,1,0,1,0,1,1,1,0,0,0,1,0,1,1,1,0,1,0,1,0,1,1,1,1,0,0,1,0,1,1,1,1,1,
+	0,1,1,0,0,0,0,0,0,1,1,0,0,0,0,1,0,1,1,0,0,0,1,0,0,1,1,0,0,0,1,1,0,1,1,0,0,1,0,0,0,1,1,0,0,1,0,1,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1,1,
+	0,1,1,0,1,0,0,0,0,1,1,0,1,0,0,1,0,1,1,0,1,0,1,0,0,1,1,0,1,0,1,1,0,1,1,0,1,1,0,0,0,1,1,0,1,1,0,1,0,1,1,0,1,1,1,0,0,1,1,0,1,1,1,1,
+	0,1,1,1,0,0,0,0,0,1,1,1,0,0,0,1,0,1,1,1,0,0,1,0,0,1,1,1,0,0,1,1,0,1,1,1,0,1,0,0,0,1,1,1,0,1,0,1,0,1,1,1,0,1,1,0,0,1,1,1,0,1,1,1,
+	0,1,1,1,1,0,0,0,0,1,1,1,1,0,0,1,0,1,1,1,1,0,1,0,0,1,1,1,1,0,1,1,0,1,1,1,1,1,0,0,0,1,1,1,1,1,0,1,0,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,
+	1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,1,0,0,0,0,0,1,0,1,0,0,0,0,0,1,1,1,0,0,0,0,1,0,0,1,0,0,0,0,1,0,1,1,0,0,0,0,1,1,0,1,0,0,0,0,1,1,1,
+	1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,1,1,0,0,0,1,0,1,0,1,0,0,0,1,0,1,1,1,0,0,0,1,1,0,0,1,0,0,0,1,1,0,1,1,0,0,0,1,1,1,0,1,0,0,0,1,1,1,1,
+	1,0,0,1,0,0,0,0,1,0,0,1,0,0,0,1,1,0,0,1,0,0,1,0,1,0,0,1,0,0,1,1,1,0,0,1,0,1,0,0,1,0,0,1,0,1,0,1,1,0,0,1,0,1,1,0,1,0,0,1,0,1,1,1,
+	1,0,0,1,1,0,0,0,1,0,0,1,1,0,0,1,1,0,0,1,1,0,1,0,1,0,0,1,1,0,1,1,1,0,0,1,1,1,0,0,1,0,0,1,1,1,0,1,1,0,0,1,1,1,1,0,1,0,0,1,1,1,1,1,
+	1,0,1,0,0,0,0,0,1,0,1,0,0,0,0,1,1,0,1,0,0,0,1,0,1,0,1,0,0,0,1,1,1,0,1,0,0,1,0,0,1,0,1,0,0,1,0,1,1,0,1,0,0,1,1,0,1,0,1,0,0,1,1,1,
+	1,0,1,0,1,0,0,0,1,0,1,0,1,0,0,1,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,1,1,0,1,0,1,1,0,0,1,0,1,0,1,1,0,1,1,0,1,0,1,1,1,0,1,0,1,0,1,1,1,1,
+	1,0,1,1,0,0,0,0,1,0,1,1,0,0,0,1,1,0,1,1,0,0,1,0,1,0,1,1,0,0,1,1,1,0,1,1,0,1,0,0,1,0,1,1,0,1,0,1,1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,1,
+	1,0,1,1,1,0,0,0,1,0,1,1,1,0,0,1,1,0,1,1,1,0,1,0,1,0,1,1,1,0,1,1,1,0,1,1,1,1,0,0,1,0,1,1,1,1,0,1,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,1,
+	1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,1,1,1,0,0,0,0,1,0,1,1,0,0,0,0,1,1,1,1,0,0,0,1,0,0,1,1,0,0,0,1,0,1,1,1,0,0,0,1,1,0,1,1,0,0,0,1,1,1,
+	1,1,0,0,1,0,0,0,1,1,0,0,1,0,0,1,1,1,0,0,1,0,1,0,1,1,0,0,1,0,1,1,1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,1,1,1,0,0,1,1,1,0,1,1,0,0,1,1,1,1,
+	1,1,0,1,0,0,0,0,1,1,0,1,0,0,0,1,1,1,0,1,0,0,1,0,1,1,0,1,0,0,1,1,1,1,0,1,0,1,0,0,1,1,0,1,0,1,0,1,1,1,0,1,0,1,1,0,1,1,0,1,0,1,1,1,
+	1,1,0,1,1,0,0,0,1,1,0,1,1,0,0,1,1,1,0,1,1,0,1,0,1,1,0,1,1,0,1,1,1,1,0,1,1,1,0,0,1,1,0,1,1,1,0,1,1,1,0,1,1,1,1,0,1,1,0,1,1,1,1,1,
+	1,1,1,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,1,0,1,1,1,0,0,0,1,1,1,1,1,0,0,1,0,0,1,1,1,0,0,1,0,1,1,1,1,0,0,1,1,0,1,1,1,0,0,1,1,1,
+	1,1,1,0,1,0,0,0,1,1,1,0,1,0,0,1,1,1,1,0,1,0,1,0,1,1,1,0,1,0,1,1,1,1,1,0,1,1,0,0,1,1,1,0,1,1,0,1,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,1,
+	1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,1,1,1,1,1,0,0,1,0,1,1,1,1,0,0,1,1,1,1,1,1,0,1,0,0,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,0,1,1,1,1,0,1,1,1,
+	1,1,1,1,1,0,0,0,1,1,1,1,1,0,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,
+};
+
+#if TARGET_WINSIM
+// super fast blitting method!
+inline void RenderToScanline(unsigned char*patternTable, int chr, unsigned int palette, int x) {
+	// put palette in every 4 bytes
+	palette = palette | (palette << 8);
+	palette = palette | (palette << 16);
+	unsigned int* bitPlane1 = (unsigned int*) &OverlayTable[patternTable[chr] * 8];
+	unsigned int* bitPlane2 = (unsigned int*) &OverlayTable[patternTable[chr + 8] * 8];
+	unsigned int* scanline = (unsigned int*) &ppu_scanlineBuffer[x];
+	scanline[0] = palette | bitPlane1[0] | (bitPlane2[0] << 1);
+	scanline[1] = palette | bitPlane1[1] | (bitPlane2[1] << 1);
+}
+#else
+extern "C" {
+	void RenderToScanline(unsigned char*patternTable, int chr, int palette, int x);
+	void RenderToScanlineOld(unsigned char*patternTable, int chr, int palette, int x);
+}
+// new method is crashing still.. hrmmm
+#define RenderToScanline RenderToScanlineOld
+#endif
+
 template<bool sprite16,int spriteSize>
 void renderOAM() {
-	TIME_SCOPE();
 
 	// MMC2/4 support
 	if (nesCart.renderLatch) {
@@ -696,7 +746,7 @@ void renderOAM() {
 			}
 
 			// resolve objects
-			unsigned int* targetPixel = &ppu_scanlineBuffer[16];
+			unsigned char* targetPixel = &ppu_scanlineBuffer[16];
 			unsigned int* oamPixel = &ppu_oamBuffer[0];
 			for (int i = 0; i < 256; i++, oamPixel++, targetPixel++) {
 				if (*oamPixel & 3) {
@@ -710,8 +760,20 @@ void renderOAM() {
 	}
 }
 
-void renderScanline_SingleMirror() {
+void doOAMRender() {
+	fastSprite0();
+
 	TIME_SCOPE();
+
+	if ((ppu_registers.PPUCTRL & PPUCTRL_SPRSIZE) == 0) {
+		renderOAM<false, 8>();
+	} else {
+		renderOAM<true, 16>();
+	}
+}
+
+void renderScanline_SingleMirror() {
+	TIME_SCOPE_NAMED(scanline_single);
 
 	DebugAssert(ppu_scanline >= 1 && ppu_scanline <= 240);
 	DebugAssert(nesCart.renderLatch == NULL);
@@ -769,7 +831,7 @@ void renderScanline_SingleMirror() {
 
 		for (int loop = 0; loop < 17; loop++) {
 			// grab and rotate palette selection
-			int palette = (attrPalette & 0x0C);
+			unsigned int palette = (attrPalette & 0x0C);
 			attrPalette = (attrPalette >> 2) | (attrPalette << 30);
 
 			// keep tileX mirroring
@@ -778,15 +840,7 @@ void renderScanline_SingleMirror() {
 			for (int twice = 0; twice < 2; twice++, x += 8) {
 				int chr = nameTable[tileX++] << 4;
 
-				int bitPlane = MortonTable[patternTable[chr]] | (MortonTable[patternTable[chr + 8]] << 1);
-				ppu_scanlineBuffer[x + 7] = palette + (bitPlane & 3); bitPlane >>= 2;
-				ppu_scanlineBuffer[x + 6] = palette + (bitPlane & 3); bitPlane >>= 2;
-				ppu_scanlineBuffer[x + 5] = palette + (bitPlane & 3); bitPlane >>= 2;
-				ppu_scanlineBuffer[x + 4] = palette + (bitPlane & 3); bitPlane >>= 2;
-				ppu_scanlineBuffer[x + 3] = palette + (bitPlane & 3); bitPlane >>= 2;
-				ppu_scanlineBuffer[x + 2] = palette + (bitPlane & 3); bitPlane >>= 2;
-				ppu_scanlineBuffer[x + 1] = palette + (bitPlane & 3); bitPlane >>= 2;
-				ppu_scanlineBuffer[x + 0] = palette + (bitPlane & 3);
+				RenderToScanline(patternTable, chr, palette, x);
 			}
 		}
 	} else {
@@ -798,15 +852,11 @@ void renderScanline_SingleMirror() {
 		}
 	}
 
-	if ((ppu_registers.PPUCTRL & PPUCTRL_SPRSIZE) == 0) {
-		renderOAM<false, 8>();
-	} else {
-		renderOAM<true, 16>();
-	}
+	doOAMRender();
 }
 
 void renderScanline_HorzMirror() {
-	TIME_SCOPE();
+	TIME_SCOPE_NAMED(scanline_horz);
 
 	DebugAssert(ppu_scanline >= 1 && ppu_scanline <= 240);
 
@@ -875,15 +925,7 @@ void renderScanline_HorzMirror() {
 				for (int twice = 0; twice < 2; twice++, x += 8) {
 					int chr = nameTable[tileX++] << 4;
 
-					int bitPlane = MortonTable[patternTable[chr]] | (MortonTable[patternTable[chr + 8]] << 1);
-					ppu_scanlineBuffer[x + 7] = palette + (bitPlane & 3); bitPlane >>= 2;
-					ppu_scanlineBuffer[x + 6] = palette + (bitPlane & 3); bitPlane >>= 2;
-					ppu_scanlineBuffer[x + 5] = palette + (bitPlane & 3); bitPlane >>= 2;
-					ppu_scanlineBuffer[x + 4] = palette + (bitPlane & 3); bitPlane >>= 2;
-					ppu_scanlineBuffer[x + 3] = palette + (bitPlane & 3); bitPlane >>= 2;
-					ppu_scanlineBuffer[x + 2] = palette + (bitPlane & 3); bitPlane >>= 2;
-					ppu_scanlineBuffer[x + 1] = palette + (bitPlane & 3); bitPlane >>= 2;
-					ppu_scanlineBuffer[x + 0] = palette + (bitPlane & 3);
+					RenderToScanline(patternTable, chr, palette, x);
 
 					if (chr >= 0xFD0 && nesCart.renderLatch) {
 						nesCart.renderLatch(chr + chrOffset + 8);
@@ -903,15 +945,7 @@ void renderScanline_HorzMirror() {
 				for (int twice = 0; twice < 2; twice++, x += 8) {
 					int chr = nameTable[tileX++] << 4;
 
-					int bitPlane = MortonTable[patternTable[chr]] | (MortonTable[patternTable[chr + 8]] << 1);
-					ppu_scanlineBuffer[x + 7] = palette + (bitPlane & 3); bitPlane >>= 2;
-					ppu_scanlineBuffer[x + 6] = palette + (bitPlane & 3); bitPlane >>= 2;
-					ppu_scanlineBuffer[x + 5] = palette + (bitPlane & 3); bitPlane >>= 2;
-					ppu_scanlineBuffer[x + 4] = palette + (bitPlane & 3); bitPlane >>= 2;
-					ppu_scanlineBuffer[x + 3] = palette + (bitPlane & 3); bitPlane >>= 2;
-					ppu_scanlineBuffer[x + 2] = palette + (bitPlane & 3); bitPlane >>= 2;
-					ppu_scanlineBuffer[x + 1] = palette + (bitPlane & 3); bitPlane >>= 2;
-					ppu_scanlineBuffer[x + 0] = palette + (bitPlane & 3);
+					RenderToScanline(patternTable, chr, palette, x);
 				}
 			}
 		}
@@ -924,18 +958,11 @@ void renderScanline_HorzMirror() {
 		}
 	}
 
-	if ((ppu_registers.PPUCTRL & PPUCTRL_SPRSIZE) == 0) {
-		renderOAM<false, 8>();
-	} else {
-		renderOAM<true, 16>();
-	}
+	doOAMRender();
 }
 
 template<bool hasLatch, bool is4Pane>
 void renderScanline_VertMirror_Latched() {
-
-	TIME_SCOPE();
-
 	DebugAssert(ppu_scanline >= 1 && ppu_scanline <= 240);
 	if (ppu_registers.PPUMASK & PPUMASK_SHOWBG) {
 		int line = ppu_scanline - 1;
@@ -1008,16 +1035,8 @@ void renderScanline_VertMirror_Latched() {
 						hadLatch = true;
 					}
 				}
-
-				int bitPlane = MortonTable[patternTable[chr]] | (MortonTable[patternTable[chr + 8]] << 1);
-				ppu_scanlineBuffer[x + 7] = palette + (bitPlane & 3); bitPlane >>= 2;
-				ppu_scanlineBuffer[x + 6] = palette + (bitPlane & 3); bitPlane >>= 2;
-				ppu_scanlineBuffer[x + 5] = palette + (bitPlane & 3); bitPlane >>= 2;
-				ppu_scanlineBuffer[x + 4] = palette + (bitPlane & 3); bitPlane >>= 2;
-				ppu_scanlineBuffer[x + 3] = palette + (bitPlane & 3); bitPlane >>= 2;
-				ppu_scanlineBuffer[x + 2] = palette + (bitPlane & 3); bitPlane >>= 2;
-				ppu_scanlineBuffer[x + 1] = palette + (bitPlane & 3); bitPlane >>= 2;
-				ppu_scanlineBuffer[x + 0] = palette + (bitPlane & 3);
+				
+				RenderToScanline(patternTable, chr, palette, x);
 
 				if (hasLatch && hadLatch) {
 					patternTable = ppu_chrMap + chrOffset;
@@ -1047,15 +1066,7 @@ void renderScanline_VertMirror_Latched() {
 					}
 				}
 
-				int bitPlane = MortonTable[patternTable[chr]] | (MortonTable[patternTable[chr + 8]] << 1);
-				ppu_scanlineBuffer[x + 7] = palette + (bitPlane & 3); bitPlane >>= 2;
-				ppu_scanlineBuffer[x + 6] = palette + (bitPlane & 3); bitPlane >>= 2;
-				ppu_scanlineBuffer[x + 5] = palette + (bitPlane & 3); bitPlane >>= 2;
-				ppu_scanlineBuffer[x + 4] = palette + (bitPlane & 3); bitPlane >>= 2;
-				ppu_scanlineBuffer[x + 3] = palette + (bitPlane & 3); bitPlane >>= 2;
-				ppu_scanlineBuffer[x + 2] = palette + (bitPlane & 3); bitPlane >>= 2;
-				ppu_scanlineBuffer[x + 1] = palette + (bitPlane & 3); bitPlane >>= 2;
-				ppu_scanlineBuffer[x + 0] = palette + (bitPlane & 3);
+				RenderToScanline(patternTable, chr, palette, x);
 
 				if (hasLatch && hadLatch) {
 					patternTable = ppu_chrMap + chrOffset;
@@ -1081,15 +1092,13 @@ void renderScanline_VertMirror_Latched() {
 			ppu_scrollY--;
 		}
 	}
-
-	if ((ppu_registers.PPUCTRL & PPUCTRL_SPRSIZE) == 0) {
-		renderOAM<false, 8>();
-	} else {
-		renderOAM<true, 16>();
-	}
+	 
+	doOAMRender();
 }
 
 void renderScanline_VertMirror() {
+	TIME_SCOPE();
+
 	if (nesCart.renderLatch) {
 		renderScanline_VertMirror_Latched<true, false>();
 	} else {

@@ -10,8 +10,8 @@
 #include "calctype/calctype.h"
 #include "calctype/fonts/arial_small/arial_small.h"	
 
-static unsigned int ppu_scanlineBufferMem[256 + 16 * 2] = { 0 }; 
-unsigned int* ppu_scanlineBuffer = ppu_scanlineBufferMem;
+static unsigned char ppu_scanlineBufferMem[256 + 16 * 2] = { 0 }; 
+unsigned char* ppu_scanlineBuffer = ppu_scanlineBufferMem;
 
 void resolveScanline_VRAM() {
 	TIME_SCOPE();
@@ -19,9 +19,9 @@ void resolveScanline_VRAM() {
 	DebugAssert(ppu_scanline >= 13 && ppu_scanline <= 228);
 
 	unsigned short* scanlineDest = ((unsigned short*)GetVRAMAddress()) + (ppu_scanline - 13) * 384 + 64;
-	unsigned int* scanlineSrc = &ppu_scanlineBuffer[16];	// with clipping
+	unsigned char* scanlineSrc = &ppu_scanlineBuffer[16];	// with clipping
 	for (int i = 0; i < 256; i++, scanlineSrc++) {
-		*(scanlineDest++) = ppu_rgbPalettePtr[ppu_workingPalette[*scanlineSrc]];
+		*(scanlineDest++) = ppu_workingPalette[*scanlineSrc];
 	}
 }
 

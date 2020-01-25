@@ -33,6 +33,9 @@
     <Filter Include="Source Files\gfx">
       <UniqueIdentifier>{bfe7b350-05ee-46dd-ad9b-0d8a0307f135}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\asm">
+      <UniqueIdentifier>{1e0e9ac7-943c-498e-a59e-71423fc99c4c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\main.cpp">
@@ -138,6 +141,15 @@
     <None Include="..\Makefile" />
     <None Include="..\src\6502_opcodes.inl">
       <Filter>Source Files\6502</Filter>
+    </None>
+    <None Include="..\src\asm\RenderToScanline.S">
+      <Filter>Source Files\asm</Filter>
+    </None>
+    <None Include="..\src\asm\RenderScanlineBuffer.S">
+      <Filter>Source Files\asm</Filter>
+    </None>
+    <None Include="..\src\asm\RenderToScanlineOld.S">
+      <Filter>Source Files\asm</Filter>
     </None>
   </ItemGroup>
 </Project>
