@@ -15,7 +15,7 @@ _RenderScanlineBuffer_ASM:
 	//mov.l @r2, r2
 
 	// loop
-	mov #32,r3
+	mov #30,r3
 
 	
 	bra _DoRender

@@ -19,20 +19,21 @@ _RenderToScanline:
 	or r0,r6		// r6 = r0 | r6
 	mov r6,r0		// r0 = r6
 	shll16 r0		// r0 <<= 16
-	or r0, r6		// r4 = r0 | r6
+	or r0, r6		// r6 = r0 | r6
 
 	// r5 = &patternTable[chr] (the bottom plane)
 	add r4, r5
 
 	// r1 = OverlayTable
 	mov.l .OverlayTable, r1
-	mov.l @r1, r1
+	// mov.l @r1, r1
 
 	// r2 = 3
 	mov #3, r2
 
 	// r0 = patternTable[chr+8]
 	mov.b @(8,r5),r0
+	extu.b r0,r0
 	// << 3
 	shld r2,r0
 	// r3 = OverlayTable[r0] (bitPlane2[0]) << 1
@@ -50,6 +51,7 @@ _RenderToScanline:
 
 	// r0 = patternTable[chr]
 	mov.b @r5,r0
+	extu.b r0,r0
 	// << 3
 	shld r2,r0
 	// r2 = OverlayTable[r0] (bitPlane1[0])
@@ -71,7 +73,7 @@ _RenderToScanline:
 
 	mov.l r3,@r0
 	rts
-	mov.l r5,@(4,r0)
+	mov.l r4,@(4,r0)
 	
     .text; .align 4
 .PPUBuffer:

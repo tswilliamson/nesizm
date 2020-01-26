@@ -41,10 +41,10 @@ static void(*renderScanline)() = 0;
 
 // different resolve/frame techniques (based on device and build settings)
 #if USE_DMA
-void resolveScanline_DMA();		
+void resolveScanline_DMA(int scrollOffset);
 void finishFrame_DMA();		
 #else
-void resolveScanline_VRAM();		
+void resolveScanline_VRAM(int scrollOffset);		
 void finishFrame_VRAM();		
 #endif
 
@@ -474,9 +474,9 @@ void ppu_step() {
 			}
 
 #if USE_DMA
-			resolveScanline_DMA();
+			resolveScanline_DMA(ppu_registers.SCROLLX & 15);
 #else
-			resolveScanline_VRAM();
+			resolveScanline_VRAM(ppu_registers.SCROLLX & 15);
 #endif
 		} else {
 			fastSprite0();
@@ -635,6 +635,8 @@ uint8 OverlayTable[8 * 256] = {
 #if TARGET_WINSIM
 // super fast blitting method!
 inline void RenderToScanline(unsigned char*patternTable, int chr, unsigned int palette, int x) {
+	DebugAssert(x % 4 == 0); // long alignment required in SH4
+
 	// put palette in every 4 bytes
 	palette = palette | (palette << 8);
 	palette = palette | (palette << 16);
@@ -650,11 +652,12 @@ extern "C" {
 	void RenderToScanlineOld(unsigned char*patternTable, int chr, int palette, int x);
 }
 // new method is crashing still.. hrmmm
-#define RenderToScanline RenderToScanlineOld
+#define RenderToScanline RenderToScanline
 #endif
 
 template<bool sprite16,int spriteSize>
 void renderOAM() {
+	int baseX = ppu_registers.SCROLLX & 15;
 
 	// MMC2/4 support
 	if (nesCart.renderLatch) {
@@ -662,8 +665,8 @@ void renderOAM() {
 	}
 
 	if ((ppu_registers.PPUMASK & PPUMASK_SHOWLEFTBG) == 0) {
-		for (int i = 16; i < 24; i++) {
-			ppu_scanlineBuffer[i] = 0;
+		for (int i = 0; i < 8; i++) {
+			ppu_scanlineBuffer[baseX+i] = 0;
 		}
 	}
 
@@ -734,7 +737,7 @@ void renderOAM() {
 					unsigned int x = ppu_oam[3];
 
 					for (int p = 0; p < 8; p++, x++) {
-						if ((ppu_oamBuffer[x] & 3) && ppu_scanlineBuffer[16+x] && (x != 255)) {
+						if ((ppu_oamBuffer[x] & 3) && ppu_scanlineBuffer[baseX+x] && (x != 255)) {
 							// TODO : this is approximate since it is at start of line!
 							// It could be exact by storing actual upcoming clocks here and filling
 							// PPUSTATUS when queried
@@ -746,7 +749,7 @@ void renderOAM() {
 			}
 
 			// resolve objects
-			unsigned char* targetPixel = &ppu_scanlineBuffer[16];
+			unsigned char* targetPixel = &ppu_scanlineBuffer[baseX];
 			unsigned int* oamPixel = &ppu_oamBuffer[0];
 			for (int i = 0; i < 256; i++, oamPixel++, targetPixel++) {
 				if (*oamPixel & 3) {
@@ -826,7 +829,7 @@ void renderScanline_SingleMirror() {
 		}
 
 		// we render 16 pixels at a time (easy attribute table lookup), 17 times and clip
-		int x = 16 - (ppu_registers.SCROLLX & 15);
+		int x = 0;
 		int tileX = (ppu_registers.SCROLLX >> 4) * 2;	// always start on an even numbered tile
 
 		for (int loop = 0; loop < 17; loop++) {
@@ -909,7 +912,7 @@ void renderScanline_HorzMirror() {
 		}
 
 		// we render 16 pixels at a time (easy attribute table lookup), 17 times and clip
-		int x = 16 - (ppu_registers.SCROLLX & 15);
+		int x = 0;
 		int tileX = (ppu_registers.SCROLLX >> 4) * 2;	// always start on an even numbered tile
 
 		// MMC2/4 too branch here for faster code:
@@ -1011,7 +1014,7 @@ void renderScanline_VertMirror_Latched() {
 		if (ppu_registers.PPUCTRL & PPUCTRL_FLIPXTBL) scrollX += 256;
 
 		// we render 16 pixels at a time (easy attribute table lookup), 17 times and clip
-		int x = 16 - (scrollX & 15);
+		int x = 0;
 		int tileX = ((scrollX >> 4) * 2) & 0x3F;	// always start on an even numbered tile
 		nameTableIndex += (tileX & 0x20) >> 5;
 		

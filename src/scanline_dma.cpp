@@ -76,7 +76,7 @@ void flushScanBuffer(int startX, int endX, int startY, int endY, int scanBufferS
 
 #if 0
 inline void RenderScanlineBuffer(unsigned char* scanlineSrc, unsigned int* scanlineDest) {
-	for (int i = 0; i < 128; i++, scanlineSrc += 2) {
+	for (int i = 0; i < 120; i++, scanlineSrc += 2) {
 		*(scanlineDest++) = (ppu_workingPalette[scanlineSrc[0]] << 16) | ppu_workingPalette[scanlineSrc[1]];
 	}
 }
@@ -87,21 +87,21 @@ extern "C" {
 #define RenderScanlineBuffer RenderScanlineBuffer_ASM
 #endif
 
-void resolveScanline_DMA() {
+void resolveScanline_DMA(int scrollOffset) {
 	TIME_SCOPE();
 
 	const int bufferLines = 16;	// 512 bytes * 16 lines = 8192
-	const int scanBufferSize = bufferLines * 256 * 2;
+	const int scanBufferSize = bufferLines * 240 * 2;
 
 	// resolve le line
-	unsigned char* scanlineSrc = &ppu_scanlineBuffer[16];	// with clipping
-	unsigned int* scanlineDest = (unsigned int*) (scanGroup[curDMABuffer] + 256 * curScan);
+	unsigned char* scanlineSrc = &ppu_scanlineBuffer[8 + scrollOffset];	// with clipping
+	unsigned int* scanlineDest = (unsigned int*) (scanGroup[curDMABuffer] + 240 * curScan);
 	RenderScanlineBuffer(scanlineSrc, scanlineDest);
 
 	curScan++;
 	if (curScan == bufferLines) {
 		// send DMA
-		flushScanBuffer(64, 319, ppu_scanline - 13 - bufferLines + 1, ppu_scanline - 13, scanBufferSize);
+		flushScanBuffer(72, 311, ppu_scanline - 13 - bufferLines + 1, ppu_scanline - 13, scanBufferSize);
 	}
 }
 
