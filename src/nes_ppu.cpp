@@ -450,7 +450,7 @@ void ppu_step() {
 		if (nesCart.scanlineClock) {
 			nesCart.scanlineClock();
 		}
-	} else if (ppu_scanline < 13) {
+	} else if (ppu_scanline < 9) {
 		// non-resolved but active scanline (may cause sprite 0 collision)
 		// TODO : sprite 0 collision only render version?
 		if (!skipFrame) {
@@ -467,7 +467,7 @@ void ppu_step() {
 		if (nesCart.scanlineClock) {
 			nesCart.scanlineClock();
 		}
-	} else if (ppu_scanline < 229) {
+	} else if (ppu_scanline < 233) {
 		// rendered scanline
 		if (!skipFrame) {
 			renderScanline();

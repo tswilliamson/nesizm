@@ -101,7 +101,7 @@ void resolveScanline_DMA(int scrollOffset) {
 	curScan++;
 	if (curScan == bufferLines) {
 		// send DMA
-		flushScanBuffer(72, 311, ppu_scanline - 13 - bufferLines + 1, ppu_scanline - 13, scanBufferSize);
+		flushScanBuffer(72, 311, ppu_scanline - 9 - bufferLines + 1, ppu_scanline - 9, scanBufferSize);
 	}
 }
 

@@ -12,7 +12,6 @@
 _RenderScanlineBuffer_ASM:
 	// r2 = ppu_workingPalette
 	mov.l .WorkingPalette, r2
-	//mov.l @r2, r2
 
 	// loop
 	mov #15,r3

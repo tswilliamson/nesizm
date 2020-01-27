@@ -16,12 +16,12 @@ unsigned char* ppu_scanlineBuffer = ppu_scanlineBufferMem;
 void resolveScanline_VRAM(int scrollOffset) {
 	TIME_SCOPE();
 
-	DebugAssert(ppu_scanline >= 13 && ppu_scanline <= 228);
-
-	unsigned short* scanlineDest = ((unsigned short*)GetVRAMAddress()) + (ppu_scanline - 13) * 384 + 72;
-	unsigned char* scanlineSrc = &ppu_scanlineBuffer[8+scrollOffset];	// with clipping
-	for (int i = 0; i < 240; i++, scanlineSrc++) {
-		*(scanlineDest++) = ppu_workingPalette[(*scanlineSrc) >> 1];
+	if (ppu_scanline >= 13 && ppu_scanline <= 228) {
+		unsigned short* scanlineDest = ((unsigned short*)GetVRAMAddress()) + (ppu_scanline - 13) * 384 + 72;
+		unsigned char* scanlineSrc = &ppu_scanlineBuffer[8 + scrollOffset];	// with clipping
+		for (int i = 0; i < 240; i++, scanlineSrc++) {
+			*(scanlineDest++) = ppu_workingPalette[(*scanlineSrc) >> 1];
+		}
 	}
 }
 
