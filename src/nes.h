@@ -201,6 +201,7 @@ extern ppu_registers_type ppu_registers;
 
 // oam data
 extern unsigned char ppu_oam[0x100];
+extern bool ppu_dirtyOAM;
 
 // up to four name tables potentially (most games use 2)
 extern nes_nametable* ppu_nameTables;
@@ -210,7 +211,7 @@ extern unsigned char ppu_palette[0x20];
 
 // working palette ram (accounts for background color mirroring)
 extern uint16 ppu_workingPalette[0x20];
-extern bool ppu_DirtyPalette;
+extern bool ppu_dirtyPalette;
 
 // all 8 kb mapped for character memory at once (0x0000 - 0x2000)
 extern unsigned char* ppu_chrMap;

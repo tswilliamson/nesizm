@@ -14,10 +14,11 @@ extern void PPUBreakpoint();
 // ppu statics
 ppu_registers_type ppu_registers;
 unsigned char ppu_oam[0x100] = { 0 };
+bool ppu_dirtyOAM = false;
 nes_nametable* ppu_nameTables = NULL;
 unsigned char ppu_palette[0x20] = { 0 };
 uint16 ppu_workingPalette[0x20] = { 0 };
-bool ppu_DirtyPalette = true;
+bool ppu_dirtyPalette = true;
 unsigned char* ppu_chrMap = { 0 };
 int ppu_mirror = nes_mirror_type::MT_UNSET;
 unsigned int ppu_scanline = 1;
@@ -212,6 +213,7 @@ void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
 			if ((OAMADDR & 3) == 2) {
 				value = value & 0xE3;
 			}
+			if (value != *latch) ppu_dirtyOAM = true;
 			OAMADDR++;	// writes to OAM data increment the OAM address
 			break;
 		case 0x05:  // SCROLLX/Y
@@ -249,7 +251,7 @@ void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
 
 			if (address >= 0x3F00) {
 				// dirty palette
-				ppu_DirtyPalette = true;
+				ppu_dirtyPalette = true;
 				value = value & 0x3F; // mask palette values
 			}
 
@@ -293,6 +295,7 @@ void ppu_oamDMA(unsigned int addr) {
 		ppu_oam[i] &= 0xE3;
 	}
 
+	ppu_dirtyOAM = true;
 	mainCPU.clocks += 513 + (mainCPU.clocks & 1);
 }
 
@@ -305,7 +308,7 @@ inline void ppu_resolveWorkingPalette() {
 		}
 	}
 
-	ppu_DirtyPalette = false;
+	ppu_dirtyPalette = false;
 }
 
 inline unsigned char* ppu_resolveMemoryAddress(unsigned int address, bool mirrorBehindPalette) {
@@ -472,7 +475,7 @@ void ppu_step() {
 		if (!skipFrame) {
 			renderScanline();
 
-			if (ppu_DirtyPalette) {
+			if (ppu_dirtyPalette) {
 				ppu_resolveWorkingPalette();
 			}
 
@@ -659,15 +662,42 @@ extern "C" {
 #define RenderToScanline RenderToScanline
 #endif
 
+// mask of which sprites to check per scanline (bit 0 = sprites 56-63, bit 1 = sprites 48-55, and so on)
+uint8 fetchMask[272];
+template<int spriteSize>
+void resolveOAM() {
+	// rebuild the fetch mask
+	memset(fetchMask, 0, 240);
+
+	unsigned char* curObj = &ppu_oam[252];
+	const int scanlineOffset = 2;
+
+	for (int b = 0; b < 8; b++) {
+		uint8 bitMask = (1 << b);
+		for (int i = 0; i < 8; i++, curObj -= 4) {
+			unsigned int line = curObj[0] + scanlineOffset;
+			for (int x = 0; x < spriteSize; x++, line++) {
+				fetchMask[line] |= bitMask;
+			}
+		}
+	}
+
+	ppu_dirtyOAM = false;
+}
+
 #define PRIORITY_PIXEL 0x40
 template<bool sprite16,int spriteSize>
 void renderOAM() {
-	int baseX = ppu_registers.SCROLLX & 15;
+	if (ppu_dirtyOAM) {
+		resolveOAM<spriteSize>();
+	}
 
 	// MMC2/4 support
 	if (nesCart.renderLatch) {
 		fastOAMLatchCheck();
 	}
+
+	int baseX = ppu_registers.SCROLLX & 15;
 
 	if ((ppu_registers.PPUMASK & PPUMASK_SHOWLEFTBG) == 0) {
 		for (int i = 0; i < 8; i++) {
@@ -675,56 +705,75 @@ void renderOAM() {
 		}
 	}
 
-	if (ppu_registers.PPUMASK & PPUMASK_SHOWOBJ) {
+	if ((ppu_registers.PPUMASK & PPUMASK_SHOWOBJ) && fetchMask[ppu_scanline]) {
 		// render objects to separate buffer
 		int numSprites = 0;
 		unsigned char* curObj = &ppu_oam[252];
 		unsigned int patternOffset = ((!sprite16 && (ppu_registers.PPUCTRL & PPUCTRL_OAMTABLE)) ? 0x1000 : 0x0000);
 		unsigned char* patternTable = ppu_chrMap + patternOffset;
+		static int spriteMask[33] = { 0 };
+		int minSpriteMask = 32;
+		int maxSpriteMask = 0;
+		int scanlineOffset = ppu_scanline - 2;
 
-		for (int i = 0; i < 64; i++) {
-			unsigned int yCoord = ppu_scanline - curObj[0] - 2;
-			if (yCoord < spriteSize) {
-				numSprites++;
+		// mask out 8 at a time
+		for (int b = fetchMask[ppu_scanline]; b; b = b >> 1) {
+			if (!(b & 1)) {
+				curObj -= 32;
+				continue;
+			}
 
-				if (curObj[2] & OAMATTR_VFLIP) yCoord = spriteSize - yCoord - 1;
+			for (int i = 0; i < 8; i++, curObj -= 4) {
+				unsigned int yCoord = scanlineOffset - curObj[0];
+				if (yCoord < spriteSize) {
+					numSprites++;
 
-				// determine tile index
-				unsigned char* tile;
-				if (sprite16) {
-					tile = patternTable + ((curObj[1] & 1) << 12) + ((curObj[1] & 0xFE) << 4) + ((yCoord & 8) << 1) + (yCoord & 7);
-				} else {
-					tile = patternTable + (curObj[1] << 4) + yCoord;
-				}
+					if (curObj[2] & OAMATTR_VFLIP) yCoord = (spriteSize - 1) - yCoord;
 
-				unsigned int x = curObj[3];
+					// determine tile index
+					unsigned char* tile;
+					if (sprite16) {
+						tile = patternTable + ((curObj[1] & 1) << 12) + ((curObj[1] & 0xFE) << 4) + ((yCoord & 8) << 1) + (yCoord & 7);
+					} else {
+						tile = patternTable + (curObj[1] << 4) + yCoord;
+					}
 
-				// interleave the bit planes and assign to char buffer (only unmapped pixels)
-				unsigned int bitPlane = (MortonTable[tile[0]] | (MortonTable[tile[8]] << 1)) << 1;
-				unsigned int palette = (((curObj[2] & 3) << 2) + (curObj[2] & OAMATTR_PRIORITY) + 16) << 1;
+					unsigned int x = curObj[3];
 
-				if (curObj[2] & OAMATTR_HFLIP) {
-										if (bitPlane & 6) ppu_oamBuffer[x + 0] = palette + (bitPlane & 6);
-					bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 1] = palette + (bitPlane & 6);
-					bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 2] = palette + (bitPlane & 6);
-					bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 3] = palette + (bitPlane & 6);
-					bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 4] = palette + (bitPlane & 6);
-					bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 5] = palette + (bitPlane & 6);
-					bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 6] = palette + (bitPlane & 6);
-					bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 7] = palette + (bitPlane & 6);
-				} else {
-										if (bitPlane & 6) ppu_oamBuffer[x + 7] = palette + (bitPlane & 6);
-					bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 6] = palette + (bitPlane & 6);
-					bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 5] = palette + (bitPlane & 6);
-					bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 4] = palette + (bitPlane & 6);
-					bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 3] = palette + (bitPlane & 6);
-					bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 2] = palette + (bitPlane & 6);
-					bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 1] = palette + (bitPlane & 6);
-					bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 0] = palette + (bitPlane & 6);
+					// interleave the bit planes and assign to char buffer (only unmapped pixels)
+					unsigned int bitPlane = (MortonTable[tile[0]] | (MortonTable[tile[8]] << 1)) << 1;
+					unsigned int palette = (((curObj[2] & 3) << 2) + (curObj[2] & OAMATTR_PRIORITY) + 16) << 1;
+
+					if (curObj[2] & OAMATTR_HFLIP) {
+											if (bitPlane & 6) ppu_oamBuffer[x + 0] = palette + (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 1] = palette + (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 2] = palette + (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 3] = palette + (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 4] = palette + (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 5] = palette + (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 6] = palette + (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 7] = palette + (bitPlane & 6);
+					} else {
+											if (bitPlane & 6) ppu_oamBuffer[x + 7] = palette + (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 6] = palette + (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 5] = palette + (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 4] = palette + (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 3] = palette + (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 2] = palette + (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 1] = palette + (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 0] = palette + (bitPlane & 6);
+					}
+
+					int mask = x >> 3;
+					spriteMask[mask] = 1;
+					if (mask < minSpriteMask) minSpriteMask = mask;
+					if (mask > maxSpriteMask) maxSpriteMask = mask;
+					mask = (x+7) >> 3;
+					spriteMask[mask] = 1;
+					if (mask < minSpriteMask) minSpriteMask = mask;
+					if (mask > maxSpriteMask) maxSpriteMask = mask;
 				}
 			}
-			
-			curObj -= 4;
 		}
 
 		if (numSprites) {
@@ -754,14 +803,21 @@ void renderOAM() {
 			}
 
 			// resolve objects
-			unsigned char* targetPixel = &ppu_scanlineBuffer[baseX];
-			unsigned int* oamPixel = &ppu_oamBuffer[0];
-			for (int i = 0; i < 256; i++, oamPixel++, targetPixel++) {
-				if (*oamPixel & 6) {
-					if ((*oamPixel & PRIORITY_PIXEL) == 0 || (*targetPixel & 6) == 0) {
-						*targetPixel = (*oamPixel & (PRIORITY_PIXEL - 1));
+			if (maxSpriteMask > 31) maxSpriteMask = 31;
+			unsigned char* targetPixelBase = &ppu_scanlineBuffer[baseX];
+			for (int b = minSpriteMask; b <= maxSpriteMask; b++) {
+				if (spriteMask[b]) {
+					unsigned char* targetPixel = targetPixelBase + b * 8;
+					unsigned int* oamPixel = &ppu_oamBuffer[b*8];
+					for (int i = 0; i < 8; i++, oamPixel++, targetPixel++) {
+						if (*oamPixel & 6) {
+							if ((*oamPixel & PRIORITY_PIXEL) == 0 || (*targetPixel & 6) == 0) {
+								*targetPixel = (*oamPixel & (PRIORITY_PIXEL - 1));
+							}
+							*oamPixel = 0;
+						}
 					}
-					*oamPixel = 0;
+					spriteMask[b] = 0;
 				}
 			}
 		}
