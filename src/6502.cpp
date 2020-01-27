@@ -7,6 +7,8 @@
 #define NES 1
 #include "6502.h"
 
+#include "6502_instr_timing.inl"
+
 #if TRACE_DEBUG
 static unsigned int cpuBreakpoint = 0x10000;
 static unsigned int memWriteBreakpoint = 0x10000;
@@ -73,6 +75,8 @@ void cpu6502_Init() {
 	modeTable[0x96] = AM_ZeroY;
 	modeTable[0xB6] = AM_ZeroY;
 	modeTable[0xBE] = AM_AbsoluteY;
+
+	RegisterInstructionTimers();
 }
 
 void resolveToP() {
@@ -732,7 +736,7 @@ FORCE_INLINE void cpu6502_PerformInstruction() {
 		data2 = mainCPU.readNonIO(mainCPU.PC + 2);
 	}
 
-#define OPCODE_START(op,clk,sz) case op: { mainCPU.clocks += clk; mainCPU.PC += sz;
+#define OPCODE_START(op,clk,sz) case op: { INSTR_TIMING(op); mainCPU.clocks += clk; mainCPU.PC += sz;
 #define OPCODE_END(spc) spc break; }
 
 #define OPCODE_NON(op,str,clk,sz,page,name,spc) \

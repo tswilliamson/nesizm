@@ -70,8 +70,7 @@ struct nes_cart {
 	int bankIndex[NUM_CACHED_ROM_BANKS];
 	int bankRequest[NUM_CACHED_ROM_BANKS];
 
-	int cachedPRGCount;				// number of 8 KB banks to use for PRG
-	int cachedCHRCount;				// number of 8 KB banks to use for CHR
+	int cachedBankCount;				// number of 8 KB banks to use for PRG & CHR (some cached banks are used for extra RAM, etc)
 
 	void clearCacheData();
 
@@ -79,7 +78,7 @@ struct nes_cart {
 	bool isBankUsed(int index);
 
 	// finds least recently requested bank that is currently unused
-	int findOldestUnusedBank(int startIndex, int lastIndexExclusive);
+	int findOldestUnusedBank();
 
 	// caches an 8 KB PRG bank (so index up to 2 * numPRGBanks), returns result bank memory pointer
 	unsigned char* cachePRGBank(int index);

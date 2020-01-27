@@ -36,6 +36,24 @@ ScopeTimer::ScopeTimer(const char* withFunctionName, int withLine) : cycleCount(
 	firstTimer = this;
 }
 
+void ScopeTimer::Register(const char* withFunctionName) {
+	// enforce registration if we have an init order problem
+	ScopeTimer* curTimer = firstTimer;
+	while (curTimer) {
+		if (curTimer == this) {
+			return;
+		}
+		curTimer = curTimer->nextTimer;
+	}
+
+	// put me back in the linked list
+	nextTimer = firstTimer;
+	firstTimer = this;
+	cycleCount = 0;
+	numCounts = 0;
+	funcName = withFunctionName;
+}
+
 void ScopeTimer::InitSystem() {
 	// initialize TMU2 at the fastest clock rate possible
 
@@ -124,23 +142,24 @@ void ScopeTimer::DisplayTimes() {
 #endif
 
 	// mode descriptions
-	const int numModes = 3;
+	const int numModes = 4;
 	const char* modeNames[numModes] = {
 		"% Max",
 		"Num Cycles",
-		"Num Hits"
+		"Num Hits",
+		"Cycles/Hit"
 	};
 
 	// reset display area just in case
 	Bdisp_PutDisp_DD();
 
-	// allocate number of timers in use, support up to 128
+	// allocate number of timers in use, support up to 256
 	int numTimers = 0;
-	ScopeTimer* timers[128];
+	ScopeTimer* timers[256];
 	{
 		ScopeTimer* curTimer = firstTimer;
-		while (curTimer && numTimers < 128) {
-			timers[numTimers] = curTimer;
+		// determine maxCycles and maxCount first
+		while (curTimer && numTimers < 256) {
 			if (curTimer->cycleCount > maxCycles) {
 				maxCycles = curTimer->cycleCount;
 			}
@@ -148,7 +167,16 @@ void ScopeTimer::DisplayTimes() {
 				maxCount = curTimer->numCounts;
 			}
 
-			numTimers++;
+			curTimer = curTimer->nextTimer;
+		}
+
+		// exclude timers with less than 0.1% of the total cycles
+		curTimer = firstTimer;
+		while (curTimer && numTimers < 256) {
+			if (curTimer->cycleCount > maxCycles / 1024) {
+				timers[numTimers] = curTimer;
+				numTimers++;
+			}
 			curTimer = curTimer->nextTimer;
 		}
 	}
@@ -194,6 +222,13 @@ void ScopeTimer::DisplayTimes() {
 					sprintf(info, "%dk", curTimer->numCounts / 1024);
 					isMax = curTimer->numCounts == maxCount;
 					break;
+				case 3:
+					if (curTimer->numCounts)
+						sprintf(info, "%d", curTimer->cycleCount / curTimer->numCounts);
+					else
+						strcpy(info, "N/A");
+					isMax = false;
+					break;
 			}
 			PrintInfo(row, name, info, isMax ? COLOR_SALMON : COLOR_LIGHTGREEN);
 		}
@@ -206,7 +241,7 @@ void ScopeTimer::DisplayTimes() {
 
 		char fpsBuffer[50] = { 0 };
 		sprintf(fpsBuffer, "FPS: %d.%d  ", fpsValue / 10, fpsValue % 10);
-		PrintInfo(13, fpsBuffer, "", COLOR_LIGHTBLUE);
+		PrintInfo(13, fpsBuffer, "F3: Clear values", COLOR_LIGHTBLUE);
 
 		GetKey(&toKey);
 		
@@ -227,6 +262,16 @@ void ScopeTimer::DisplayTimes() {
 			case KEY_CTRL_LEFT:
 				mode = (mode + numModes - 1) % numModes;
 				break;
+			case KEY_CTRL_F3:
+			{
+				ScopeTimer* curTimer = firstTimer;
+				while (curTimer) {
+					curTimer->cycleCount = 0;
+					curTimer->numCounts = 0;
+					curTimer = curTimer->nextTimer;
+				}
+				break;
+			}
 		}
 	// wait for exit key
 	} while (toKey != KEY_CTRL_EXIT);

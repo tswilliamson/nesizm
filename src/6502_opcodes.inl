@@ -37,18 +37,18 @@
 
 // generic opcode
 #if !defined(OPCODE_NONE) && defined(OPCODE)
-#define OPCODE_NON		OPCODE
-#define OPCODE_IMM		OPCODE
-#define OPCODE_REL		OPCODE
-#define OPCODE_ABS		OPCODE
-#define OPCODE_ABX		OPCODE
-#define OPCODE_ABY		OPCODE
-#define OPCODE_IND		OPCODE
-#define OPCODE_INX		OPCODE
-#define OPCODE_INY		OPCODE
-#define OPCODE_ZRO		OPCODE
-#define OPCODE_ZRX		OPCODE
-#define OPCODE_ZRY		OPCODE
+#define OPCODE_NON(Opcode,Str,Clks,Size,Page,Instr,Special)		OPCODE(NON,Opcode,Str,Clks,Size,Page,Instr,Special)
+#define OPCODE_IMM(Opcode,Str,Clks,Size,Page,Instr,Special)		OPCODE(IMM,Opcode,Str,Clks,Size,Page,Instr,Special)
+#define OPCODE_REL(Opcode,Str,Clks,Size,Page,Instr,Special)		OPCODE(REL,Opcode,Str,Clks,Size,Page,Instr,Special)
+#define OPCODE_ABS(Opcode,Str,Clks,Size,Page,Instr,Special)		OPCODE(ABS,Opcode,Str,Clks,Size,Page,Instr,Special)
+#define OPCODE_ABX(Opcode,Str,Clks,Size,Page,Instr,Special)		OPCODE(ABX,Opcode,Str,Clks,Size,Page,Instr,Special)
+#define OPCODE_ABY(Opcode,Str,Clks,Size,Page,Instr,Special)		OPCODE(ABY,Opcode,Str,Clks,Size,Page,Instr,Special)
+#define OPCODE_IND(Opcode,Str,Clks,Size,Page,Instr,Special)		OPCODE(IND,Opcode,Str,Clks,Size,Page,Instr,Special)
+#define OPCODE_INX(Opcode,Str,Clks,Size,Page,Instr,Special)		OPCODE(INX,Opcode,Str,Clks,Size,Page,Instr,Special)
+#define OPCODE_INY(Opcode,Str,Clks,Size,Page,Instr,Special)		OPCODE(INY,Opcode,Str,Clks,Size,Page,Instr,Special)
+#define OPCODE_ZRO(Opcode,Str,Clks,Size,Page,Instr,Special)		OPCODE(ZRO,Opcode,Str,Clks,Size,Page,Instr,Special)
+#define OPCODE_ZRX(Opcode,Str,Clks,Size,Page,Instr,Special)		OPCODE(ZRX,Opcode,Str,Clks,Size,Page,Instr,Special)
+#define OPCODE_ZRY(Opcode,Str,Clks,Size,Page,Instr,Special)		OPCODE(ZRY,Opcode,Str,Clks,Size,Page,Instr,Special)
 #endif
 
 // actual table, arguments are

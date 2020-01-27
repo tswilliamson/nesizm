@@ -29,6 +29,7 @@ struct ScopeTimer {
 	ScopeTimer* nextTimer;
 
 	ScopeTimer(const char* withFunctionName, int withLine);
+	void Register(const char* withFunctionName);
 
 	inline void AddTime(unsigned short cycles) {
 		cycleCount += cycles;
