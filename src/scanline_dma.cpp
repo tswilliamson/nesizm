@@ -77,7 +77,7 @@ void flushScanBuffer(int startX, int endX, int startY, int endY, int scanBufferS
 #if 0
 inline void RenderScanlineBuffer(unsigned char* scanlineSrc, unsigned int* scanlineDest) {
 	for (int i = 0; i < 120; i++, scanlineSrc += 2) {
-		*(scanlineDest++) = (ppu_workingPalette[scanlineSrc[0]] << 16) | ppu_workingPalette[scanlineSrc[1]];
+		*(scanlineDest++) = (ppu_workingPalette[scanlineSrc[0] >> 1] << 16) | ppu_workingPalette[scanlineSrc[1] >> 1];
 	}
 }
 #else

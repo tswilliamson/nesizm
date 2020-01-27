@@ -21,7 +21,7 @@ void resolveScanline_VRAM(int scrollOffset) {
 	unsigned short* scanlineDest = ((unsigned short*)GetVRAMAddress()) + (ppu_scanline - 13) * 384 + 72;
 	unsigned char* scanlineSrc = &ppu_scanlineBuffer[8+scrollOffset];	// with clipping
 	for (int i = 0; i < 240; i++, scanlineSrc++) {
-		*(scanlineDest++) = ppu_workingPalette[*scanlineSrc];
+		*(scanlineDest++) = ppu_workingPalette[(*scanlineSrc) >> 1];
 	}
 }
 

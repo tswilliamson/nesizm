@@ -5,7 +5,7 @@
 # r5 = int chr; (spriteIndex * !6)
 # r6 = int palette;
 # r7 = x;
-# symbol = uint* ppu_scanlineBuffer
+# symbol = uint8* ppu_scanlineBuffer
 # 
 # r0 - r3 = scratch
 
@@ -14,6 +14,7 @@
     .text; .align 4
 _RenderToScanline:
 	// bitshift palette into 8 bit copies of itself and assign into r4
+	shll r6;		// palette <<= 1
 	mov r6,r0		// r0 = palette
 	shll8 r0		// r0 = palette << 8
 	or r0,r6		// r6 = r0 | r6
