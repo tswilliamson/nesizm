@@ -179,6 +179,27 @@ void ScopeTimer::DisplayTimes() {
 			}
 			curTimer = curTimer->nextTimer;
 		}
+
+		// then add the timers that are left that fit
+		curTimer = firstTimer;
+		while (curTimer && numTimers < 256) {
+			if (curTimer->cycleCount <= maxCycles / 1024) {
+				timers[numTimers] = curTimer;
+				numTimers++;
+			}
+			curTimer = curTimer->nextTimer;
+		}
+
+		// now bubble sort by cycle count
+		for (int i = 0; i < numTimers - 1; i++) {
+			for (int j = i + 1; j < numTimers; j++) {
+				if (timers[i]->cycleCount < timers[j]->cycleCount) {
+					ScopeTimer* swapTimer = timers[i];
+					timers[i] = timers[j];
+					timers[j] = swapTimer;
+				}
+			}
+		}
 	}
 
 	int startTimer = 0;
