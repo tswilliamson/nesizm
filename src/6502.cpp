@@ -736,7 +736,13 @@ FORCE_INLINE void cpu6502_PerformInstruction() {
 		data2 = mainCPU.readNonIO(mainCPU.PC + 2);
 	}
 
-#define OPCODE_START(op,clk,sz) case op: { INSTR_TIMING(op); mainCPU.clocks += clk; mainCPU.PC += sz;
+	// all instructions at least 2 clks
+	mainCPU.clocks += 2;
+
+	// most are at 2 bytes (this will be incremented/decremented on the rest)
+	mainCPU.PC += 2;
+
+#define OPCODE_START(op,clk,sz) case op: { INSTR_TIMING(op); mainCPU.clocks += (clk-2); mainCPU.PC += (sz-2);
 #define OPCODE_END(spc) spc break; }
 
 #define OPCODE_NON(op,str,clk,sz,page,name,spc) \
