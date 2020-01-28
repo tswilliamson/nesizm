@@ -181,6 +181,11 @@ bool nes_cart::setupMapper() {
 
 	memset(registers, 0, sizeof(registers));
 
+	if (!BuildFileBlocks()) {
+		printf("Error setting up blocks");
+		return false;
+	}
+
 	switch (mapper) {
 		case 0:
 			setupMapper0_NROM();
@@ -217,8 +222,33 @@ bool nes_cart::setupMapper() {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Caching support
 
-int bankIndex[NUM_CACHED_ROM_BANKS];
-void* mappedCPUPtrs[8];
+bool nes_cart::BuildFileBlocks() {
+	int numBlocks = (Bfile_GetFileSize_OS(handle) + 4095) / 4096; 
+	for (int i = 0; i < numBlocks; i++) {
+		int ret = Bfile_GetBlockAddress(handle, i * 0x1000, &blocks[i]);
+		if (ret < 0)
+			// error!
+			return false;
+	}
+	return true;
+}
+
+void nes_cart::BlockRead(unsigned char* intoMem, int size, int offset) {
+	TIME_SCOPE()
+
+	while (size) {
+		const int blockNum = offset >> 12;
+		const int offsetInBlock = offset & 0xFFF;
+
+		int toRead = 0x1000 - offsetInBlock;
+		if (toRead > size) toRead = size;
+
+		memcpy(intoMem, blocks[blockNum] + offsetInBlock, toRead);
+		intoMem += toRead;
+		size -= toRead;
+		offset += toRead;
+	}
+}
 
 void nes_cart::clearCacheData() {
 	requestIndex = 0;
@@ -284,7 +314,7 @@ unsigned char* nes_cart::cachePRGBank(int index) {
 	int replaceIndex = findOldestUnusedBank();
 	bankIndex[replaceIndex] = index;
 	bankRequest[replaceIndex] = requestIndex;
-	Bfile_ReadFile_OS(handle, banks[replaceIndex], 8192, 16 + 8192 * index);
+	BlockRead(banks[replaceIndex], 8192, 16 + 8192 * index);
 	return banks[replaceIndex];
 }
 
@@ -307,7 +337,7 @@ unsigned char* nes_cart::cacheCHRBank(int index) {
 	int replaceIndex = findOldestUnusedBank();
 	bankIndex[replaceIndex] = cacheIndex;
 	bankRequest[replaceIndex] = requestIndex;
-	Bfile_ReadFile_OS(handle, banks[replaceIndex], 8192, 16 + 16384 * numPRGBanks + 8192 * index);
+	BlockRead(banks[replaceIndex], 8192, 16 + 16384 * numPRGBanks + 8192 * index);
 	return banks[replaceIndex];
 }
 
@@ -315,7 +345,7 @@ unsigned char* nes_cart::cacheCHRBank(int index) {
 // inline mapping helpers
 inline void mapCPU(unsigned int startAddrHigh, unsigned int numKB, unsigned char* ptr) {
 	DebugAssert((startAddrHigh & ((1<<5)-1)) == 0);
-	mappedCPUPtrs[startAddrHigh >> 5] = ptr;
+	nesCart.mappedCPUPtrs[startAddrHigh >> 5] = ptr;
 
 	// 256 byte increments
 	numKB *= 4;
@@ -346,32 +376,33 @@ void NROM_writeSpecial(unsigned int address, unsigned char value) {
 }
 
 void nes_cart::setupMapper0_NROM() {
+	cachedBankCount = NUM_CACHED_ROM_BANKS - numRAMBanks;
+
 	writeSpecial = NROM_writeSpecial;
 
 	// read ROM banks (up to 2)
+	unsigned char* prgMem[4];
 	for (int i = 0; i < 2 * numPRGBanks; i++) {
-		Bfile_ReadFile_OS(handle, banks[i], 8192, -1);
+		prgMem[i] = cachePRGBank(i);
 	}
 
 	// read CHR bank (always one ROM) directly into PPU chrMap
 	DebugAssert(numCHRBanks == 1);
-	int chrBank = 2 * numPRGBanks;
-	Bfile_ReadFile_OS(handle, banks[chrBank], 8192, -1);
-	ppu_chrMap = banks[chrBank];
+	ppu_chrMap = cacheCHRBank(0);
 
 	// map memory to read-in ROM
 	if (numPRGBanks == 1) {
-		mapCPU(0x80, 8, banks[0]);
-		mapCPU(0xA0, 8, banks[1]);
-		mapCPU(0xC0, 8, banks[0]);
-		mapCPU(0xE0, 8, banks[1]);
+		mapCPU(0x80, 8, prgMem[0]);
+		mapCPU(0xA0, 8, prgMem[1]);
+		mapCPU(0xC0, 8, prgMem[0]);
+		mapCPU(0xE0, 8, prgMem[1]);
 	} else {
 		DebugAssert(numPRGBanks == 2);
 
-		mapCPU(0x80, 8, banks[0]);
-		mapCPU(0xA0, 8, banks[1]);
-		mapCPU(0xC0, 8, banks[2]);
-		mapCPU(0xE0, 8, banks[3]);
+		mapCPU(0x80, 8, prgMem[0]);
+		mapCPU(0xA0, 8, prgMem[1]);
+		mapCPU(0xC0, 8, prgMem[2]);
+		mapCPU(0xE0, 8, prgMem[3]);
 	}
 
 	// RAM bank if one is set up
@@ -667,10 +698,11 @@ void nes_cart::setupMapper2_UNROM() {
 	int chrBank = cachedBankCount;
 
 	// read CHR bank (always one ROM.. or RAM?) directly into PPU chrMap
-	if (numCHRBanks == 1) {
-		Bfile_ReadFile_OS(handle, banks[chrBank], 8192, 16 + 16384 * numPRGBanks);
-	}
 	ppu_chrMap = banks[chrBank];
+	if (numCHRBanks == 1) {
+		unsigned char* romChrBank = cacheCHRBank(0);
+		memcpy(ppu_chrMap, romChrBank, 8192);
+	}
 
 	// map first 16 KB of PRG mamory to 80-BF by default, and last 16 KB to C0-FF
 	unsigned char* firstBank[2] = { cachePRGBank(0), cachePRGBank(1) };
@@ -1078,10 +1110,11 @@ void nes_cart::setupMapper7_AOROM() {
 	int chrBank = cachedBankCount;
 
 	// read CHR bank (always one ROM.. or RAM?) directly into PPU chrMap
-	if (numCHRBanks == 1) {
-		Bfile_ReadFile_OS(handle, banks[chrBank], 8192, 16 + 16384 * numPRGBanks);
-	}
 	ppu_chrMap = banks[chrBank];
+	if (numCHRBanks == 1) {
+		unsigned char* romChrBank = cacheCHRBank(0);
+		memcpy(ppu_chrMap, romChrBank, 8192);
+	}
 
 	// map first 16 KB of PRG mamory to 80-BF by default, and last 16 KB to C0-FF
 	unsigned char* firstBank[2] = { cachePRGBank(0), cachePRGBank(1) };
@@ -1330,10 +1363,11 @@ void nes_cart::setupMapper71_Camerica() {
 	int chrBank = cachedBankCount;
 
 	// read CHR bank (always one RAM) directly into PPU chrMap
-	if (numCHRBanks == 1) {
-		Bfile_ReadFile_OS(handle, banks[chrBank], 8192, 16 + 16384 * numPRGBanks);
-	}
 	ppu_chrMap = banks[chrBank];
+	if (numCHRBanks == 1) {
+		unsigned char* romChrBank = cacheCHRBank(0);
+		memcpy(ppu_chrMap, romChrBank, 8192);
+	}
 
 	// map first 16 KB of PRG mamory to 80-BF by default, and last 16 KB to C0-FF
 	unsigned char* firstBank[2] = { cachePRGBank(0), cachePRGBank(1) };

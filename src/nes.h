@@ -39,7 +39,6 @@ struct nes_cart {
 	nes_cart();
 
 	int handle;						// current file handle
-	char file[128];					// file name
 
 	int mapper;						// mapper ID used with ROM
 	int numPRGBanks;				// num 16 kb Program ROM banks
@@ -52,6 +51,24 @@ struct nes_cart {
 	// up to 32 internal registers
 	unsigned int registers[32];
 
+	// 8kb banks for various usages based on mapper (allocated on stack due to Prizm deficiencies
+	unsigned char* banks[NUM_CACHED_ROM_BANKS];
+	int bankIndex[NUM_CACHED_ROM_BANKS];
+	int bankRequest[NUM_CACHED_ROM_BANKS];
+	void* mappedCPUPtrs[8];
+
+	// common bank caching set up. Caching is used for PRG and CHR. RAM is stored permanently in memory
+	int requestIndex;
+
+	int cachedBankCount;			// number of 8 KB banks to use for PRG & CHR (some cached banks are used for extra RAM, etc)
+
+	char file[128];					// file name
+
+	// direct memory block support (direct memcpy from ROM, prevents OS call to read game data as needed)
+	unsigned char* blocks[1024];	
+	bool BuildFileBlocks();
+	void BlockRead(unsigned char* intoMem, int size, int offset);
+
 	// called on all writes over 0x4020
 	void(*writeSpecial)(unsigned int address, unsigned char value);
 
@@ -60,17 +77,6 @@ struct nes_cart {
 
 	// called per scanling from PPU if set, used for MMC3
 	void(*scanlineClock)();
-
-	// 8kb banks for various usages based on mapper (allocated on stack due to Prizm deficiencies
-	unsigned char* banks[NUM_CACHED_ROM_BANKS];	
-
-	// common bank caching set up. Caching is used for PRG and CHR. RAM is stored permanently in memory
-	int requestIndex;
-
-	int bankIndex[NUM_CACHED_ROM_BANKS];
-	int bankRequest[NUM_CACHED_ROM_BANKS];
-
-	int cachedBankCount;				// number of 8 KB banks to use for PRG & CHR (some cached banks are used for extra RAM, etc)
 
 	void clearCacheData();
 
