@@ -41,7 +41,7 @@ int main(void) {
 	nes_settings.SetDefaults();
 
 	// allocate nes_carts on stack
-	unsigned char stackBanks[NUM_CACHED_ROM_BANKS * 8192] ALIGN(256);
+	unsigned char stackBanks[STATIC_CACHED_ROM_BANKS * 8192] ALIGN(256);
 	nesCart.allocateBanks(stackBanks);
 
 #if TARGET_WINSIM

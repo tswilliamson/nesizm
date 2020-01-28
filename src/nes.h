@@ -32,7 +32,8 @@ bool keyDown_fast(unsigned char keyCode);
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // CART
 
-#define NUM_CACHED_ROM_BANKS 20
+#define MAX_CACHED_ROM_BANKS 32
+#define STATIC_CACHED_ROM_BANKS 24
 
 // specifications about the cart, rom file, mapper, etc
 struct nes_cart {
@@ -52,9 +53,10 @@ struct nes_cart {
 	unsigned int registers[32];
 
 	// 8kb banks for various usages based on mapper (allocated on stack due to Prizm deficiencies
-	unsigned char* banks[NUM_CACHED_ROM_BANKS];
-	int bankIndex[NUM_CACHED_ROM_BANKS];
-	int bankRequest[NUM_CACHED_ROM_BANKS];
+	int availableROMBanks;
+	unsigned char* banks[MAX_CACHED_ROM_BANKS];
+	int bankIndex[MAX_CACHED_ROM_BANKS];
+	int bankRequest[MAX_CACHED_ROM_BANKS];
 	void* mappedCPUPtrs[8];
 
 	// common bank caching set up. Caching is used for PRG and CHR. RAM is stored permanently in memory
@@ -93,7 +95,7 @@ struct nes_cart {
 	unsigned char* cacheCHRBank(int index);
 
 	// sets up bank pointers with the given allocated data
-	void allocateBanks(unsigned char* withAlloced);
+	void allocateBanks(unsigned char* staticAlloced);
 
 	// Loads a ROM from the given file path
 	bool loadROM(const char* withFile);
