@@ -314,6 +314,7 @@ FORCE_INLINE void JMP_MEM(unsigned int addr) {
 
 FORCE_INLINE void JSR_MEM(unsigned int addr) {
 	// JSR (subroutine)
+	mainCPU.PC--;
 	mainCPU.push(mainCPU.PC >> 8);
 	mainCPU.push(mainCPU.PC & 0xFF);
 
@@ -720,34 +721,26 @@ FORCE_INLINE void cpu6502_PerformInstruction() {
 	cpu_instr_history hist;
 	resolveToP();
 	memcpy(&hist.regs, &mainCPU, sizeof(cpu_6502));
-#else
+
+	hist.instr = mainCPU.readNonIO(mainCPU.PC+0);
+	hist.data1 = mainCPU.readNonIO(mainCPU.PC+1);
+	hist.data2 = mainCPU.readNonIO(mainCPU.PC+2);
 #endif
 
-	// TODO : cache into single read (with instruction overlap in bank pages)
-	unsigned int instr, data1, data2;
-	if ((mainCPU.PC ^ 0xFE) & 0xFE) {
-		unsigned char* ptr = mainCPU.getNonIOMem(mainCPU.PC);
-		instr = ptr[0];
-		data1 = ptr[1];
-		data2 = ptr[2];
-	} else {
-		instr = mainCPU.readNonIO(mainCPU.PC);
-		data1 = mainCPU.readNonIO(mainCPU.PC + 1);
-		data2 = mainCPU.readNonIO(mainCPU.PC + 2);
-	}
+
+	unsigned char instr = mainCPU.readNonIO(mainCPU.PC++);
+	unsigned char data1 = mainCPU.readNonIO(mainCPU.PC++);
 
 	// all instructions at least 2 clks
 	mainCPU.clocks += 2;
 
-	// most are at 2 bytes (this will be incremented/decremented on the rest)
-	mainCPU.PC += 2;
-
 #define SKIP_LATCHING() goto SkipLatching;
-#define OPCODE_START(op,clk,sz) case op: { INSTR_TIMING(op); mainCPU.clocks += (clk-2); mainCPU.PC += (sz-2);
+#define OPCODE_START(op,clk,sz) case op: { INSTR_TIMING(op); mainCPU.clocks += (clk-2);
 #define OPCODE_END(spc) spc break; }
 
 #define OPCODE_NON(op,str,clk,sz,page,name,spc) \
 	OPCODE_START(op,clk,sz) \
+		mainCPU.PC--; \
 		name(); \
 		SKIP_LATCHING(); \
 	OPCODE_END(spc) 
@@ -766,25 +759,29 @@ FORCE_INLINE void cpu6502_PerformInstruction() {
 
 #define OPCODE_ABS(op,str,clk,sz,page,name,spc) \
 	OPCODE_START(op,clk,sz) \
+		unsigned int data2 = mainCPU.readNonIO(mainCPU.PC++); \
 		name##_MEM(eff_address(data1 + (data2 << 8))); \
 	OPCODE_END(spc) 
 
 #define OPCODE_ABX(op,str,clk,sz,page,name,spc) \
 	OPCODE_START(op,clk,sz) \
+		unsigned int data2 = mainCPU.readNonIO(mainCPU.PC++); \
 		if (page && ((data1 + mainCPU.X) & 0x100)) mainCPU.clocks++; \
 		name##_MEM((data1 + (data2 << 8) + (mainCPU.X))); \
 	OPCODE_END(spc) 
 
 #define OPCODE_ABY(op,str,clk,sz,page,name,spc) \
 	OPCODE_START(op,clk,sz) \
+		unsigned int data2 = mainCPU.readNonIO(mainCPU.PC++); \
 		if (page && ((data1 + mainCPU.Y) & 0x100)) mainCPU.clocks++;	\
 		name##_MEM((data1 + (data2 << 8) + (mainCPU.Y))); \
 	OPCODE_END(spc) 
 
 #define OPCODE_IND(op,str,clk,sz,page,name,spc) \
 	OPCODE_START(op,clk,sz) \
+		unsigned int data2 = mainCPU.readNonIO(mainCPU.PC++); \
 		unsigned int target = (data2 << 8); \
-		name##_MEM(eff_address(mainCPU.read(data1 + target) + (mainCPU.read(((data1 + 1) & 0xFF) + target) << 8))); \
+		name##_MEM(eff_address(mainCPU.readNonIO(data1 + target) + (mainCPU.readNonIO(((data1 + 1) & 0xFF) + target) << 8))); \
 	OPCODE_END(spc)
 
 #define OPCODE_INX(op,str,clk,sz,page,name,spc) \
@@ -847,9 +844,6 @@ SkipLatching:
 		effAddr = (mainCPU.readNonIO(mainCPU.PC - 1) << 8) + mainCPU.readNonIO(mainCPU.PC - 2);
 	}
 
-	hist.instr = instr;
-	hist.data1 = data1;
-	hist.data2 = data2;
 	hist.effAddr = effAddr;
 	hist.effByte = effByte;
 
