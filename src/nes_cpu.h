@@ -1,24 +1,30 @@
 #pragma once
 // inlined header file for cpu_6502 sub-struct so we can include NES specific functionality
 
-struct nes_cpu : public cpu_6502_with_RAM {
+struct nes_cpu : public cpu_6502 {
+	// each 8 KB page access is stored to determine if we need to effect hardware from a read
+	unsigned int accessTable[8];
+
 	// clocks for next PPU update
 	unsigned int ppuClocks;
 
 	// indicates that an NMI should occur on completion of next cpu instruction
 	bool ppuNMI;
 
-	unsigned char readSpecial(unsigned int addr);
+	void latchedSpecial(unsigned int addr);
+
+	// Main RAM (zero page at 0x000, stack at 0x100, mirrored every 2 kb to 0x2000)
+	unsigned char RAM[0x800] ALIGN(256);
+
+	// high byte memory map (with wraparound)
+	unsigned char* map[0x101] ALIGN(256);
+
+	// memory map for special address (mirrored from 0x4000 to 0x6000)
+	unsigned char specialMemory[256];
 
 	FORCE_INLINE unsigned char read(unsigned int addr) {
-		// TODO: play with this math and determine fastest instructional approach
-		if (addr < 0x2000 || addr >= 0x6000) {
-			return map[addr >> 8][addr & 0xFF];
-		} else if (addr < 0x4000) {
-			return ppu_registers.latchReg(addr);
-		} else {
-			return readSpecial(addr);
-		}
+		accessTable[addr >> 13] = addr;
+		return map[addr >> 8][addr & 0xFF];
 	}
 
 	FORCE_INLINE unsigned char readNonIO(unsigned int addr) {

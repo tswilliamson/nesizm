@@ -42,14 +42,6 @@ struct cpu_6502 {
 	unsigned int irqClocks;
 };
 
-struct cpu_6502_with_RAM : public cpu_6502 {
-	// Main RAM (zero page at 0x000, stack at 0x100, mirrored every 2 kb to 0x2000)
-	unsigned char RAM[0x800] ALIGN(256);
-
-	// high byte memory map (with wraparound)
-	unsigned char* map[0x101] ALIGN(256);
-};		
-
 struct cpu_instr_history {
 	cpu_6502 regs;			// copy of CPU pre op and address
 	unsigned char instr;	// instruction byte

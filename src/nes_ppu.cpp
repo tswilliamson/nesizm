@@ -123,13 +123,30 @@ static unsigned short ppu_rgbPalette[64] = {
 
 unsigned short* ppu_rgbPalettePtr = ppu_rgbPalette;
 
+void ppu_registers_type::prepPPUREAD(unsigned int address) {
+	if (address < 0x3F00) {
+		memoryMap[7] = *ppu_resolveMemoryAddress(address, false);
+	} else {
+		// palette special case
+		memoryMap[7] = *ppu_resolveMemoryAddress(address, true);
+	}
+}
 
-unsigned char ppu_registers_type::latchReg(unsigned int addr) {
+void ppu_registers_type::latchedReg(unsigned int addr) {
+	// if this occurs we will need to add mirroring into our latched PPU memory map (an extra 16 clks or so)
+	DebugAssert(addr < 0x2008);
+
 	addr = addr & 0x7;
 	if (addr == 0x02) {
-		static unsigned char latchedStatus;
-		latchedStatus = PPUSTATUS;
-		latch = &latchedStatus;
+		DebugAssert(PPUSTATUS == memoryMap[2]);
+		unsigned char val = PPUSTATUS;
+
+		// set latched values
+		memoryMap[0] = val;
+		memoryMap[1] = val;
+		memoryMap[3] = val;
+		memoryMap[5] = val;
+		memoryMap[6] = val;
 
 		// suppress NMI on the exact clock cycle in the PPU it may be triggered (some games depend on this)
 		if (ppu_scanline == 243 && ppu_triggerNMI) {
@@ -143,50 +160,50 @@ unsigned char ppu_registers_type::latchReg(unsigned int addr) {
 		}
 
 		// vblank flag cleared after read
-		PPUSTATUS &= ~PPUSTAT_NMI;
+		SetPPUSTATUS(PPUSTATUS & (~PPUSTAT_NMI));
 
 		// switch write toggle to 0
 		ppu_writeToggle = 0;
-
-		return latchedStatus;
 	} else if (addr == 0x07) {
 		unsigned int address = ((ADDRHI << 8) | ADDRLO) & 0x3FFF;
-
-		// single read-behind register for ppu reading
-		static unsigned char ppuReadRegister[2] = { 0, 0 };
-		static int curPPURead = 1;
-		if (address < 0x3F00) {
-			latch = &ppuReadRegister[curPPURead];
-			curPPURead = 1 - curPPURead;
-			ppuReadRegister[curPPURead] = *ppu_resolveMemoryAddress(address, false);
-		} else {
-			// palette special case
-			latch = ppu_resolveMemoryAddress(address, false);
-			ppuReadRegister[curPPURead] = *ppu_resolveMemoryAddress(address, true);
-		}
+		unsigned int newAddress = address;
 
 		// auto increment
 		if (PPUCTRL & PPUCTRL_VRAMINC) {
-			address += 32;
+			newAddress += 32;
 		} else {
-			address += 1;
+			newAddress += 1;
 		}
-		ADDRHI = (address & 0xFF00) >> 8;
-		ADDRLO = (address & 0xFF);
+		ADDRHI = (newAddress & 0xFF00) >> 8;
+		ADDRLO = (newAddress & 0xFF);
 
-		return *latch;
+		// set latched values
+		unsigned char val = memoryMap[7];
+		memoryMap[0] = val;
+		memoryMap[1] = val;
+		memoryMap[3] = val;
+		memoryMap[5] = val;
+		memoryMap[6] = val;
+
+		// latch previous address for next read unless we are in the palette memory
+		prepPPUREAD(address < 0x3F00 ? address : newAddress);
 	} else if (addr == 0x04) {
-		latch = &ppu_oam[OAMADDR];
-		return *latch;
-	} else {
-		// the rest are write only registers, simply return current latch
-		// case 0x00:  PPUCTRL
-		// case 0x01:  PPUMASK
-		// case 0x03:  OAMADDR
-		// case 0x05:  SCROLLX/Y
-		// case 0x06:  ADDRHI/LO
-		return *latch;
-	}
+		unsigned char val = ppu_oam[OAMADDR];
+
+		// set latched values
+		memoryMap[0] = val;
+		memoryMap[1] = val;
+		memoryMap[3] = val;
+		memoryMap[5] = val;
+		memoryMap[6] = val;
+	} 
+
+	// the rest are write only registers, so no action needed
+	// case 0x00:  PPUCTRL
+	// case 0x01:  PPUMASK
+	// case 0x03:  OAMADDR
+	// case 0x05:  SCROLLX/Y
+	// case 0x06:  ADDRHI/LO
 }
 
 void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
@@ -196,35 +213,40 @@ void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
 				mainCPU.ppuNMI = true;
 				mainCPU.nextClocks = mainCPU.clocks + 1;	// force an NMI check AFTER the next instruction
 			}
-			latch = &PPUCTRL;
+			PPUCTRL = value;
 			break;
 		case 0x01:	// PPUMASK
-			latch = &PPUMASK;
+			PPUMASK = value;
 			break;
 		case 0x02:  
-			latch = &PPUSTATUS;
-			break;
+			SetPPUSTATUS(value);
+			return;
 		case 0x03:  // OAMADDR
-			latch = &OAMADDR;
+			OAMADDR = value;
+			memoryMap[4] = ppu_oam[OAMADDR];
 			break;
 		case 0x04:
-			latch = &ppu_oam[OAMADDR];
 			// force unused bits to be low when appropriate
 			if ((OAMADDR & 3) == 2) {
 				value = value & 0xE3;
 			}
-			if (value != *latch) ppu_dirtyOAM = true;
+			if (value != ppu_oam[OAMADDR]) {
+				ppu_oam[OAMADDR] = value;
+				ppu_dirtyOAM = true;
+			}
 			OAMADDR++;	// writes to OAM data increment the OAM address
+			memoryMap[4] = ppu_oam[OAMADDR];
 			break;
 		case 0x05:  // SCROLLX/Y
 			if (ppu_writeToggle == 1) {
-				latch = &SCROLLY;
+				SCROLLY = value;
 			} else {
-				latch = &SCROLLX;
+				SCROLLX = value;
 			}
 			ppu_writeToggle = 1 - ppu_writeToggle;
 			break;
 		case 0x06:  // ADDRHI/LO
+		{
 			// address writes always effect nametable and scroll bits as well, and will copy result mid-render
 
 			if (ppu_writeToggle == 1) {
@@ -235,18 +257,26 @@ void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
 				if (ppu_scanline > 1 && ppu_scanline < 241) {
 					ppu_midFrameScrollUpdate();
 				}
-				latch = &ADDRLO;
+				ADDRLO = value;
 			} else {
 				// nametable bits in first write
 				PPUCTRL = (PPUCTRL & 0xFC) | ((value & 0x0C) >> 2);
 				// also scroll Y a bit weirdly
 				SCROLLY = (SCROLLY & 0x38) | ((value & 0x03) << 6) | ((value & 0x30) >> 4);
-				latch = &ADDRHI;
+				ADDRHI = value;
 			}
 
 			ppu_writeToggle = 1 - ppu_writeToggle;
+
+			int newAddress = ((ADDRHI << 8) | ADDRLO) & 0x3FFF;
+			// palette available immediately
+			if (newAddress >= 0x3F00) {
+				prepPPUREAD(newAddress);
+			}
 			break;
+		}
 		case 0x07:
+		{
 			unsigned int address = ((ADDRHI << 8) | ADDRLO) & 0x3FFF;
 
 			if (address >= 0x3F00) {
@@ -257,31 +287,24 @@ void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
 
 			// discard writes to CHR ROM when it is ROM
 			if (address < 0x2000 && nesCart.numCHRBanks) {
-				latch = &value;
 				break;
 			}
 
-			// address has already been auto incremented.. do some magic:
-			if (PPUCTRL & PPUCTRL_VRAMINC) {
-				latch = ppu_resolveMemoryAddress(address - 32, false);
-			} else {
-				latch = ppu_resolveMemoryAddress(address - 1, false);
-			}
+			// address will be incremented after the instruction due to latching
+			*ppu_resolveMemoryAddress(address, false) = value;
 
 #if TRACE_DEBUG
 			if (address - ((PPUCTRL & PPUCTRL_VRAMINC) ? 32 : 1) == ppuWriteBreakpoint) {
-				*latch = value; // just to prevent confusion
 				PPUBreakpoint();
 			}
 #endif
 
 			break;
+		}
 	}
-
-	*latch = value;
-
+	
 	// least significant bits previously written will end up in PPUSTATUS when read
-	PPUSTATUS = (PPUSTATUS & 0xE0) | (value & 0x1F);
+	SetPPUSTATUS((PPUSTATUS & 0xE0) | (value & 0x1F));
 }
 
 void ppu_oamDMA(unsigned int addr) {
@@ -375,7 +398,7 @@ void fastSprite0() {
 			}
 
 			if (tile[yCoord0] | tile[yCoord0 + 8]) {
-				ppu_registers.PPUSTATUS |= PPUSTAT_SPRITE0;
+				ppu_registers.SetPPUSTATUS(ppu_registers.PPUSTATUS | PPUSTAT_SPRITE0);
 			}
 		}
 	}
@@ -429,7 +452,7 @@ void ppu_step() {
 
 	// TODO: we should be able to render 224 via DMA
 #if TARGET_PRIZM
-	#define FRAME_SKIP 0
+	#define FRAME_SKIP 1
 #else
 	#define FRAME_SKIP 0
 #endif
@@ -443,9 +466,8 @@ void ppu_step() {
 	if (ppu_scanline == 1) {
 		skipFrame = (ppu_frameCounter % (FRAME_SKIP + 1) != 0);
 
-		// inactive scanline with even/odd clock cycle thing
-		ppu_registers.PPUSTATUS &= ~PPUSTAT_NMI;			// clear vblank flag
-		ppu_registers.PPUSTATUS &= ~PPUSTAT_SPRITE0;		// clear sprite 0 collision flag
+		// clear vblank and sprite 0 flag
+		ppu_registers.SetPPUSTATUS(ppu_registers.PPUSTATUS & ~(PPUSTAT_NMI | PPUSTAT_SPRITE0));		
 
 		// time to copy y scroll regs
 		ppu_copyYScrollRegs();
@@ -511,7 +533,7 @@ void ppu_step() {
 		ppu_setVBL = (mainCPU.clocks > 30000);
 	} else if (ppu_scanline == 242) {
 		if (ppu_setVBL) {
-			ppu_registers.PPUSTATUS |= PPUSTAT_NMI;
+			ppu_registers.SetPPUSTATUS(ppu_registers.PPUSTATUS | PPUSTAT_NMI);
 		}
 		if ((ppu_registers.PPUCTRL & PPUCTRL_NMI) && ppu_triggerNMI) {
 			mainCPU.ppuNMI = true;
@@ -791,12 +813,12 @@ void renderOAM() {
 					unsigned int x = ppu_oam[3];
 
 					for (int p = 0; p < 8; p++, x++) {
-						if ((ppu_oamBuffer[x] & 3) && ppu_scanlineBuffer[baseX+x] && (x != 255)) {
+						if ((ppu_oamBuffer[x] & 6) && ppu_scanlineBuffer[baseX+x] && (x != 255)) {
 							// TODO : this is approximate since it is at start of line!
 							// It could be exact by storing actual upcoming clocks here and filling
 							// PPUSTATUS when queried
 
-							ppu_registers.PPUSTATUS |= PPUSTAT_SPRITE0;
+							ppu_registers.SetPPUSTATUS(ppu_registers.PPUSTATUS | PPUSTAT_SPRITE0);
 						}
 					}
 				}

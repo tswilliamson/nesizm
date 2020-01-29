@@ -7,13 +7,13 @@
 
 nes_cpu mainCPU ALIGN(256);
 
-unsigned char nes_cpu::readSpecial(unsigned int addr) {
+void nes_cpu::latchedSpecial(unsigned int addr) {
 	if (addr == 0x4016) {
-		return input_readController1() | 0x40;
+		input_readController1();
 	} else if (addr == 0x4017) {
-		return input_readController2() | 0x40;
+		input_readController2();
 	} else {
-		return 0;
+		return;
 	}
 }
 
@@ -52,6 +52,8 @@ void nes_cpu::mapDefaults() {
 	// 0x0000 - 0x2000 is RAM and its mirrors
 	for (int m = 0x00; m < 0x20; m++) {
 		map[m] = &RAM[(m & 0x7) * 0x100];
+		map[m + 0x20] = ppu_registers.memoryMap;
+		map[m + 0x40] = specialMemory;
 	}
 
 	// wrap around

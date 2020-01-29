@@ -103,7 +103,7 @@ FORCE_INLINE void writeAddr(unsigned int addr, unsigned int result) {
 }
 
 FORCE_INLINE void latchWriteAddr(unsigned int addr, unsigned int result) {
-	mainCPU.read(addr);
+	mainCPU.accessTable[addr >> 13] = addr;
 	writeAddr(addr, result);
 }
 
@@ -821,6 +821,14 @@ FORCE_INLINE void cpu6502_PerformInstruction() {
 #endif
 		}
 	};
+
+	if (mainCPU.accessTable[0x2000 >> 13]) {
+		ppu_registers.latchedReg(mainCPU.accessTable[0x2000 >> 13]);
+		mainCPU.accessTable[0x2000 >> 13] = 0;
+	} else if (mainCPU.accessTable[0x4000 >> 13]) {
+		mainCPU.latchedSpecial(mainCPU.accessTable[0x4000 >> 13]);
+		mainCPU.accessTable[0x4000 >> 13] = 0;
+	}
 
 	// sanity checks
 	DebugAssert(mainCPU.carryResult == 0 || mainCPU.carryResult == 1);

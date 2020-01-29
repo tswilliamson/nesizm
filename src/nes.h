@@ -190,14 +190,19 @@ struct ppu_registers_type {
 	unsigned char ADDRLO;			// $2006 (b)
 									// unsigned char DATA;			// $2007 (unused with latch behavior)
 
-	unsigned char* latch;			// cur latch pointer (to the registers above)
+	unsigned char memoryMap[256];
 
-	unsigned char latchReg(unsigned int addr);
+	void prepPPUREAD(unsigned int address);
+	void latchedReg(unsigned int addr);
 	void writeReg(unsigned int regNum, unsigned char value);
+
+	inline void SetPPUSTATUS(unsigned int value) {
+		PPUSTATUS = value;
+		memoryMap[2] = value;
+	}
 
 	ppu_registers_type() {
 		memset(this, 0, sizeof(ppu_registers_type));
-		latch = &PPUCTRL;
 	}
 };
 
@@ -254,8 +259,7 @@ void input_cacheKeys();
 
 void input_writeStrobe(unsigned char value);
 
-unsigned char input_readController1();
-
-unsigned char input_readController2();
+void input_readController1();
+void input_readController2();
 
 #include "6502.h"
