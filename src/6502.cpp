@@ -82,7 +82,7 @@ void cpu6502_Init() {
 void resolveToP() {
 	mainCPU.P = (mainCPU.P & (~ST_ZRO & ~ST_NEG & ~ST_CRY)) |
 		((mainCPU.zeroResult == 0) ? ST_ZRO : 0) |
-		(mainCPU.carryResult ? ST_CRY : 0) |
+		(mainCPU.carryResult) |
 		(mainCPU.negativeResult & ST_NEG);
 }
 
@@ -338,12 +338,12 @@ FORCE_INLINE void RTS() {
 // ALU
 
 FORCE_INLINE void ADC(unsigned int data) {
-	unsigned int result = mainCPU.A + data + (mainCPU.carryResult ? 1 : 0);
+	unsigned int result = mainCPU.A + data + mainCPU.carryResult;
 	mainCPU.P =
 		(mainCPU.P & (ST_INT | ST_BRK | ST_BCD | ST_UNUSED)) |					// keep flags
 		(((mainCPU.A^result)&(data^result) & 0x80) >> (7 - ST_OVR_BIT));		// overflow (http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html)
 	mainCPU.A = result & 0xFF;
-	mainCPU.carryResult = result & 0x100;
+	mainCPU.carryResult = result >> 8;
 	mainCPU.zeroResult = mainCPU.A;
 	mainCPU.negativeResult = mainCPU.A;
 }
@@ -358,12 +358,12 @@ FORCE_INLINE void ADC_ZERO(unsigned int address) {
 
 FORCE_INLINE void SBC(unsigned int data) {
 	// TODO : possibly move overflow calculation to flag resolve?
-	unsigned int result = mainCPU.A - data - (mainCPU.carryResult ? 0 : 1);
+	unsigned int result = mainCPU.A - data - 1 + mainCPU.carryResult;
 	mainCPU.P =
 		(mainCPU.P & (ST_INT | ST_BRK | ST_BCD | ST_UNUSED)) |					// keep flags
 		(((mainCPU.A^result)&((~(data)) ^ result) & 0x80) >> (7 - ST_OVR_BIT));	// overflow (http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html)
 	mainCPU.A = result & 0xFF;
-	mainCPU.carryResult = ~result & 0x100;
+	mainCPU.carryResult = (~result & 0x100) >> 8;
 	mainCPU.zeroResult = mainCPU.A;
 	mainCPU.negativeResult = mainCPU.A;
 }
@@ -436,7 +436,7 @@ FORCE_INLINE void INY() {
 // COMPARE / TEST
 
 FORCE_INLINE void CMP(unsigned int data) {
-	mainCPU.carryResult = (data <= mainCPU.A);
+	mainCPU.carryResult = (data <= mainCPU.A) ? 1 : 0;
 	mainCPU.zeroResult = (mainCPU.A - data);
 	mainCPU.negativeResult = mainCPU.zeroResult;
 }
@@ -450,7 +450,7 @@ FORCE_INLINE void CMP_ZERO(unsigned int addr) {
 }
 
 FORCE_INLINE void CPX(unsigned int data) {
-	mainCPU.carryResult = (data <= mainCPU.X);
+	mainCPU.carryResult = (data <= mainCPU.X) ? 1 : 0;
 	mainCPU.zeroResult = (mainCPU.X - data);
 	mainCPU.negativeResult = mainCPU.zeroResult;
 }
@@ -464,7 +464,7 @@ FORCE_INLINE void CPX_ZERO(unsigned int addr) {
 }
 
 FORCE_INLINE void CPY(unsigned int data) {
-	mainCPU.carryResult = (data <= mainCPU.Y);
+	mainCPU.carryResult = (data <= mainCPU.Y) ? 1 : 0;
 	mainCPU.zeroResult = (mainCPU.Y - data);
 	mainCPU.negativeResult = mainCPU.zeroResult;
 }
@@ -533,7 +533,7 @@ FORCE_INLINE void EOR_ZERO(unsigned int address) {
 }
 
 FORCE_INLINE void ASL() {
-	mainCPU.carryResult = (mainCPU.A & 0x80);
+	mainCPU.carryResult = mainCPU.A >> 7;
 	mainCPU.A = (mainCPU.A << 1) & 0xFF;
 	mainCPU.zeroResult = mainCPU.A;
 	mainCPU.negativeResult = mainCPU.A;
@@ -542,7 +542,7 @@ FORCE_INLINE void ASL() {
 FORCE_INLINE void ASL_MEM(unsigned int address) {
 	unsigned int data = mainCPU.read(address);
 
-	mainCPU.carryResult = (data & 0x80);
+	mainCPU.carryResult = data >> 7;
 	data = (data << 1) & 0xFF;
 	mainCPU.zeroResult = data;
 	mainCPU.negativeResult = data;
@@ -553,7 +553,7 @@ FORCE_INLINE void ASL_MEM(unsigned int address) {
 FORCE_INLINE void ASL_ZERO(unsigned int address) {
 	unsigned int data = CPU_RAM(address);
 
-	mainCPU.carryResult = (data & 0x80);
+	mainCPU.carryResult = data >> 7;
 	int result = (data << 1) & 0xFF;
 	mainCPU.zeroResult = result;
 	mainCPU.negativeResult = result;
@@ -591,8 +591,8 @@ FORCE_INLINE void LSR_ZERO(unsigned int address) {
 }
 
 FORCE_INLINE void ROL() {
-	mainCPU.A = (mainCPU.A << 1) | (mainCPU.carryResult ? 0x01 : 0);
-	mainCPU.carryResult = mainCPU.A & 0x100;
+	mainCPU.A = (mainCPU.A << 1) | mainCPU.carryResult;
+	mainCPU.carryResult = mainCPU.A >> 8;
 	mainCPU.zeroResult = mainCPU.A & 0xFF;
 	mainCPU.A = mainCPU.zeroResult;
 	mainCPU.negativeResult = mainCPU.A;
@@ -601,8 +601,8 @@ FORCE_INLINE void ROL() {
 FORCE_INLINE void ROL_MEM(unsigned int address) {
 	unsigned int data = mainCPU.read(address);
 
-	data = (data << 1) | (mainCPU.carryResult ? 0x01 : 0);
-	mainCPU.carryResult = data & 0x100;
+	data = (data << 1) | mainCPU.carryResult;
+	mainCPU.carryResult = data >> 8;
 	mainCPU.zeroResult = data & 0xFF;
 	mainCPU.negativeResult = data;
 
@@ -612,8 +612,8 @@ FORCE_INLINE void ROL_MEM(unsigned int address) {
 FORCE_INLINE void ROL_ZERO(unsigned int address) {
 	unsigned int data = CPU_RAM(address);
 
-	data = (data << 1) | (mainCPU.carryResult ? 0x01 : 0);
-	mainCPU.carryResult = data & 0x100;
+	data = (data << 1) | mainCPU.carryResult;
+	mainCPU.carryResult = data >> 8;
 	mainCPU.zeroResult = data & 0xFF;
 	mainCPU.negativeResult = data;
 
@@ -622,7 +622,7 @@ FORCE_INLINE void ROL_ZERO(unsigned int address) {
 
 
 FORCE_INLINE void ROR() {
-	unsigned int result = (mainCPU.A >> 1) | (mainCPU.carryResult ? 0x80 : 0);
+	unsigned int result = (mainCPU.A >> 1) | (mainCPU.carryResult << 7);
 	mainCPU.carryResult = mainCPU.A & 0x01;
 
 	mainCPU.A = result;
@@ -633,7 +633,7 @@ FORCE_INLINE void ROR() {
 FORCE_INLINE void ROR_MEM(unsigned int address) {
 	unsigned int data = mainCPU.read(address);
 
-	unsigned int result = (data >> 1) | (mainCPU.carryResult ? 0x80 : 0);
+	unsigned int result = (data >> 1) | (mainCPU.carryResult << 7);
 	mainCPU.carryResult = data & 0x01;
 	mainCPU.zeroResult = result;
 	mainCPU.negativeResult = result;
@@ -644,7 +644,7 @@ FORCE_INLINE void ROR_MEM(unsigned int address) {
 FORCE_INLINE void ROR_ZERO(unsigned int address) {
 	int data = CPU_RAM(address);
 
-	unsigned int result = (data >> 1) | (mainCPU.carryResult ? 0x80 : 0);
+	unsigned int result = (data >> 1) | (mainCPU.carryResult << 7);
 	mainCPU.carryResult = data & 0x01;
 	mainCPU.zeroResult = result;
 	mainCPU.negativeResult = result;
@@ -822,6 +822,8 @@ FORCE_INLINE void cpu6502_PerformInstruction() {
 		}
 	};
 
+	// sanity checks
+	DebugAssert(mainCPU.carryResult == 0 || mainCPU.carryResult == 1);
 #if TRACE_DEBUG
 	if (instr == 0x60) {
 		// RTS special case:

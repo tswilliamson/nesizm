@@ -28,7 +28,7 @@ struct cpu_6502 {
 	unsigned int P;		// processor status flags, 8-bit
 
 	// Zero and negative flags are stored as their results only until they need to be resolved
-	unsigned int carryResult;			// C if non-zero
+	unsigned int carryResult;			// C if 1 or 0 (same as ST_CRY)
 	unsigned int zeroResult;			// Z if 0
 	unsigned int negativeResult;		// N if ST_NEG is set
 
