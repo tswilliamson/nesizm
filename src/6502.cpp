@@ -742,22 +742,26 @@ FORCE_INLINE void cpu6502_PerformInstruction() {
 	// most are at 2 bytes (this will be incremented/decremented on the rest)
 	mainCPU.PC += 2;
 
+#define SKIP_LATCHING() goto SkipLatching;
 #define OPCODE_START(op,clk,sz) case op: { INSTR_TIMING(op); mainCPU.clocks += (clk-2); mainCPU.PC += (sz-2);
 #define OPCODE_END(spc) spc break; }
 
 #define OPCODE_NON(op,str,clk,sz,page,name,spc) \
 	OPCODE_START(op,clk,sz) \
 		name(); \
+		SKIP_LATCHING(); \
 	OPCODE_END(spc) 
 
 #define OPCODE_IMM(op,str,clk,sz,page,name,spc) \
 	OPCODE_START(op,clk,sz) \
 		name(data1); \
+		SKIP_LATCHING(); \
 	OPCODE_END(spc) 
 
 #define OPCODE_REL(op,str,clk,sz,page,name,spc) \
 	OPCODE_START(op,clk,sz) \
 		name(data1); \
+		SKIP_LATCHING(); \
 	OPCODE_END(spc) 
 
 #define OPCODE_ABS(op,str,clk,sz,page,name,spc) \
@@ -798,16 +802,19 @@ FORCE_INLINE void cpu6502_PerformInstruction() {
 #define OPCODE_ZRO(op,str,clk,sz,page,name,spc) \
 	OPCODE_START(op,clk,sz) \
 		name##_ZERO(eff_address(data1)); \
+		SKIP_LATCHING(); \
 	OPCODE_END(spc)
 
 #define OPCODE_ZRX(op,str,clk,sz,page,name,spc) \
 	OPCODE_START(op,clk,sz) \
 		name##_ZERO(eff_address((data1 + mainCPU.X) & 0xFF)); \
+		SKIP_LATCHING(); \
 	OPCODE_END(spc) 
 
 #define OPCODE_ZRY(op,str,clk,sz,page,name,spc) \
 	OPCODE_START(op,clk,sz) \
 		name##_ZERO(eff_address((data1 + mainCPU.Y) & 0xFF)); \
+		SKIP_LATCHING(); \
 	OPCODE_END(spc)
 
 	switch (instr) {
@@ -829,6 +836,8 @@ FORCE_INLINE void cpu6502_PerformInstruction() {
 		mainCPU.latchedSpecial(mainCPU.accessTable[0x4000 >> 13]);
 		mainCPU.accessTable[0x4000 >> 13] = 0;
 	}
+
+SkipLatching:
 
 	// sanity checks
 	DebugAssert(mainCPU.carryResult == 0 || mainCPU.carryResult == 1);
