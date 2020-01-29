@@ -725,7 +725,7 @@ FORCE_INLINE void cpu6502_PerformInstruction() {
 
 	// TODO : cache into single read (with instruction overlap in bank pages)
 	unsigned int instr, data1, data2;
-	if ((mainCPU.PC & 0xFF) < 0xFD) {
+	if ((mainCPU.PC ^ 0xFE) & 0xFE) {
 		unsigned char* ptr = mainCPU.getNonIOMem(mainCPU.PC);
 		instr = ptr[0];
 		data1 = ptr[1];
