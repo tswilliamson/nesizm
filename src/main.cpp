@@ -1,6 +1,7 @@
 #include "platform.h"
-#include "nes.h"
 #include "debug.h"
+
+#include "nes.h"
 
 #include "ptune2_simple/Ptune2_direct.h"
 #include "scope_timer/scope_timer.h"

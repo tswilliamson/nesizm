@@ -378,7 +378,7 @@ FORCE_INLINE void SBC_ZERO(unsigned int address) {
 }
 
 FORCE_INLINE void DEC_MEM(unsigned int address) {
-	unsigned int result = (mainCPU.read(address) - 1) & 0xFF;
+	unsigned int result = (mainCPU.readNonIO(address) - 1) & 0xFF;
 	mainCPU.zeroResult = result;
 	mainCPU.negativeResult = result;
 	writeAddr(address, result);
@@ -392,7 +392,7 @@ FORCE_INLINE void DEC_ZERO(unsigned int address) {
 }
 
 FORCE_INLINE void INC_MEM(unsigned int address) {
-	unsigned int result = (mainCPU.read(address) + 1) & 0xFF;
+	unsigned int result = (mainCPU.readNonIO(address) + 1) & 0xFF;
 	mainCPU.zeroResult = result;
 	mainCPU.negativeResult = result;
 	writeAddr(address, result);
@@ -541,7 +541,7 @@ FORCE_INLINE void ASL() {
 }
 
 FORCE_INLINE void ASL_MEM(unsigned int address) {
-	unsigned int data = mainCPU.read(address);
+	unsigned int data = mainCPU.readNonIO(address);
 
 	mainCPU.carryResult = data >> 7;
 	data = (data << 1) & 0xFF;
@@ -570,7 +570,7 @@ FORCE_INLINE void LSR() {
 }
 
 FORCE_INLINE void LSR_MEM(unsigned int address) {
-	unsigned int data = mainCPU.read(address);
+	unsigned int data = mainCPU.readNonIO(address);
 
 	mainCPU.carryResult = (data & 0x01);
 	data >>= 1;
@@ -600,7 +600,7 @@ FORCE_INLINE void ROL() {
 }
 
 FORCE_INLINE void ROL_MEM(unsigned int address) {
-	unsigned int data = mainCPU.read(address);
+	unsigned int data = mainCPU.readNonIO(address);
 
 	data = (data << 1) | mainCPU.carryResult;
 	mainCPU.carryResult = data >> 8;
@@ -632,7 +632,7 @@ FORCE_INLINE void ROR() {
 }
 
 FORCE_INLINE void ROR_MEM(unsigned int address) {
-	unsigned int data = mainCPU.read(address);
+	unsigned int data = mainCPU.readNonIO(address);
 
 	unsigned int result = (data >> 1) | (mainCPU.carryResult << 7);
 	mainCPU.carryResult = data & 0x01;

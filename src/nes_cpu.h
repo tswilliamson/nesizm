@@ -28,6 +28,7 @@ struct nes_cpu : public cpu_6502 {
 	}
 
 	FORCE_INLINE unsigned char readNonIO(unsigned int addr) {
+		DebugAssert(addr < 0x2000 || addr >= 0x6000); // shouldn't occur in special memory
 		return map[addr >> 8][addr & 0xFF];
 	}
 

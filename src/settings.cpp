@@ -1,3 +1,5 @@
+#include "platform.h"
+#include "debug.h"
 
 #include "settings.h"
 
