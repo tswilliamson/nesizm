@@ -98,7 +98,7 @@ extern "C" {
 void nes_ppu::resolveScanline(int scrollOffset) {
 	TIME_SCOPE();
 
-	const int bufferLines = 16;	// 512 bytes * 16 lines = 8192
+	const int bufferLines = 14;	// 480 bytes * 14 lines = 6720
 	const int scanBufferSize = bufferLines * 240 * 2;
 
 	// resolve le line
