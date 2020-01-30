@@ -625,6 +625,17 @@ void nes_ppu::resolveOAM() {
 	dirtyOAM = false;
 }
 
+static uint16 reverseBytelookup[16] = {
+	0x0, 0x8, 0x4, 0xc, 0x2, 0xa, 0x6, 0xe,
+	0x1, 0x9, 0x5, 0xd, 0x3, 0xb, 0x7, 0xf
+};
+
+uint16 reverseByte(uint16 b) {
+	// Reverse the top and bottom nibble then swap them.
+	return (reverseBytelookup[b & 0xF] << 4) | reverseBytelookup[b >> 4];
+}
+
+
 #define PRIORITY_PIXEL 0x40
 template<bool sprite16,int spriteSize>
 void static renderOAM(nes_ppu& ppu) {
@@ -651,7 +662,7 @@ void static renderOAM(nes_ppu& ppu) {
 		unsigned char* curObj = &ppu.oam[252];
 		unsigned int patternOffset = ((!sprite16 && (ppu.PPUCTRL & PPUCTRL_OAMTABLE)) ? 0x1000 : 0x0000);
 		unsigned char* patternTable = ppu.chrMap + patternOffset;
-		static int spriteMask[33] = { 0 };
+		static uint8 spriteMask[33] = { 0 };
 		int minSpriteMask = 32;
 		int maxSpriteMask = 0;
 		int scanlineOffset = ppu.scanline - 2;
@@ -681,35 +692,41 @@ void static renderOAM(nes_ppu& ppu) {
 					unsigned int x = curObj[3];
 
 					// interleave the bit planes and assign to char buffer (only unmapped pixels)
-					unsigned int bitPlane = (MortonTable[tile[0]] | (MortonTable[tile[8]] << 1)) << 1;
+					const uint8 tile0 = tile[0];
+					const uint8 tile8 = tile[8];
+					uint16 tileMask = (tile0 | tile8);
+					unsigned int bitPlane = (MortonTable[tile0] | (MortonTable[tile8] << 1)) << 1;
 					unsigned int palette = (((curObj[2] & 3) << 2) + (curObj[2] & OAMATTR_PRIORITY) + 16) << 1;
+					unsigned char* buffer = oamScanlineBuffer + x;
 
 					if (curObj[2] & OAMATTR_HFLIP) {
-											if (bitPlane & 6) oamScanlineBuffer[x + 0] = palette + (bitPlane & 6);
-						bitPlane >>= 2;		if (bitPlane & 6) oamScanlineBuffer[x + 1] = palette + (bitPlane & 6);
-						bitPlane >>= 2;		if (bitPlane & 6) oamScanlineBuffer[x + 2] = palette + (bitPlane & 6);
-						bitPlane >>= 2;		if (bitPlane & 6) oamScanlineBuffer[x + 3] = palette + (bitPlane & 6);
-						bitPlane >>= 2;		if (bitPlane & 6) oamScanlineBuffer[x + 4] = palette + (bitPlane & 6);
-						bitPlane >>= 2;		if (bitPlane & 6) oamScanlineBuffer[x + 5] = palette + (bitPlane & 6);
-						bitPlane >>= 2;		if (bitPlane & 6) oamScanlineBuffer[x + 6] = palette + (bitPlane & 6);
-						bitPlane >>= 2;		if (bitPlane & 6) oamScanlineBuffer[x + 7] = palette + (bitPlane & 6);
-					} else {								  
-											if (bitPlane & 6) oamScanlineBuffer[x + 7] = palette + (bitPlane & 6);
-						bitPlane >>= 2;		if (bitPlane & 6) oamScanlineBuffer[x + 6] = palette + (bitPlane & 6);
-						bitPlane >>= 2;		if (bitPlane & 6) oamScanlineBuffer[x + 5] = palette + (bitPlane & 6);
-						bitPlane >>= 2;		if (bitPlane & 6) oamScanlineBuffer[x + 4] = palette + (bitPlane & 6);
-						bitPlane >>= 2;		if (bitPlane & 6) oamScanlineBuffer[x + 3] = palette + (bitPlane & 6);
-						bitPlane >>= 2;		if (bitPlane & 6) oamScanlineBuffer[x + 2] = palette + (bitPlane & 6);
-						bitPlane >>= 2;		if (bitPlane & 6) oamScanlineBuffer[x + 1] = palette + (bitPlane & 6);
-						bitPlane >>= 2;		if (bitPlane & 6) oamScanlineBuffer[x + 0] = palette + (bitPlane & 6);
+											if (bitPlane & 6) buffer[0] = palette | (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) buffer[1] = palette | (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) buffer[2] = palette | (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) buffer[3] = palette | (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) buffer[4] = palette | (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) buffer[5] = palette | (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) buffer[6] = palette | (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) buffer[7] = palette | (bitPlane & 6);
+					} else {
+						tileMask = reverseByte(tileMask);
+											if (bitPlane & 6) buffer[7] = palette | (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) buffer[6] = palette | (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) buffer[5] = palette | (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) buffer[4] = palette | (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) buffer[3] = palette | (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) buffer[2] = palette | (bitPlane & 6); 
+						bitPlane >>= 2;		if (bitPlane & 6) buffer[1] = palette | (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) buffer[0] = palette | (bitPlane & 6);
 					}
 
 					int mask = x >> 3;
-					spriteMask[mask] = 1;
+					tileMask = tileMask << (x & 7);
+					spriteMask[mask] |= tileMask & 0xFF;
 					if (mask < minSpriteMask) minSpriteMask = mask;
 					if (mask > maxSpriteMask) maxSpriteMask = mask;
 					mask = (x+7) >> 3;
-					spriteMask[mask] = 1;
+					spriteMask[mask] |= tileMask >> 8;
 					if (mask < minSpriteMask) minSpriteMask = mask;
 					if (mask > maxSpriteMask) maxSpriteMask = mask;
 				}
@@ -745,19 +762,19 @@ void static renderOAM(nes_ppu& ppu) {
 			// resolve objects
 			if (maxSpriteMask > 31) maxSpriteMask = 31;
 			unsigned char* targetPixelBase = &ppu.scanlineBuffer[baseX];
-			for (int b = minSpriteMask; b <= maxSpriteMask; b++) {
-				if (spriteMask[b]) {
-					unsigned char* targetPixel = targetPixelBase + b * 8;
-					unsigned char* oamPixel = &oamScanlineBuffer[b*8];
-					for (int i = 0; i < 8; i++, oamPixel++, targetPixel++) {
-						if (*oamPixel & 6) {
+			for (int sprite = minSpriteMask; sprite <= maxSpriteMask; sprite++) {
+				if (spriteMask[sprite]) {
+					unsigned char* targetPixel = targetPixelBase + sprite * 8;
+					unsigned char* oamPixel = &oamScanlineBuffer[sprite *8];
+					for (int b = spriteMask[sprite]; b; b >>= 1, oamPixel++, targetPixel++) {
+						if (b & 1) {
 							if ((*oamPixel & PRIORITY_PIXEL) == 0 || (*targetPixel & 6) == 0) {
 								*targetPixel = (*oamPixel & (PRIORITY_PIXEL - 1));
 							}
 							*oamPixel = 0;
 						}
 					}
-					spriteMask[b] = 0;
+					spriteMask[sprite] = 0;
 				}
 			}
 		}
