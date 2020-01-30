@@ -95,11 +95,11 @@ bool nes_cart::loadROM(const char* withFile) {
 
 	// byte 6: flags (and lower mapper nibble which is used later)
 	if (header[6] & (1 << 3)) {
-		ppu_setMirrorType(nes_mirror_type::MT_4PANE);
+		nesPPU.setMirrorType(nes_mirror_type::MT_4PANE);
 	} else if (header[6] & (1 << 0)) {
-		ppu_setMirrorType(nes_mirror_type::MT_VERTICAL);
+		nesPPU.setMirrorType(nes_mirror_type::MT_VERTICAL);
 	} else {
-		ppu_setMirrorType(nes_mirror_type::MT_HORIZONTAL);
+		nesPPU.setMirrorType(nes_mirror_type::MT_HORIZONTAL);
 	}
 	isBatteryBacked = header[6] & (1 << 1);
 
@@ -186,7 +186,7 @@ bool nes_cart::setupMapper() {
 	writeSpecial = NULL;
 
 	// most mirror configs just use the on board ppu nametables:
-	ppu_nameTables = nes_onboardPPUTables;
+	nesPPU.nameTables = nes_onboardPPUTables;
 
 	clearCacheData();
 
@@ -276,7 +276,7 @@ void nes_cart::clearCacheData() {
 bool nes_cart::isBankUsed(int index) {
 	unsigned char* ptr = banks[index];
 
-	if (ptr == ppu_chrMap)
+	if (ptr == nesPPU.chrMap)
 		return true;
 
 	for (int i = 0; i < 8; i++) {
@@ -369,7 +369,7 @@ inline void mapCPU(unsigned int startAddrHigh, unsigned int numKB, unsigned char
 inline void mapPPU(unsigned int startAddrHigh, unsigned int numKB, unsigned char* ptr) {
 	// just copy to CHR ROM
 	DebugAssert(startAddrHigh * 0x100 + numKB * 1024 <= 0x2000);	
-	memcpy(ppu_chrMap + startAddrHigh * 0x100, ptr, numKB * 1024);
+	memcpy(nesPPU.chrMap + startAddrHigh * 0x100, ptr, numKB * 1024);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -399,7 +399,7 @@ void nes_cart::setupMapper0_NROM() {
 
 	// read CHR bank (always one ROM) directly into PPU chrMap
 	DebugAssert(numCHRBanks == 1);
-	ppu_chrMap = cacheCHRBank(0);
+	nesPPU.chrMap = cacheCHRBank(0);
 
 	// map memory to read-in ROM
 	if (numPRGBanks == 1) {
@@ -508,19 +508,19 @@ void nes_cart::MMC1_Write(unsigned int addr, int regValue) {
 		switch (regValue & 3) {
 			case 0:
 				// one screen lower bank
-				ppu_setMirrorType(nes_mirror_type::MT_SINGLE);
+				nesPPU.setMirrorType(nes_mirror_type::MT_SINGLE);
 				break;
 			case 1:
 				// one screen upper bank
-				ppu_setMirrorType(nes_mirror_type::MT_SINGLE_UPPER);
+				nesPPU.setMirrorType(nes_mirror_type::MT_SINGLE_UPPER);
 				break;
 			case 2:
 				// vertical
-				ppu_setMirrorType(nes_mirror_type::MT_VERTICAL);
+				nesPPU.setMirrorType(nes_mirror_type::MT_VERTICAL);
 				break;
 			case 3:
 				// horizontal
-				ppu_setMirrorType(nes_mirror_type::MT_HORIZONTAL);
+				nesPPU.setMirrorType(nes_mirror_type::MT_HORIZONTAL);
 				break;
 		}
 
@@ -654,7 +654,7 @@ void nes_cart::setupMapper1_MMC1() {
 	cachedBankCount = availableROMBanks - numRAMBanks - 1;
 
 	// chr map uses best bank for chr caching locality:
-	ppu_chrMap = banks[cachedBankCount];
+	nesPPU.chrMap = banks[cachedBankCount];
 
 	// RAM bank (first index if applicable) set up at 0x6000
 	if (numRAMBanks) {
@@ -709,10 +709,10 @@ void nes_cart::setupMapper2_UNROM() {
 	int chrBank = cachedBankCount;
 
 	// read CHR bank (always one ROM.. or RAM?) directly into PPU chrMap
-	ppu_chrMap = banks[chrBank];
+	nesPPU.chrMap = banks[chrBank];
 	if (numCHRBanks == 1) {
 		unsigned char* romChrBank = cacheCHRBank(0);
-		memcpy(ppu_chrMap, romChrBank, 8192);
+		memcpy(nesPPU.chrMap, romChrBank, 8192);
 	}
 
 	// map first 16 KB of PRG mamory to 80-BF by default, and last 16 KB to C0-FF
@@ -742,7 +742,7 @@ void CNROM_writeSpecial(unsigned int address, unsigned char value) {
 		value &= nesCart.numCHRBanks - 1;
 
 		if (value != CNROM_CUR_CHR_BANK) {
-			ppu_chrMap = nesCart.cacheCHRBank(value);
+			nesPPU.chrMap = nesCart.cacheCHRBank(value);
 			CNROM_CUR_CHR_BANK = value;
 		}
 	}
@@ -762,7 +762,7 @@ void nes_cart::setupMapper3_CNROM() {
 	mapCPU(0xE0, 8, lastBank[1]);
 
 	// cache first CHR bank by default
-	ppu_chrMap = nesCart.cacheCHRBank(0);
+	nesPPU.chrMap = nesCart.cacheCHRBank(0);
 	CNROM_CUR_CHR_BANK = 0;
 
 	// RAM bank if one is set up
@@ -824,7 +824,7 @@ void MMC3_writeSpecial(unsigned int address, unsigned char value) {
 						}
 						if (upperBits & 0x80) {
 							// CHR mode change, fast A12 switch
-							ppu_chrMap = (MMC3_BANK_SELECT & 0x80) ? nesCart.banks[MMC3_CHRBANK1] : nesCart.banks[MMC3_CHRBANK0];
+							nesPPU.chrMap = (MMC3_BANK_SELECT & 0x80) ? nesCart.banks[MMC3_CHRBANK1] : nesCart.banks[MMC3_CHRBANK0];
 						}
 					}
 				}
@@ -840,12 +840,11 @@ void MMC3_writeSpecial(unsigned int address, unsigned char value) {
 		else if (address < 0xC000) {
 			if (!(address & 1)) {
 				// mirroring
-				extern int ppu_mirror;
-				if (ppu_mirror != nes_mirror_type::MT_4PANE) {
+				if (nesPPU.mirror != nes_mirror_type::MT_4PANE) {
 					if (value & 1) {
-						ppu_setMirrorType(nes_mirror_type::MT_HORIZONTAL);
+						nesPPU.setMirrorType(nes_mirror_type::MT_HORIZONTAL);
 					} else {
-						ppu_setMirrorType(nes_mirror_type::MT_VERTICAL);
+						nesPPU.setMirrorType(nes_mirror_type::MT_VERTICAL);
 					}
 				}
 			} else {
@@ -977,17 +976,17 @@ void nes_cart::MMC3_ScanlineClock() {
 	
 	const int OAM_LOOKUP_CYCLE = 82; // 82 is derived from: PPU clock 260 / 3 - half the largest instruction size, appears to get us compatible
 
-	if (ppu_registers.PPUCTRL & PPUCTRL_SPRSIZE) {
+	if (nesPPU.PPUCTRL & PPUCTRL_SPRSIZE) {
 		// 8x16 sprites are a special case
 		flipCycles = OAM_LOOKUP_CYCLE;
 
 		// check which sprites are on this scanline to determine irq decrement amount
 		irqDec = 0;
-		unsigned char* curObj = &ppu_oam[252];
+		unsigned char* curObj = &nesPPU.oam[252];
 		int lastPatternTable = 0;
 		int numSprites = 0;
 		for (int i = 0; i < 64; i++) {
-			unsigned int yCoord = ppu_scanline - curObj[0] - 2;
+			unsigned int yCoord = nesPPU.scanline - curObj[0] - 2;
 			if (yCoord < 16) {
 				numSprites++;
 				int patternTable = (curObj[1] & 1);
@@ -1006,19 +1005,19 @@ void nes_cart::MMC3_ScanlineClock() {
 		if (numSprites < 8 && lastPatternTable == 0) {
 			irqDec++;
 		}
-	} else if (ppu_registers.PPUCTRL & PPUCTRL_OAMTABLE) {
-		if (!(ppu_registers.PPUCTRL & PPUCTRL_BGDTABLE)) {
+	} else if (nesPPU.PPUCTRL & PPUCTRL_OAMTABLE) {
+		if (!(nesPPU.PPUCTRL & PPUCTRL_BGDTABLE)) {
 			// BG uses 0x0000, OAM uses 0x1000
 			flipCycles = OAM_LOOKUP_CYCLE;
 		}
 	} else {
-		if (ppu_registers.PPUCTRL & PPUCTRL_BGDTABLE) {
+		if (nesPPU.PPUCTRL & PPUCTRL_BGDTABLE) {
 			// BG uses 0x1000, OAM uses 0x0000
 			flipCycles = 1;
 		} 
 	}
 
-	if (flipCycles >= 0 && (ppu_registers.PPUMASK & (PPUMASK_SHOWBG | PPUMASK_SHOWOBJ))) {
+	if (flipCycles >= 0 && (nesPPU.PPUMASK & (PPUMASK_SHOWBG | PPUMASK_SHOWOBJ))) {
 		// perform counter
 		while (irqDec--) {
 			if (MMC3_IRQ_RELOAD || MMC3_IRQ_COUNTER == 0) {
@@ -1049,7 +1048,7 @@ void nes_cart::setupMapper4_MMC3() {
 	// 2 banks for chr memory to allow fast A12 CHR inversion
 	cachedBankCount = MMC3_CHRBANK0 - numRAMBanks;
 
-	ppu_chrMap = banks[MMC3_CHRBANK0];
+	nesPPU.chrMap = banks[MMC3_CHRBANK0];
 
 	// map first 8 KB of CHR memory to ppu chr if not ram
 	mapPPU(0x00, 8, cacheCHRBank(0));
@@ -1076,7 +1075,7 @@ void nes_cart::setupMapper4_MMC3() {
 #define AOROM_NAMEBANK nesCart.availableROMBanks - 1
 
 inline void AOROM_MapNameBank(int tableNum) {
-	ppu_nameTables = (nes_nametable*)(nesCart.banks[AOROM_NAMEBANK] + 4096 * tableNum);
+	nesPPU.nameTables = (nes_nametable*)(nesCart.banks[AOROM_NAMEBANK] + 4096 * tableNum);
 }
 
 void AOROM_writeSpecial(unsigned int address, unsigned char value) {
@@ -1121,10 +1120,10 @@ void nes_cart::setupMapper7_AOROM() {
 	int chrBank = cachedBankCount;
 
 	// read CHR bank (always one ROM.. or RAM?) directly into PPU chrMap
-	ppu_chrMap = banks[chrBank];
+	nesPPU.chrMap = banks[chrBank];
 	if (numCHRBanks == 1) {
 		unsigned char* romChrBank = cacheCHRBank(0);
-		memcpy(ppu_chrMap, romChrBank, 8192);
+		memcpy(nesPPU.chrMap, romChrBank, 8192);
 	}
 
 	// map first 16 KB of PRG mamory to 80-BF by default, and last 16 KB to C0-FF
@@ -1142,7 +1141,7 @@ void nes_cart::setupMapper7_AOROM() {
 
 	// set up single screen mirroring
 	AOROM_MapNameBank(0);
-	ppu_setMirrorType(nes_mirror_type::MT_SINGLE);
+	nesPPU.setMirrorType(nes_mirror_type::MT_SINGLE);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1167,7 +1166,7 @@ void nes_cart::setupMapper7_AOROM() {
 #define MMC2_CHRBANK3 (nesCart.availableROMBanks-1)
 
 inline void MMC2_selectCHRMap() {
-	ppu_chrMap = nesCart.banks[MMC2_CHRBANK0 + nesCart.registers[0] + nesCart.registers[1] * 2];
+	nesPPU.chrMap = nesCart.banks[MMC2_CHRBANK0 + nesCart.registers[0] + nesCart.registers[1] * 2];
 }
 
 void MMC2_renderLatch(unsigned int address) {
@@ -1254,9 +1253,9 @@ void MMC2_writeSpecial(unsigned int address, unsigned char value) {
 			} else {
 				// mirror select
 				if (value & 1) {
-					ppu_setMirrorType(nes_mirror_type::MT_HORIZONTAL);
+					nesPPU.setMirrorType(nes_mirror_type::MT_HORIZONTAL);
 				} else {
-					ppu_setMirrorType(nes_mirror_type::MT_VERTICAL);
+					nesPPU.setMirrorType(nes_mirror_type::MT_VERTICAL);
 				}
 			}
 		}
@@ -1289,7 +1288,7 @@ void nes_cart::setupMapper9_MMC2() {
 	memcpy(banks[MMC2_CHRBANK1], chrBank, 1024 * 8);
 	memcpy(banks[MMC2_CHRBANK2], chrBank, 1024 * 8);
 	memcpy(banks[MMC2_CHRBANK3], chrBank, 1024 * 8);
-	ppu_chrMap = banks[availableROMBanks-1];
+	nesPPU.chrMap = banks[availableROMBanks-1];
 
 	// RAM bank if one is set up
 	if (numRAMBanks == 1) {
@@ -1319,7 +1318,7 @@ void Mapper11_writeSpecial(unsigned int address, unsigned char value) {
 		}
 
 		if (chr != Mapper11_CHR_SELECT) {
-			ppu_chrMap = nesCart.cacheCHRBank(chr);
+			nesPPU.chrMap = nesCart.cacheCHRBank(chr);
 
 			Mapper11_CHR_SELECT = chr;
 		}
@@ -1338,7 +1337,7 @@ void nes_cart::setupMapper11_ColorDreams() {
 	mapCPU(0xC0, 8, prgBanks[2]);
 	mapCPU(0xE0, 8, prgBanks[3]);
 
-	ppu_chrMap = cacheCHRBank(0);
+	nesPPU.chrMap = cacheCHRBank(0);
 
 	Mapper11_PRG_SELECT = 0;
 	Mapper11_CHR_SELECT = 0;
@@ -1374,10 +1373,10 @@ void nes_cart::setupMapper71_Camerica() {
 	int chrBank = cachedBankCount;
 
 	// read CHR bank (always one RAM) directly into PPU chrMap
-	ppu_chrMap = banks[chrBank];
+	nesPPU.chrMap = banks[chrBank];
 	if (numCHRBanks == 1) {
 		unsigned char* romChrBank = cacheCHRBank(0);
-		memcpy(ppu_chrMap, romChrBank, 8192);
+		memcpy(nesPPU.chrMap, romChrBank, 8192);
 	}
 
 	// map first 16 KB of PRG mamory to 80-BF by default, and last 16 KB to C0-FF

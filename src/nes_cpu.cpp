@@ -20,14 +20,14 @@ void nes_cpu::latchedSpecial(unsigned int addr) {
 void nes_cpu::writeSpecial(unsigned int addr, unsigned char value) {
 	if (addr < 0x4000) {
 		DebugAssert(addr >= 0x2000);	// assumed to be PPU register then
-		ppu_registers.writeReg(addr & 0x07, value);
+		nesPPU.writeReg(addr & 0x07, value);
 		return;
 	} else if (addr < 0x4020) {
 		// APU and IO registers
 		switch (addr - 0x4000) {
 			case 0x14:
 				// perform OAM dma
-				ppu_oamDMA(((int) value) << 8);
+				nesPPU.oamDMA(((int) value) << 8);
 				break;
 			case 0x16:
 				input_writeStrobe(value);
@@ -52,7 +52,7 @@ void nes_cpu::mapDefaults() {
 	// 0x0000 - 0x2000 is RAM and its mirrors
 	for (int m = 0x00; m < 0x20; m++) {
 		map[m] = &RAM[(m & 0x7) * 0x100];
-		map[m + 0x20] = ppu_registers.memoryMap;
+		map[m + 0x20] = nesPPU.memoryMap;
 		map[m + 0x40] = specialMemory;
 	}
 

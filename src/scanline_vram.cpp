@@ -10,27 +10,30 @@
 #include "calctype/calctype.h"
 #include "calctype/fonts/arial_small/arial_small.h"	
 
-static unsigned char ppu_scanlineBufferMem[256 + 16 * 2] = { 0 }; 
-unsigned char* ppu_scanlineBuffer = ppu_scanlineBufferMem;
+static unsigned char scanlineBufferMem[256 + 16 * 2] = { 0 }; 
 
-void resolveScanline_VRAM(int scrollOffset) {
+void nes_ppu::initScanlineBuffer() {
+	nesPPU.scanlineBuffer = scanlineBufferMem;
+}
+
+void nes_ppu::resolveScanline(int scrollOffset) {
 	TIME_SCOPE();
 
-	if (ppu_scanline >= 13 && ppu_scanline <= 228) {
-		unsigned short* scanlineDest = ((unsigned short*)GetVRAMAddress()) + (ppu_scanline - 13) * 384 + 72;
-		unsigned char* scanlineSrc = &ppu_scanlineBuffer[8 + scrollOffset];	// with clipping
+	if (nesPPU.scanline >= 13 && nesPPU.scanline <= 228) {
+		unsigned short* scanlineDest = ((unsigned short*)GetVRAMAddress()) + (nesPPU.scanline - 13) * 384 + 72;
+		unsigned char* scanlineSrc = &nesPPU.scanlineBuffer[8 + scrollOffset];	// with clipping
 		for (int i = 0; i < 240; i++, scanlineSrc++) {
-			*(scanlineDest++) = ppu_workingPalette[(*scanlineSrc) >> 1];
+			*(scanlineDest++) = workingPalette[(*scanlineSrc) >> 1];
 		}
 	}
 }
 
-void finishFrame_VRAM() {
+void nes_ppu::finishFrame() {
 	TIME_SCOPE();
 
 #if DEBUG
 	char buffer[32];
-	sprintf(buffer, "%d   ", ppu_frameCounter);
+	sprintf(buffer, "%d   ", frameCounter);
 	int x = 2;
 	int y = 200;
 	for (int y1 = y; y1 < y + 10; y1++) {

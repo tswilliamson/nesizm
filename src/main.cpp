@@ -123,20 +123,22 @@ int main(void) {
 	strcpy(romFile, "\\\\fls0\\");
 	strcat(romFile, ROMdir + 4);
 #else
-	const char* romFile = "\\\\fls0\\SMB.nes";
+	const char* romFile = "\\\\fls0\\SMB3.nes";
 #endif
+
+	cpu6502_Init();
+	nesPPU.init();
 
 	if (nesCart.loadROM(romFile)) {
 		Bdisp_PutDisp_DD();
 
 		SetQuitHandler(shutdown);
 
-		cpu6502_Init();
 		mainCPU.reset();
 
 		while (!shouldExit) {
 			cpu6502_Step();
-			if (mainCPU.clocks >= mainCPU.ppuClocks) ppu_step();
+			if (mainCPU.clocks >= mainCPU.ppuClocks) nesPPU.step();
 			if (mainCPU.irqClocks && mainCPU.clocks >= mainCPU.irqClocks) cpu6502_IRQ();
 		}
 

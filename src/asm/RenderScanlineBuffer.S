@@ -1,5 +1,5 @@
 
-# void RenderScanlineBuffer(unsigned char* scanlineSrc, unsigned int* scanlineDest)
+# void RenderScanlineBuffer(unsigned char* scanlineSrc, unsigned int* scanlineDest, uint16* workingPalette)
 // r4 = unsigned int* scanlineSrc; (1 bit shifted color palette index)
 // r5 = unsigned int* scanlineDest;
 
@@ -12,6 +12,7 @@
 _RenderScanlineBuffer_ASM:
 	// r2 = ppu_workingPalette
 	mov.l .WorkingPalette, r2
+	mov.l @r2, r2
 
 	// loop
 	mov #15,r3

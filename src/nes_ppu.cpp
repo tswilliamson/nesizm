@@ -11,81 +11,50 @@ static unsigned int ppuWriteBreakpoint = 0x10000;
 extern void PPUBreakpoint();
 #endif
 
-// ppu statics
-ppu_registers_type ppu_registers;
-unsigned char ppu_oam[0x100] = { 0 };
-bool ppu_dirtyOAM = false;
-nes_nametable* ppu_nameTables = NULL;
-unsigned char ppu_palette[0x20] = { 0 };
-uint16 ppu_workingPalette[0x20] = { 0 };
-bool ppu_dirtyPalette = true;
-unsigned char* ppu_chrMap = { 0 };
-int ppu_mirror = nes_mirror_type::MT_UNSET;
-unsigned int ppu_scanline = 1;
-unsigned int ppu_frameCounter = 0;
-static bool ppu_triggerNMI = false;
-static bool ppu_setVBL = false;
-static int ppu_writeToggle = 0;
-
-// partial representation of PPU side registers we maintain for scrolling determination
-static int ppu_scrollY = 0;
-static bool ppu_flipY = false;
-static bool ppu_causeDecrement = false;
+nes_ppu nesPPU ALIGN(256);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Scanline handling
 
 // scanline buffers with padding to allow fast rendering with clipping
-static unsigned int ppu_oamBuffer[256 + 8] = { 0 }; 
+static unsigned char oamScanlineBuffer[256 + 8] = { 0 }; 
 
-// pointer to function to render current scanline to scanline buffer (based on mirror mode)
-static void(*renderScanline)() = 0;
-
-// different resolve/frame techniques (based on device and build settings)
-#if USE_DMA
-void resolveScanline_DMA(int scrollOffset);
-void finishFrame_DMA();		
-#else
-void resolveScanline_VRAM(int scrollOffset);		
-void finishFrame_VRAM();		
-#endif
-
-void ppu_copyYScrollRegs() {
-	ppu_scrollY = ppu_registers.SCROLLY;
-	ppu_flipY = (ppu_registers.PPUCTRL & PPUCTRL_FLIPYTBL) != 0;
-	ppu_causeDecrement = false;
+void nes_ppu::copyYScrollRegs() {
+	scrollY = SCROLLY;
+	flipY = (PPUCTRL & PPUCTRL_FLIPYTBL) != 0;
+	causeDecrement = false;
 }
 
-void ppu_midFrameScrollUpdate() {
-	bool renderingDisabled = (ppu_registers.PPUMASK & PPUMASK_SHOWBG) == 0;
+void nes_ppu::midFrameScrollUpdate() {
+	bool renderingDisabled = (PPUMASK & PPUMASK_SHOWBG) == 0;
 
-	// update ppu_scrollY to account for current scanline offset
-	int actualScrollY = ppu_scrollY;
+	// update scrollY to account for current scanline offset
+	int actualScrollY = scrollY;
 	if (actualScrollY >= 240) {
 		actualScrollY -= 256;
 	}
 	if (mainCPU.ppuClocks > mainCPU.clocks && mainCPU.ppuClocks - mainCPU.clocks >= 50 && !renderingDisabled) {
-		actualScrollY -= ppu_scanline - 2;
+		actualScrollY -= scanline - 2;
 	} else {
-		actualScrollY -= ppu_scanline - 1;
+		actualScrollY -= scanline - 1;
 	}
 
 	if (actualScrollY < 0) {
-		ppu_flipY = !ppu_flipY;
+		flipY = !flipY;
 		actualScrollY += 240;
 	}
 
-	ppu_scrollY = actualScrollY;
+	scrollY = actualScrollY;
 
 	// cause scroll decrement if background rendering is disabled
-	ppu_causeDecrement = renderingDisabled;
+	causeDecrement = renderingDisabled;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Palette
 
 // TODO : handle emphasis bits
-static unsigned short ppu_rgbPalette[64] = {
+static unsigned short rgbPalette[64] = {
 	/*
 	Blargg 2C02 palette
 	0x5AAB, 0x010F, 0x0892, 0x3011, 0x480D, 0x6006, 0x5820, 0x40C0, 
@@ -121,18 +90,16 @@ static unsigned short ppu_rgbPalette[64] = {
 	0xFF34, 0xE7F4, 0xAF98, 0xB7FA, 0xA7FE, 0xCE39, 0x0000, 0x0000
 };
 
-unsigned short* ppu_rgbPalettePtr = ppu_rgbPalette;
-
-void ppu_registers_type::prepPPUREAD(unsigned int address) {
+void nes_ppu::prepPPUREAD(unsigned int address) {
 	if (address < 0x3F00) {
-		memoryMap[7] = *ppu_resolveMemoryAddress(address, false);
+		memoryMap[7] = *resolveMemoryAddress(address, false);
 	} else {
 		// palette special case
-		memoryMap[7] = *ppu_resolveMemoryAddress(address, true);
+		memoryMap[7] = *resolveMemoryAddress(address, true);
 	}
 }
 
-void ppu_registers_type::latchedReg(unsigned int addr) {
+void nes_ppu::latchedReg(unsigned int addr) {
 	// if this occurs we will need to add mirroring into our latched PPU memory map (an extra 16 clks or so)
 	DebugAssert(addr < 0x2008);
 
@@ -149,13 +116,13 @@ void ppu_registers_type::latchedReg(unsigned int addr) {
 		memoryMap[6] = val;
 
 		// suppress NMI on the exact clock cycle in the PPU it may be triggered (some games depend on this)
-		if (ppu_scanline == 243 && ppu_triggerNMI) {
+		if (scanline == 243 && triggerNMI) {
 			if (mainCPU.clocks + 1 == mainCPU.ppuClocks) {
 				// one before, so donn't set the VBL as well
-				ppu_setVBL = false;
-				ppu_triggerNMI = false;
+				setVBL = false;
+				triggerNMI = false;
 			} else if (mainCPU.clocks == mainCPU.ppuClocks) {
-				ppu_triggerNMI = false;
+				triggerNMI = false;
 			}
 		}
 
@@ -163,7 +130,7 @@ void ppu_registers_type::latchedReg(unsigned int addr) {
 		SetPPUSTATUS(PPUSTATUS & (~PPUSTAT_NMI));
 
 		// switch write toggle to 0
-		ppu_writeToggle = 0;
+		writeToggle = 0;
 	} else if (addr == 0x07) {
 		unsigned int address = ((ADDRHI << 8) | ADDRLO) & 0x3FFF;
 		unsigned int newAddress = address;
@@ -188,7 +155,7 @@ void ppu_registers_type::latchedReg(unsigned int addr) {
 		// latch previous address for next read unless we are in the palette memory
 		prepPPUREAD(address < 0x3F00 ? address : newAddress);
 	} else if (addr == 0x04) {
-		unsigned char val = ppu_oam[OAMADDR];
+		unsigned char val = oam[OAMADDR];
 
 		// set latched values
 		memoryMap[0] = val;
@@ -206,7 +173,7 @@ void ppu_registers_type::latchedReg(unsigned int addr) {
 	// case 0x06:  ADDRHI/LO
 }
 
-void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
+void nes_ppu::writeReg(unsigned int regNum, unsigned char value) {
 	switch (regNum) {
 		case 0x00:	// PPUCTRL
 			if ((PPUCTRL & PPUCTRL_NMI) == 0 && (value & PPUCTRL_NMI) && (PPUSTATUS & PPUSTAT_NMI)) {
@@ -223,39 +190,39 @@ void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
 			return;
 		case 0x03:  // OAMADDR
 			OAMADDR = value;
-			memoryMap[4] = ppu_oam[OAMADDR];
+			memoryMap[4] = oam[OAMADDR];
 			break;
 		case 0x04:
 			// force unused bits to be low when appropriate
 			if ((OAMADDR & 3) == 2) {
 				value = value & 0xE3;
 			}
-			if (value != ppu_oam[OAMADDR]) {
-				ppu_oam[OAMADDR] = value;
-				ppu_dirtyOAM = true;
+			if (value != oam[OAMADDR]) {
+				oam[OAMADDR] = value;
+				dirtyOAM = true;
 			}
 			OAMADDR++;	// writes to OAM data increment the OAM address
-			memoryMap[4] = ppu_oam[OAMADDR];
+			memoryMap[4] = oam[OAMADDR];
 			break;
 		case 0x05:  // SCROLLX/Y
-			if (ppu_writeToggle == 1) {
+			if (writeToggle == 1) {
 				SCROLLY = value;
 			} else {
 				SCROLLX = value;
 			}
-			ppu_writeToggle = 1 - ppu_writeToggle;
+			writeToggle = 1 - writeToggle;
 			break;
 		case 0x06:  // ADDRHI/LO
 		{
 			// address writes always effect nametable and scroll bits as well, and will copy result mid-render
 
-			if (ppu_writeToggle == 1) {
+			if (writeToggle == 1) {
 				// effects coarse scrollX, and scrollY, and applies write to Y scroll mid frame if need be
 				SCROLLX = (SCROLLX & 0x07) | ((value & 0x1F) << 3);
 				SCROLLY = (SCROLLY & 0xC7) | ((value & 0xE0) >> 2);
-				ppu_copyYScrollRegs();
-				if (ppu_scanline > 1 && ppu_scanline < 241) {
-					ppu_midFrameScrollUpdate();
+				copyYScrollRegs();
+				if (scanline > 1 && scanline < 241) {
+					midFrameScrollUpdate();
 				}
 				ADDRLO = value;
 			} else {
@@ -266,7 +233,7 @@ void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
 				ADDRHI = value;
 			}
 
-			ppu_writeToggle = 1 - ppu_writeToggle;
+			writeToggle = 1 - writeToggle;
 
 			int newAddress = ((ADDRHI << 8) | ADDRLO) & 0x3FFF;
 			// palette available immediately
@@ -281,7 +248,7 @@ void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
 
 			if (address >= 0x3F00) {
 				// dirty palette
-				ppu_dirtyPalette = true;
+				dirtyPalette = true;
 				value = value & 0x3F; // mask palette values
 			}
 
@@ -291,7 +258,7 @@ void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
 			}
 
 			// address will be incremented after the instruction due to latching
-			*ppu_resolveMemoryAddress(address, false) = value;
+			*resolveMemoryAddress(address, false) = value;
 
 #if TRACE_DEBUG
 			if (address - ((PPUCTRL & PPUCTRL_VRAMINC) ? 32 : 1) == ppuWriteBreakpoint) {
@@ -307,113 +274,61 @@ void ppu_registers_type::writeReg(unsigned int regNum, unsigned char value) {
 	SetPPUSTATUS((PPUSTATUS & 0xE0) | (value & 0x1F));
 }
 
-void ppu_oamDMA(unsigned int addr) {
+void nes_ppu::oamDMA(unsigned int addr) {
 	// perform the oam DMA
 	for (int i = 0; i < 256; i++, addr++) {
-		ppu_oam[i] = mainCPU.read(addr);
+		oam[i] = mainCPU.read(addr);
 	}
 
 	// force unused attribute bits low
 	for (int i = 2; i < 256; i += 4) {
-		ppu_oam[i] &= 0xE3;
+		oam[i] &= 0xE3;
 	}
 
-	ppu_dirtyOAM = true;
+	dirtyOAM = true;
 	mainCPU.clocks += 513 + (mainCPU.clocks & 1);
 }
 
-inline void ppu_resolveWorkingPalette() {
-	for (int i = 0; i < 0x20; i++) {
-		if (i & 3) {
-			ppu_workingPalette[i] = ppu_rgbPalettePtr[ppu_palette[i]];
-		} else {
-			ppu_workingPalette[i] = ppu_rgbPalettePtr[ppu_palette[0]];
-		}
-	}
+void nes_ppu::fastSprite0() {
+	TIME_SCOPE();
 
-	ppu_dirtyPalette = false;
-}
-
-inline unsigned char* ppu_resolveMemoryAddress(unsigned int address, bool mirrorBehindPalette) {
-	address &= 0x3FFF;
-	if (address < 0x2000) {
-		// pattern table memory
-		return &ppu_chrMap[address];
-	} else if (address < 0x3F00 || mirrorBehindPalette) {
-		// name table memory
-		switch (ppu_mirror) {
-			case nes_mirror_type::MT_HORIZONTAL:
-				// $2400 = $2000, and $2c00 = $2800, so ignore bit 10:
-				address = (address & 0x03FF) | ((address & 0x800) >> 1);
-				break;
-			case nes_mirror_type::MT_VERTICAL:
-				// $2800 = $2000, and $2c00 = $2400, so ignore bit 11:
-				address = address & 0x07FF;
-				break;
-			case nes_mirror_type::MT_SINGLE:
-				// everything is just the first 1 kb
-				address = address & 0x03FF;
-				break;
-			case nes_mirror_type::MT_SINGLE_UPPER:
-				// everything is just the 2nd 1 kb
-				address = (address & 0x03FF) | 0x0400;
-				break;
-			case nes_mirror_type::MT_4PANE:
-				address = address & 0x0FFF;
-				break;
-		}
-		// this is meant to overflow
-		return &ppu_nameTables[0].table[address];
-	} else {
-		// palette memory 
-		address &= 0x1F;
-		
-		// mirror background color between BG and OBJ types
-		if ((address & 0x03) == 0)
-			address &= 0x0F;
-
-		return &ppu_palette[address];
-	}
-}
-
-void fastSprite0() {
 	// super fast sprite 0 routine for skipped frames (simply marks as collided the first row that sprite 0 has data on)
-	if ((ppu_registers.PPUSTATUS & PPUSTAT_SPRITE0) == 0 && (ppu_registers.PPUMASK & PPUMASK_SHOWOBJ) && (ppu_registers.PPUMASK & PPUMASK_SHOWBG)) {
+	if ((PPUSTATUS & PPUSTAT_SPRITE0) == 0 && (PPUMASK & (PPUMASK_SHOWOBJ | PPUMASK_SHOWBG))) {
 
 		// simulate the 8 bits from the write, but a little faster
-		unsigned int yCoord0 = ppu_scanline - ppu_oam[0] - 2;
-		unsigned int spriteSize = ((ppu_registers.PPUCTRL & PPUCTRL_SPRSIZE) == 0) ? 8 : 16;
+		unsigned int yCoord0 = scanline - oam[0] - 2;
+		unsigned int spriteSize = ((PPUCTRL & PPUCTRL_SPRSIZE) == 0) ? 8 : 16;
 		if (yCoord0 < spriteSize) {
-			if (ppu_oam[2] & OAMATTR_VFLIP) yCoord0 = spriteSize - yCoord0;
+			if (oam[2] & OAMATTR_VFLIP) yCoord0 = spriteSize - yCoord0;
 
-			unsigned char* patternTable = ppu_chrMap + ((spriteSize == 8 && (ppu_registers.PPUCTRL & PPUCTRL_OAMTABLE)) ? 0x1000 : 0x0000);
+			unsigned char* patternTable = chrMap + ((spriteSize == 8 && (PPUCTRL & PPUCTRL_OAMTABLE)) ? 0x1000 : 0x0000);
 
 			// determine tile index
 			unsigned char* tile;
 			if (spriteSize == 16) {
-				tile = patternTable + ((((ppu_oam[1] & 1) << 8) + (ppu_oam[1] & 0xFE)) << 4) + ((yCoord0 & 8) << 1);
+				tile = patternTable + ((((oam[1] & 1) << 8) + (oam[1] & 0xFE)) << 4) + ((yCoord0 & 8) << 1);
 				yCoord0 &= 7;
 			} else {
-				tile = patternTable + (ppu_oam[1] << 4);
+				tile = patternTable + (oam[1] << 4);
 			}
 
 			if (tile[yCoord0] | tile[yCoord0 + 8]) {
-				ppu_registers.SetPPUSTATUS(ppu_registers.PPUSTATUS | PPUSTAT_SPRITE0);
+				SetPPUSTATUS(PPUSTATUS | PPUSTAT_SPRITE0);
 			}
 		}
 	}
 }
 
-void fastOAMLatchCheck() {
-	unsigned char* curObj = &ppu_oam[252];
+void nes_ppu::fastOAMLatchCheck() {
+	unsigned char* curObj = &oam[252];
 
-	bool sprite16 = (ppu_registers.PPUCTRL & PPUCTRL_SPRSIZE);
-	unsigned int patternOffset = ((!sprite16 && (ppu_registers.PPUCTRL & PPUCTRL_OAMTABLE)) ? 0x1000 : 0x0000);
+	bool sprite16 = (PPUCTRL & PPUCTRL_SPRSIZE);
+	unsigned int patternOffset = ((!sprite16 && (PPUCTRL & PPUCTRL_OAMTABLE)) ? 0x1000 : 0x0000);
 
 	int furthestRight = -1;
 	int furthestLatch = 0;
 	for (int i = 0; i < 64; i++) {
-		unsigned int yCoord = ppu_scanline - curObj[0] - 2;
+		unsigned int yCoord = scanline - curObj[0] - 2;
 		if (yCoord == 0) {
 			// determine tile index
 			unsigned int tileMem;
@@ -441,14 +356,14 @@ void fastOAMLatchCheck() {
 
 // TODO : scanline check faster to do with table or function ptr?
 
-void ppu_step() {
-	TIME_SCOPE();
+void nes_ppu::step() {
+	TIME_SCOPE_NAMED("PPU Step");
 	
 	// calculated once per frame on scanline 1
 	static bool skipFrame = false;
 
 	// cpu time for next scanline
-	mainCPU.ppuClocks += (341 / 3) + (ppu_scanline % 3 != 0 ? 1 : 0);
+	mainCPU.ppuClocks += (341 / 3) + (scanline % 3 != 0 ? 1 : 0);
 
 	// TODO: we should be able to render 224 via DMA
 #if TARGET_PRIZM
@@ -463,23 +378,23 @@ void ppu_step() {
 		The idea is to render each scanline at the beginning of its line, and then
 		to get sprite 0 timing right use a different ppuClocks value / update function
 	*/
-	if (ppu_scanline == 1) {
-		skipFrame = (ppu_frameCounter % (FRAME_SKIP + 1) != 0);
+	if (scanline == 1) {
+		skipFrame = (frameCounter % (FRAME_SKIP + 1) != 0);
 
 		// clear vblank and sprite 0 flag
-		ppu_registers.SetPPUSTATUS(ppu_registers.PPUSTATUS & ~(PPUSTAT_NMI | PPUSTAT_SPRITE0));		
+		SetPPUSTATUS(PPUSTATUS & ~(PPUSTAT_NMI | PPUSTAT_SPRITE0));		
 
 		// time to copy y scroll regs
-		ppu_copyYScrollRegs();
+		copyYScrollRegs();
 
 		if (nesCart.scanlineClock) {
 			nesCart.scanlineClock();
 		}
-	} else if (ppu_scanline < 9) {
+	} else if (scanline < 9) {
 		// non-resolved but active scanline (may cause sprite 0 collision)
 		// TODO : sprite 0 collision only render version?
 		if (!skipFrame) {
-			renderScanline();
+			renderScanline(*this);
 		} else {
 			fastSprite0();
 		}
@@ -492,20 +407,16 @@ void ppu_step() {
 		if (nesCart.scanlineClock) {
 			nesCart.scanlineClock();
 		}
-	} else if (ppu_scanline < 233) {
+	} else if (scanline < 233) {
 		// rendered scanline
 		if (!skipFrame) {
-			renderScanline();
+			renderScanline(*this);
 
-			if (ppu_dirtyPalette) {
-				ppu_resolveWorkingPalette();
+			if (dirtyPalette) {
+				resolveWorkingPalette();
 			}
 
-#if USE_DMA
-			resolveScanline_DMA(ppu_registers.SCROLLX & 15);
-#else
-			resolveScanline_VRAM(ppu_registers.SCROLLX & 15);
-#endif
+			resolveScanline(SCROLLX & 15);
 		} else {
 			fastSprite0();
 		}
@@ -513,43 +424,39 @@ void ppu_step() {
 		if (nesCart.scanlineClock) {
 			nesCart.scanlineClock();
 		}
-	} else if (ppu_scanline < 241) {
+	} else if (scanline < 241) {
 		// non-resolved scanline
 		if (!skipFrame) {
-			renderScanline();
+			renderScanline(*this);
 		} else {
 			fastSprite0();
 		}
 
-		if (nesCart.scanlineClock && ppu_scanline != 240) {
+		if (nesCart.scanlineClock && scanline != 240) {
 			nesCart.scanlineClock();
 		}
-	} else if (ppu_scanline == 241) {
-		// good time to reset ppu_scroll
-		ppu_scrollY = 0;
+	} else if (scanline == 241) {
+		// good time to reset scroll
+		scrollY = 0;
 
 		// blank scanline area, trigger NMI next scanline
-		ppu_triggerNMI = (mainCPU.clocks > 140000);
-		ppu_setVBL = (mainCPU.clocks > 30000);
-	} else if (ppu_scanline == 242) {
-		if (ppu_setVBL) {
-			ppu_registers.SetPPUSTATUS(ppu_registers.PPUSTATUS | PPUSTAT_NMI);
+		triggerNMI = (mainCPU.clocks > 140000);
+		setVBL = (mainCPU.clocks > 30000);
+	} else if (scanline == 242) {
+		if (setVBL) {
+			SetPPUSTATUS(PPUSTATUS | PPUSTAT_NMI);
 		}
-		if ((ppu_registers.PPUCTRL & PPUCTRL_NMI) && ppu_triggerNMI) {
+		if ((PPUCTRL & PPUCTRL_NMI) && triggerNMI) {
 			mainCPU.ppuNMI = true;
 		}
 
 		if (!skipFrame) {
-#if USE_DMA
-			finishFrame_DMA();
-#else
-			finishFrame_VRAM();
-#endif
+			finishFrame();
 		}
 
 		ScopeTimer::ReportFrame();
 
-		ppu_frameCounter++;
+		frameCounter++;
 
 		bool keyDown_fast(unsigned char keyCode);
 		if (keyDown_fast(79)) // F1 
@@ -564,11 +471,14 @@ void ppu_step() {
 		}
 
 		input_cacheKeys();
-	} else if (ppu_scanline < 262) {
-		// inside vblank
+
+	} else if (scanline == 243) {
+		// frame is over, don't run until scanline 262, so add 18 scanlines worth (2047 extra clocks!)
+		mainCPU.ppuClocks += 18 * (341 / 3) + 12;
+
 	} else {
-		// final scanline
-		ppu_scanline = 0;
+		// final scanline 
+		scanline = 0;
 
 		// frame timing .. total ppu frame should be every 29780.5 ppu clocks
 		mainCPU.ppuClocks -= 1;
@@ -579,7 +489,7 @@ void ppu_step() {
 		}
 	}
 
-	ppu_scanline++;
+	scanline++;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -671,7 +581,7 @@ inline void RenderToScanline(unsigned char*patternTable, int chr, unsigned int p
 	palette = palette | (palette << 16);
 	unsigned int* bitPlane1 = (unsigned int*) &OverlayTable[patternTable[chr] * 8];
 	unsigned int* bitPlane2 = (unsigned int*) &OverlayTable[patternTable[chr + 8] * 8];
-	unsigned int* scanline = (unsigned int*) &ppu_scanlineBuffer[x];
+	unsigned int* scanline = (unsigned int*) &nesPPU.scanlineBuffer[x];
 	scanline[0] = palette | bitPlane1[0] | (bitPlane2[0] << 1);
 	scanline[1] = palette | bitPlane1[1] | (bitPlane2[1] << 1);
 }
@@ -687,11 +597,11 @@ extern "C" {
 // mask of which sprites to check per scanline (bit 0 = sprites 56-63, bit 1 = sprites 48-55, and so on)
 uint8 fetchMask[272];
 template<int spriteSize>
-void resolveOAM() {
+void nes_ppu::resolveOAM() {
 	// rebuild the fetch mask
 	memset(fetchMask, 0, 240);
 
-	unsigned char* curObj = &ppu_oam[252];
+	unsigned char* curObj = &oam[252];
 	const int scanlineOffset = 2;
 
 	for (int b = 0; b < 8; b++) {
@@ -704,42 +614,42 @@ void resolveOAM() {
 		}
 	}
 
-	ppu_dirtyOAM = false;
+	dirtyOAM = false;
 }
 
 #define PRIORITY_PIXEL 0x40
 template<bool sprite16,int spriteSize>
-void renderOAM() {
-	if (ppu_dirtyOAM) {
-		resolveOAM<spriteSize>();
+void static renderOAM(nes_ppu& ppu) {
+	if (ppu.dirtyOAM) {
+		ppu.resolveOAM<spriteSize>();
 	}
 
 	// MMC2/4 support
 	if (nesCart.renderLatch) {
-		fastOAMLatchCheck();
+		ppu.fastOAMLatchCheck();
 	}
 
-	int baseX = ppu_registers.SCROLLX & 15;
+	int baseX = ppu.SCROLLX & 15;
 
-	if ((ppu_registers.PPUMASK & PPUMASK_SHOWLEFTBG) == 0) {
+	if ((ppu.PPUMASK & PPUMASK_SHOWLEFTBG) == 0) {
 		for (int i = 0; i < 8; i++) {
-			ppu_scanlineBuffer[baseX+i] = 0;
+			ppu.scanlineBuffer[baseX+i] = 0;
 		}
 	}
 
-	if ((ppu_registers.PPUMASK & PPUMASK_SHOWOBJ) && fetchMask[ppu_scanline]) {
+	if ((ppu.PPUMASK & PPUMASK_SHOWOBJ) && fetchMask[ppu.scanline]) {
 		// render objects to separate buffer
 		int numSprites = 0;
-		unsigned char* curObj = &ppu_oam[252];
-		unsigned int patternOffset = ((!sprite16 && (ppu_registers.PPUCTRL & PPUCTRL_OAMTABLE)) ? 0x1000 : 0x0000);
-		unsigned char* patternTable = ppu_chrMap + patternOffset;
+		unsigned char* curObj = &ppu.oam[252];
+		unsigned int patternOffset = ((!sprite16 && (ppu.PPUCTRL & PPUCTRL_OAMTABLE)) ? 0x1000 : 0x0000);
+		unsigned char* patternTable = ppu.chrMap + patternOffset;
 		static int spriteMask[33] = { 0 };
 		int minSpriteMask = 32;
 		int maxSpriteMask = 0;
-		int scanlineOffset = ppu_scanline - 2;
+		int scanlineOffset = ppu.scanline - 2;
 
 		// mask out 8 at a time
-		for (int b = fetchMask[ppu_scanline]; b; b = b >> 1) {
+		for (int b = fetchMask[ppu.scanline]; b; b = b >> 1) {
 			if (!(b & 1)) {
 				curObj -= 32;
 				continue;
@@ -767,23 +677,23 @@ void renderOAM() {
 					unsigned int palette = (((curObj[2] & 3) << 2) + (curObj[2] & OAMATTR_PRIORITY) + 16) << 1;
 
 					if (curObj[2] & OAMATTR_HFLIP) {
-											if (bitPlane & 6) ppu_oamBuffer[x + 0] = palette + (bitPlane & 6);
-						bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 1] = palette + (bitPlane & 6);
-						bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 2] = palette + (bitPlane & 6);
-						bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 3] = palette + (bitPlane & 6);
-						bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 4] = palette + (bitPlane & 6);
-						bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 5] = palette + (bitPlane & 6);
-						bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 6] = palette + (bitPlane & 6);
-						bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 7] = palette + (bitPlane & 6);
-					} else {
-											if (bitPlane & 6) ppu_oamBuffer[x + 7] = palette + (bitPlane & 6);
-						bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 6] = palette + (bitPlane & 6);
-						bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 5] = palette + (bitPlane & 6);
-						bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 4] = palette + (bitPlane & 6);
-						bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 3] = palette + (bitPlane & 6);
-						bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 2] = palette + (bitPlane & 6);
-						bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 1] = palette + (bitPlane & 6);
-						bitPlane >>= 2;		if (bitPlane & 6) ppu_oamBuffer[x + 0] = palette + (bitPlane & 6);
+											if (bitPlane & 6) oamScanlineBuffer[x + 0] = palette + (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) oamScanlineBuffer[x + 1] = palette + (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) oamScanlineBuffer[x + 2] = palette + (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) oamScanlineBuffer[x + 3] = palette + (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) oamScanlineBuffer[x + 4] = palette + (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) oamScanlineBuffer[x + 5] = palette + (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) oamScanlineBuffer[x + 6] = palette + (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) oamScanlineBuffer[x + 7] = palette + (bitPlane & 6);
+					} else {								  
+											if (bitPlane & 6) oamScanlineBuffer[x + 7] = palette + (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) oamScanlineBuffer[x + 6] = palette + (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) oamScanlineBuffer[x + 5] = palette + (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) oamScanlineBuffer[x + 4] = palette + (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) oamScanlineBuffer[x + 3] = palette + (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) oamScanlineBuffer[x + 2] = palette + (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) oamScanlineBuffer[x + 1] = palette + (bitPlane & 6);
+						bitPlane >>= 2;		if (bitPlane & 6) oamScanlineBuffer[x + 0] = palette + (bitPlane & 6);
 					}
 
 					int mask = x >> 3;
@@ -800,25 +710,25 @@ void renderOAM() {
 
 		if (numSprites) {
 			// mask left 8 pixels
-			if ((ppu_registers.PPUMASK & PPUMASK_SHOWLEFTOBJ) == 0) {
+			if ((ppu.PPUMASK & PPUMASK_SHOWLEFTOBJ) == 0) {
 				for (int i = 0; i < 8; i++) {
-					ppu_oamBuffer[i] = 0;
+					oamScanlineBuffer[i] = 0;
 				}
 			}
 
 			// sprite 0 hit
-			if ((ppu_registers.PPUSTATUS & PPUSTAT_SPRITE0) == 0) {
-				unsigned int yCoord0 = ppu_scanline - ppu_oam[0] - 2;
+			if ((ppu.PPUSTATUS & PPUSTAT_SPRITE0) == 0) {
+				unsigned int yCoord0 = ppu.scanline - ppu.oam[0] - 2;
 				if (yCoord0 < spriteSize) {
-					unsigned int x = ppu_oam[3];
+					unsigned int x = ppu.oam[3];
 
 					for (int p = 0; p < 8; p++, x++) {
-						if ((ppu_oamBuffer[x] & 6) && ppu_scanlineBuffer[baseX+x] && (x != 255)) {
+						if ((oamScanlineBuffer[x] & 6) && ppu.scanlineBuffer[baseX+x] && (x != 255)) {
 							// TODO : this is approximate since it is at start of line!
 							// It could be exact by storing actual upcoming clocks here and filling
 							// PPUSTATUS when queried
 
-							ppu_registers.SetPPUSTATUS(ppu_registers.PPUSTATUS | PPUSTAT_SPRITE0);
+							ppu.SetPPUSTATUS(ppu.PPUSTATUS | PPUSTAT_SPRITE0);
 						}
 					}
 				}
@@ -826,11 +736,11 @@ void renderOAM() {
 
 			// resolve objects
 			if (maxSpriteMask > 31) maxSpriteMask = 31;
-			unsigned char* targetPixelBase = &ppu_scanlineBuffer[baseX];
+			unsigned char* targetPixelBase = &ppu.scanlineBuffer[baseX];
 			for (int b = minSpriteMask; b <= maxSpriteMask; b++) {
 				if (spriteMask[b]) {
 					unsigned char* targetPixel = targetPixelBase + b * 8;
-					unsigned int* oamPixel = &ppu_oamBuffer[b*8];
+					unsigned char* oamPixel = &oamScanlineBuffer[b*8];
 					for (int i = 0; i < 8; i++, oamPixel++, targetPixel++) {
 						if (*oamPixel & 6) {
 							if ((*oamPixel & PRIORITY_PIXEL) == 0 || (*targetPixel & 6) == 0) {
@@ -846,55 +756,55 @@ void renderOAM() {
 	}
 }
 
-void doOAMRender() {
+void nes_ppu::doOAMRender() {
 	TIME_SCOPE();
 
-	if ((ppu_registers.PPUCTRL & PPUCTRL_SPRSIZE) == 0) {
-		renderOAM<false, 8>();
+	if ((PPUCTRL & PPUCTRL_SPRSIZE) == 0) {
+		renderOAM<false, 8>(*this);
 	} else {
-		renderOAM<true, 16>();
+		renderOAM<true, 16>(*this);
 	}
 }
 
-void renderScanline_SingleMirror() {
+void nes_ppu::renderScanline_SingleMirror(nes_ppu& ppu) {
 	TIME_SCOPE_NAMED(scanline_single);
 
-	DebugAssert(ppu_scanline >= 1 && ppu_scanline <= 240);
+	DebugAssert(ppu.scanline >= 1 && ppu.scanline <= 240);
 	DebugAssert(nesCart.renderLatch == NULL);
 
-	int line = ppu_scanline - 1;
-	if (ppu_scrollY < 240) {
-		line += ppu_scrollY;
+	int line = ppu.scanline - 1;
+	if (ppu.scrollY < 240) {
+		line += ppu.scrollY;
 	} else {
 		// "negative scroll" which we'll just skip the top lines for
-		line += ppu_scrollY - 256;
+		line += ppu.scrollY - 256;
 	}
 
-	if ((ppu_registers.PPUMASK & PPUMASK_SHOWBG) && line >= 0) {
+	if ((ppu.PPUMASK & PPUMASK_SHOWBG) && line >= 0) {
 		int tileLine = line >> 3;
 
 		// determine base addresses
 		unsigned char* nameTable;
 		unsigned char* attr;
-		unsigned int chrOffset = ((ppu_registers.PPUCTRL & PPUCTRL_BGDTABLE) << 8) + (line & 7);
-		unsigned char* patternTable = ppu_chrMap + chrOffset;
+		unsigned int chrOffset = ((ppu.PPUCTRL & PPUCTRL_BGDTABLE) << 8) + (line & 7);
+		unsigned char* patternTable = ppu.chrMap + chrOffset;
 
 		if (tileLine >= 30) {
 			tileLine -= 30;
 		}
 		
-		if (ppu_mirror == nes_mirror_type::MT_SINGLE) {
-			nameTable = &ppu_nameTables[0].table[tileLine << 5];
-			attr = &ppu_nameTables[0].attr[(tileLine >> 2) << 3];
+		if (ppu.mirror == nes_mirror_type::MT_SINGLE) {
+			nameTable = &ppu.nameTables[0].table[tileLine << 5];
+			attr = &ppu.nameTables[0].attr[(tileLine >> 2) << 3];
 		} else {
-			DebugAssert(ppu_mirror == nes_mirror_type::MT_SINGLE_UPPER);
-			nameTable = &ppu_nameTables[1].table[tileLine << 5];
-			attr = &ppu_nameTables[1].attr[(tileLine >> 2) << 3];
+			DebugAssert(ppu.mirror == nes_mirror_type::MT_SINGLE_UPPER);
+			nameTable = &ppu.nameTables[1].table[tileLine << 5];
+			attr = &ppu.nameTables[1].attr[(tileLine >> 2) << 3];
 		}
 
 		// pre-build attribute table lookup into one big 32 bit int
 		// this is done backwards so the value is easily popped later
-		int attrX = (ppu_registers.SCROLLX >> 5) & 7;
+		int attrX = (ppu.SCROLLX >> 5) & 7;
 		int attrShift = (tileLine & 2) << 1;	// 4 bit shift for bottom row of attribute
 		unsigned int attrPalette = 0;
 		for (int loop = 0; loop < 8; loop++) {
@@ -903,7 +813,7 @@ void renderScanline_SingleMirror() {
 			attrX = (attrX + 7) & 7;
 		}
 
-		if ((ppu_registers.SCROLLX & 0x10) == 0) {
+		if ((ppu.SCROLLX & 0x10) == 0) {
 			attrPalette = (attrPalette << 6) | (attrPalette >> 26);
 		} else {
 			attrPalette = (attrPalette << 4) | (attrPalette >> 28);
@@ -911,7 +821,7 @@ void renderScanline_SingleMirror() {
 
 		// we render 16 pixels at a time (easy attribute table lookup), 17 times and clip
 		int x = 0;
-		int tileX = (ppu_registers.SCROLLX >> 4) * 2;	// always start on an even numbered tile
+		int tileX = (ppu.SCROLLX >> 4) * 2;	// always start on an even numbered tile
 
 		for (int loop = 0; loop < 17; loop++) {
 			// grab and rotate palette selection
@@ -929,55 +839,55 @@ void renderScanline_SingleMirror() {
 		}
 	} else {
 		for (int i = 0; i < 288; i++) {
-			ppu_scanlineBuffer[i] = 0;
+			ppu.scanlineBuffer[i] = 0;
 		}
-		if (ppu_causeDecrement) {
-			ppu_scrollY--;
+		if (ppu.causeDecrement) {
+			ppu.scrollY--;
 		}
 	}
 
-	doOAMRender();
+	ppu.doOAMRender();
 }
 
-void renderScanline_HorzMirror() {
+void nes_ppu::renderScanline_HorzMirror(nes_ppu& ppu) {
 	TIME_SCOPE_NAMED(scanline_horz);
 
-	DebugAssert(ppu_scanline >= 1 && ppu_scanline <= 240);
+	DebugAssert(ppu.scanline >= 1 && ppu.scanline <= 240);
 
-	int line = ppu_scanline - 1;
-	if (ppu_scrollY < 240) {
-		line += ppu_scrollY;
+	int line = ppu.scanline - 1;
+	if (ppu.scrollY < 240) {
+		line += ppu.scrollY;
 	} else {
 		// "negative scroll" which we'll just skip the top lines for
-		line += ppu_scrollY - 256;
+		line += ppu.scrollY - 256;
 	}
 
-	if ((ppu_registers.PPUMASK & PPUMASK_SHOWBG) && line >= 0) {
+	if ((ppu.PPUMASK & PPUMASK_SHOWBG) && line >= 0) {
 		int tileLine = line >> 3;
 
 		// determine base addresses
 		unsigned char* nameTable;
 		unsigned char* attr;
-		unsigned int chrOffset = ((ppu_registers.PPUCTRL & PPUCTRL_BGDTABLE) << 8) + (line & 7);
-		unsigned char* patternTable = ppu_chrMap + chrOffset;
+		unsigned int chrOffset = ((ppu.PPUCTRL & PPUCTRL_BGDTABLE) << 8) + (line & 7);
+		unsigned char* patternTable = ppu.chrMap + chrOffset;
 
-		if (ppu_flipY) {
+		if (ppu.flipY) {
 			tileLine += 30;
 			if (tileLine >= 60) tileLine -= 60;
 		}
 
 		if (tileLine < 30) {
-			nameTable = &ppu_nameTables[0].table[tileLine << 5];
-			attr = &ppu_nameTables[0].attr[(tileLine >> 2) << 3];
+			nameTable = &ppu.nameTables[0].table[tileLine << 5];
+			attr = &ppu.nameTables[0].attr[(tileLine >> 2) << 3];
 		} else {
 			tileLine -= 30;
-			nameTable = &ppu_nameTables[1].table[tileLine << 5];
-			attr = &ppu_nameTables[1].attr[(tileLine >> 2) << 3];
+			nameTable = &ppu.nameTables[1].table[tileLine << 5];
+			attr = &ppu.nameTables[1].attr[(tileLine >> 2) << 3];
 		}
 
 		// pre-build attribute table lookup into one big 32 bit int
 		// this is done backwards so the value is easily popped later
-		int attrX = (ppu_registers.SCROLLX >> 5) & 7;
+		int attrX = (ppu.SCROLLX >> 5) & 7;
 		int attrShift = (tileLine & 2) << 1;	// 4 bit shift for bottom row of attribute
 		unsigned int attrPalette = 0;
 		for (int loop = 0; loop < 8; loop++) {
@@ -986,7 +896,7 @@ void renderScanline_HorzMirror() {
 			attrX = (attrX + 7) & 7;
 		}
 
-		if ((ppu_registers.SCROLLX & 0x10) == 0) {
+		if ((ppu.SCROLLX & 0x10) == 0) {
 			attrPalette = (attrPalette << 6) | (attrPalette >> 26);
 		} else {
 			attrPalette = (attrPalette << 4) | (attrPalette >> 28);
@@ -994,7 +904,7 @@ void renderScanline_HorzMirror() {
 
 		// we render 16 pixels at a time (easy attribute table lookup), 17 times and clip
 		int x = 0;
-		int tileX = (ppu_registers.SCROLLX >> 4) * 2;	// always start on an even numbered tile
+		int tileX = (ppu.SCROLLX >> 4) * 2;	// always start on an even numbered tile
 
 		// MMC2/4 too branch here for faster code:
 		if (nesCart.renderLatch) {
@@ -1013,7 +923,7 @@ void renderScanline_HorzMirror() {
 
 					if (chr >= 0xFD0 && nesCart.renderLatch) {
 						nesCart.renderLatch(chr + chrOffset + 8);
-						patternTable = ppu_chrMap + chrOffset;
+						patternTable = ppu.chrMap + chrOffset;
 					}
 				}
 			}
@@ -1035,27 +945,27 @@ void renderScanline_HorzMirror() {
 		}
 	} else {
 		for (int i = 0; i < 288; i++) {
-			ppu_scanlineBuffer[i] = 0;
+			ppu.scanlineBuffer[i] = 0;
 		}
-		if (ppu_causeDecrement) {
-			ppu_scrollY--;
+		if (ppu.causeDecrement) {
+			ppu.scrollY--;
 		}
 	}
 
-	doOAMRender();
+	ppu.doOAMRender();
 }
 
 template<bool hasLatch, bool is4Pane>
-void renderScanline_VertMirror_Latched() {
-	DebugAssert(ppu_scanline >= 1 && ppu_scanline <= 240);
-	if (ppu_registers.PPUMASK & PPUMASK_SHOWBG) {
-		int line = ppu_scanline - 1;
+static void renderScanline_VertMirror_Latched(nes_ppu& ppu) {
+	DebugAssert(ppu.scanline >= 1 && ppu.scanline <= 240);
+	if (ppu.PPUMASK & PPUMASK_SHOWBG) {
+		int line = ppu.scanline - 1;
 
-		if (ppu_scrollY < 240) {
-			line += ppu_scrollY;
+		if (ppu.scrollY < 240) {
+			line += ppu.scrollY;
 		} else {
 			// "negative scroll" which we'll just skip the top lines for
-			line += ppu_scrollY - 256;
+			line += ppu.scrollY - 256;
 		}
 
 		int tileLine = line >> 3;
@@ -1072,7 +982,7 @@ void renderScanline_VertMirror_Latched() {
 				nameTableIndex = 2;
 				tileLine -= 30;
 			}
-			if (ppu_registers.PPUCTRL & PPUCTRL_FLIPYTBL) {
+			if (ppu.PPUCTRL & PPUCTRL_FLIPYTBL) {
 				nameTableIndex = nameTableIndex ^ 2;
 			}
 		} else {
@@ -1083,24 +993,24 @@ void renderScanline_VertMirror_Latched() {
 			}
 		}
 
-		int scrollX = ppu_registers.SCROLLX;
+		int scrollX = ppu.SCROLLX;
 
 		// determine base addresses
 		unsigned char* nameTable;
 		unsigned char* attr;
 		int attrShift = (tileLine & 2) << 1;	// 4 bit shift for bottom row of attribute
-		unsigned int chrOffset = ((ppu_registers.PPUCTRL & PPUCTRL_BGDTABLE) << 8) + (line & 7);
-		unsigned char* patternTable = ppu_chrMap + chrOffset;
+		unsigned int chrOffset = ((ppu.PPUCTRL & PPUCTRL_BGDTABLE) << 8) + (line & 7);
+		unsigned char* patternTable = ppu.chrMap + chrOffset;
 
-		if (ppu_registers.PPUCTRL & PPUCTRL_FLIPXTBL) scrollX += 256;
+		if (ppu.PPUCTRL & PPUCTRL_FLIPXTBL) scrollX += 256;
 
 		// we render 16 pixels at a time (easy attribute table lookup), 17 times and clip
 		int x = 0;
 		int tileX = ((scrollX >> 4) * 2) & 0x3F;	// always start on an even numbered tile
 		nameTableIndex += (tileX & 0x20) >> 5;
 		
-		nameTable = &ppu_nameTables[nameTableIndex].table[tileLine << 5];
-		attr = &ppu_nameTables[nameTableIndex].attr[(tileLine >> 2) << 3];
+		nameTable = &ppu.nameTables[nameTableIndex].table[tileLine << 5];
+		attr = &ppu.nameTables[nameTableIndex].attr[(tileLine >> 2) << 3];
 
 		// render tileX up to the end of the current nametable
 		int curTileX = tileX & 0x1F;
@@ -1123,7 +1033,7 @@ void renderScanline_VertMirror_Latched() {
 				RenderToScanline(patternTable, chr, palette, x);
 
 				if (hasLatch && hadLatch) {
-					patternTable = ppu_chrMap + chrOffset;
+					patternTable = ppu.chrMap + chrOffset;
 				}
 			}
 		}
@@ -1131,8 +1041,8 @@ void renderScanline_VertMirror_Latched() {
 		// now render the other nametable until scanline is complete
 		curTileX = 0;
 		nameTableIndex = nameTableIndex ^ 1;
-		nameTable = &ppu_nameTables[nameTableIndex].table[tileLine << 5];
-		attr = &ppu_nameTables[nameTableIndex].attr[(tileLine >> 2) << 3];
+		nameTable = &ppu.nameTables[nameTableIndex].table[tileLine << 5];
+		attr = &ppu.nameTables[nameTableIndex].attr[(tileLine >> 2) << 3];
 
 		while (x < 256 + 16) {
 			// grab and rotate palette selection
@@ -1153,7 +1063,7 @@ void renderScanline_VertMirror_Latched() {
 				RenderToScanline(patternTable, chr, palette, x);
 
 				if (hasLatch && hadLatch) {
-					patternTable = ppu_chrMap + chrOffset;
+					patternTable = ppu.chrMap + chrOffset;
 				}
 			}
 		}
@@ -1170,37 +1080,37 @@ void renderScanline_VertMirror_Latched() {
 		}
 	} else {
 		for (int i = 0; i < 288; i++) {
-			ppu_scanlineBuffer[i] = 0;
+			ppu.scanlineBuffer[i] = 0;
 		}
-		if (ppu_causeDecrement) {
-			ppu_scrollY--;
+		if (ppu.causeDecrement) {
+			ppu.scrollY--;
 		}
 	}
 	 
-	doOAMRender();
+	ppu.doOAMRender();
 }
 
-void renderScanline_VertMirror() {
+void nes_ppu::renderScanline_VertMirror(nes_ppu& ppu) {
 	TIME_SCOPE();
 
 	if (nesCart.renderLatch) {
-		renderScanline_VertMirror_Latched<true, false>();
+		renderScanline_VertMirror_Latched<true, false>(ppu);
 	} else {
-		renderScanline_VertMirror_Latched<false, false>();
+		renderScanline_VertMirror_Latched<false, false>(ppu);
 	}
 }
 
-void renderScanline_4PaneMirror() {
-	renderScanline_VertMirror_Latched<false, true>();
+void nes_ppu::renderScanline_4PaneMirror(nes_ppu& ppu) {
+	renderScanline_VertMirror_Latched<false, true>(ppu);
 }
 
-void ppu_setMirrorType(int withType) {
-	if (ppu_mirror == withType) {
+void nes_ppu::setMirrorType(int withType) {
+	if (mirror == withType) {
 		return;
 	}
 
-	ppu_mirror = withType;
-	switch (ppu_mirror) {
+	mirror = withType;
+	switch (mirror) {
 		case nes_mirror_type::MT_HORIZONTAL:
 			renderScanline = renderScanline_HorzMirror;
 			break;
@@ -1215,4 +1125,12 @@ void ppu_setMirrorType(int withType) {
 			renderScanline = renderScanline_4PaneMirror;
 			break;
 	}
+}
+
+void nes_ppu::init() {
+	memset(this, 0, sizeof(nes_ppu));
+	scanline = 1;
+	mirror = nes_mirror_type::MT_UNSET;
+	initScanlineBuffer();
+	rgbPalettePtr = rgbPalette;
 }

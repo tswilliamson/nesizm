@@ -827,7 +827,7 @@ FORCE_INLINE void cpu6502_PerformInstruction() {
 	};
 
 	if (mainCPU.accessTable[0x2000 >> 13]) {
-		ppu_registers.latchedReg(mainCPU.accessTable[0x2000 >> 13]);
+		nesPPU.latchedReg(mainCPU.accessTable[0x2000 >> 13]);
 		mainCPU.accessTable[0x2000 >> 13] = 0;
 	} else if (mainCPU.accessTable[0x4000 >> 13]) {
 		mainCPU.latchedSpecial(mainCPU.accessTable[0x4000 >> 13]);

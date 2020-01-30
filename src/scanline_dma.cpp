@@ -7,6 +7,7 @@
 #include "nes.h"
 #include "scope_timer/scope_timer.h"
 
+
 #define LCD_GRAM	0x202
 #define LCD_BASE	0xB4000000
 #define SYNCO() __asm__ volatile("SYNCO\n\t":::"memory");
@@ -23,8 +24,15 @@ static unsigned short* scanGroup[2] = { (unsigned short*) 0xE5007000, (unsigned 
 static int curDMABuffer = 0;
 
 // scanline buffer goes in on chip mem 2
-unsigned char ppu_scanlineBufferPtr[256 + 16 * 2];
-unsigned char* ppu_scanlineBuffer = ppu_scanlineBufferPtr;
+unsigned char scanlineBufferPtr[256 + 16 * 2];
+
+// resolve assembly defines used by various .S files
+uint16* ppu_workingPalette = &nesPPU.workingPalette[0];
+unsigned char* ppu_scanlineBuffer = &scanlineBufferPtr[0];
+
+void nes_ppu::initScanlineBuffer() {
+	scanlineBuffer = scanlineBufferPtr;
+}
 
 static int curScan = 0;
 
@@ -87,25 +95,25 @@ extern "C" {
 #define RenderScanlineBuffer RenderScanlineBuffer_ASM
 #endif
 
-void resolveScanline_DMA(int scrollOffset) {
+void nes_ppu::resolveScanline(int scrollOffset) {
 	TIME_SCOPE();
 
 	const int bufferLines = 16;	// 512 bytes * 16 lines = 8192
 	const int scanBufferSize = bufferLines * 240 * 2;
 
 	// resolve le line
-	unsigned char* scanlineSrc = &ppu_scanlineBuffer[8 + scrollOffset];	// with clipping
+	unsigned char* scanlineSrc = &nesPPU.scanlineBuffer[8 + scrollOffset];	// with clipping
 	unsigned int* scanlineDest = (unsigned int*) (scanGroup[curDMABuffer] + 240 * curScan);
 	RenderScanlineBuffer(scanlineSrc, scanlineDest);
 
 	curScan++;
 	if (curScan == bufferLines) {
 		// send DMA
-		flushScanBuffer(72, 311, ppu_scanline - 9 - bufferLines + 1, ppu_scanline - 9, scanBufferSize);
+		flushScanBuffer(72, 311, nesPPU.scanline - 9 - bufferLines + 1, nesPPU.scanline - 9, scanBufferSize);
 	}
 }
 
-void finishFrame_DMA() {
+void nes_ppu::finishFrame() {
 	TIME_SCOPE();
 
 	// frame end.. kill DMA operations to make sure they stay in sync

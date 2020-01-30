@@ -177,7 +177,7 @@ namespace nes_mirror_type {
 	};
 }
 
-struct ppu_registers_type {
+struct nes_ppu {
 	// registers (some of them map to $2000-$2007, but this is handled case by case)
 	unsigned char PPUCTRL;			// $2000
 	unsigned char PPUMASK;			// $2001
@@ -190,7 +190,8 @@ struct ppu_registers_type {
 	unsigned char ADDRLO;			// $2006 (b)
 									// unsigned char DATA;			// $2007 (unused with latch behavior)
 
-	unsigned char memoryMap[256];
+	// register write toggle
+	int writeToggle;
 
 	void prepPPUREAD(unsigned int address);
 	void latchedReg(unsigned int addr);
@@ -201,54 +202,138 @@ struct ppu_registers_type {
 		memoryMap[2] = value;
 	}
 
-	ppu_registers_type() {
-		memset(this, 0, sizeof(ppu_registers_type));
+	// mirror type
+	int mirror;
+
+	// up to four name tables potentially (most games use 2)
+	nes_nametable* nameTables;
+
+	// all 8 kb mapped for character memory at once (0x0000 - 0x2000)
+	unsigned char* chrMap;
+
+	// current scanline (0 = prerender line, 1 = first real scanline)
+	unsigned int scanline;
+
+	// pointer to buffer representing palette entries for current scanline
+	uint8* scanlineBuffer;
+
+	// pointer to function to render current scanline to scanline buffer (based on mirror mode)
+	void(*renderScanline)(nes_ppu& ppu);
+
+	// palette ram (first 16 bytes are BG, second are OBJ palettes)
+	unsigned char palette[0x20];
+
+	// oam data
+	unsigned char oam[0x100];
+	bool dirtyOAM;
+	
+	// working palette (actual LCD colors of each palette entry from palette[], accounts for background color mirroring)
+	uint16 workingPalette[0x20];
+	bool dirtyPalette;
+
+	// current frame
+	unsigned int frameCounter;
+
+	void setMirrorType(int withType);
+
+	// pointer to current 565 color palette (TODO: can change due to emphasis bits)
+	unsigned short* rgbPalettePtr;
+
+	// perform an OAM dma from the given CPU memory address
+	void oamDMA(unsigned int addr);
+	template<int spriteSize> void resolveOAM();
+	void fastOAMLatchCheck();
+
+	// reading / writing
+	inline unsigned char* resolveMemoryAddress(unsigned int address, bool mirrorBehindPalette) {
+		address &= 0x3FFF;
+		if (address < 0x2000) {
+			// pattern table memory
+			return &chrMap[address];
+		} else if (address < 0x3F00 || mirrorBehindPalette) {
+			// name table memory
+			switch (mirror) {
+				case nes_mirror_type::MT_HORIZONTAL:
+					// $2400 = $2000, and $2c00 = $2800, so ignore bit 10:
+					address = (address & 0x03FF) | ((address & 0x800) >> 1);
+					break;
+				case nes_mirror_type::MT_VERTICAL:
+					// $2800 = $2000, and $2c00 = $2400, so ignore bit 11:
+					address = address & 0x07FF;
+					break;
+				case nes_mirror_type::MT_SINGLE:
+					// everything is just the first 1 kb
+					address = address & 0x03FF;
+					break;
+				case nes_mirror_type::MT_SINGLE_UPPER:
+					// everything is just the 2nd 1 kb
+					address = (address & 0x03FF) | 0x0400;
+					break;
+				case nes_mirror_type::MT_4PANE:
+					address = address & 0x0FFF;
+					break;
+			}
+			// this is meant to overflow
+			return &nameTables[0].table[address];
+		} else {
+			// palette memory 
+			address &= 0x1F;
+
+			// mirror background color between BG and OBJ types
+			if ((address & 0x03) == 0)
+				address &= 0x0F;
+
+			return &palette[address];
+		}
 	}
+
+	void init();
+	void step();
+
+	// internals
+	inline void resolveWorkingPalette() {
+		for (int i = 0; i < 0x20; i++) {
+			if (i & 3) {
+				workingPalette[i] = rgbPalettePtr[palette[i]];
+			} else {
+				workingPalette[i] = rgbPalettePtr[palette[0]];
+			}
+		}
+
+		dirtyPalette = false;
+	}
+
+	// internal NMI handling
+	bool triggerNMI;
+	bool setVBL;
+
+	// scroll handling
+	int scrollY;
+	bool flipY;
+	bool causeDecrement;
+	void copyYScrollRegs();
+	void midFrameScrollUpdate();
+
+	// memory and mapping
+	unsigned char memoryMap[256];
+
+	// main rendering
+	void initScanlineBuffer();
+	void fastSprite0();
+	void doOAMRender();
+	void resolveScanline(int scrollOffset);
+	void finishFrame();
+
+	static void renderScanline_SingleMirror(nes_ppu& ppu);
+	static void renderScanline_HorzMirror(nes_ppu& ppu);
+	static void renderScanline_VertMirror(nes_ppu& ppu);
+	static void renderScanline_4PaneMirror(nes_ppu& ppu);
 };
 
 #define USE_DMA TARGET_PRIZM
 
 // main ppu registers (2000-2007 and emulated latch)
-extern ppu_registers_type ppu_registers;
-
-// oam data
-extern unsigned char ppu_oam[0x100];
-extern bool ppu_dirtyOAM;
-
-// up to four name tables potentially (most games use 2)
-extern nes_nametable* ppu_nameTables;
-
-// palette ram (first 16 bytes are BG, second are OBJ palettes)
-extern unsigned char ppu_palette[0x20];
-
-// working palette ram (accounts for background color mirroring)
-extern uint16 ppu_workingPalette[0x20];
-extern bool ppu_dirtyPalette;
-
-// all 8 kb mapped for character memory at once (0x0000 - 0x2000)
-extern unsigned char* ppu_chrMap;
-
-extern void ppu_setMirrorType(int withType);
-
-// perform an OAM dma from the given CPU memory address
-void ppu_oamDMA(unsigned int addr);
-
-// reading / writing
-extern unsigned char* ppu_resolveMemoryAddress(unsigned int addr, bool mirrorBehindPalette);
-
-extern void ppu_step();
-
-// current scanline (0 = prerender line, 1 = first real scanline)
-extern unsigned int ppu_scanline;
-
-// curent frame
-extern unsigned int ppu_frameCounter;
-
-// pointer to buffer representing palette entries for current scanline
-extern uint8* ppu_scanlineBuffer;
-
-// pointer to current 565 color palette (can change due to emphasis bits)
-extern unsigned short* ppu_rgbPalettePtr;
+extern nes_ppu nesPPU;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // INPUT
