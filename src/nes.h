@@ -242,6 +242,7 @@ struct nes_ppu {
 	// perform an OAM dma from the given CPU memory address
 	void oamDMA(unsigned int addr);
 	template<int spriteSize> void resolveOAM();
+	void resolveOAMExternal();
 	void fastOAMLatchCheck();
 
 	// reading / writing
@@ -323,6 +324,17 @@ struct nes_ppu {
 	void doOAMRender();
 	void resolveScanline(int scrollOffset);
 	void finishFrame();
+
+	// checks conditions for a sprite hit being possible
+	bool canSprite0Hit() {
+		if ((PPUSTATUS & PPUSTAT_SPRITE0) == 0 && (PPUMASK & (PPUMASK_SHOWOBJ | PPUMASK_SHOWBG))) {
+			unsigned int yCoord0 = scanline - oam[0] - 2;
+			unsigned int spriteSize = ((PPUCTRL & PPUCTRL_SPRSIZE) == 0) ? 8 : 16;
+			return yCoord0 < spriteSize;
+		}
+
+		return false;
+	}
 
 	static void renderScanline_SingleMirror(nes_ppu& ppu);
 	static void renderScanline_HorzMirror(nes_ppu& ppu);

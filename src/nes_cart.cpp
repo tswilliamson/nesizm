@@ -971,12 +971,19 @@ void nes_cart::MMC3_UpdateMapping(int regNumber) {
 }
 
 void nes_cart::MMC3_ScanlineClock() {
+	TIME_SCOPE();
+
 	int flipCycles = -1;
 	int irqDec = 1;
 	
 	const int OAM_LOOKUP_CYCLE = 82; // 82 is derived from: PPU clock 260 / 3 - half the largest instruction size, appears to get us compatible
 
 	if (nesPPU.PPUCTRL & PPUCTRL_SPRSIZE) {
+		// we need to build the fetch mask potentially
+		if (nesPPU.dirtyOAM) {
+			nesPPU.resolveOAMExternal();
+		}
+
 		// 8x16 sprites are a special case
 		flipCycles = OAM_LOOKUP_CYCLE;
 
@@ -985,22 +992,30 @@ void nes_cart::MMC3_ScanlineClock() {
 		unsigned char* curObj = &nesPPU.oam[252];
 		int lastPatternTable = 0;
 		int numSprites = 0;
-		for (int i = 0; i < 64; i++) {
-			unsigned int yCoord = nesPPU.scanline - curObj[0] - 2;
-			if (yCoord < 16) {
-				numSprites++;
-				int patternTable = (curObj[1] & 1);
-				if (patternTable > lastPatternTable) {
-					irqDec++;
-				}
-				lastPatternTable = patternTable;
+		int scanlineOffset = nesPPU.scanline - 2;
 
-				if (numSprites == 8) {
-					break;
-				}
+		extern uint8 fetchMask[272];
+		for (int b = fetchMask[nesPPU.scanline]; b; b = b >> 1) {
+			if (!(b & 1)) {
+				curObj -= 32;
+				continue;
 			}
 
-			curObj -= 4;
+			for (int i = 0; i < 8; i++, curObj -= 4) {
+				unsigned int yCoord = scanlineOffset - curObj[0];
+				if (yCoord < 16) {
+					numSprites++;
+					int patternTable = (curObj[1] & 1);
+					if (patternTable > lastPatternTable) {
+						irqDec++;
+					}
+					lastPatternTable = patternTable;
+
+					if (numSprites == 8) {
+						break;
+					}
+				}
+			}
 		}
 		if (numSprites < 8 && lastPatternTable == 0) {
 			irqDec++;

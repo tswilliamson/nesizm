@@ -290,32 +290,27 @@ void nes_ppu::oamDMA(unsigned int addr) {
 }
 
 void nes_ppu::fastSprite0() {
-	TIME_SCOPE();
+	DebugAssert(canSprite0Hit()); // should have already been checked
 
-	// super fast sprite 0 routine for skipped frames (simply marks as collided the first row that sprite 0 has data on)
-	if ((PPUSTATUS & PPUSTAT_SPRITE0) == 0 && (PPUMASK & (PPUMASK_SHOWOBJ | PPUMASK_SHOWBG))) {
+	// simulate the 8 bits from the write, but a little faster
+	unsigned int yCoord0 = scanline - oam[0] - 2;
+	unsigned int spriteSize = ((PPUCTRL & PPUCTRL_SPRSIZE) == 0) ? 8 : 16;
 
-		// simulate the 8 bits from the write, but a little faster
-		unsigned int yCoord0 = scanline - oam[0] - 2;
-		unsigned int spriteSize = ((PPUCTRL & PPUCTRL_SPRSIZE) == 0) ? 8 : 16;
-		if (yCoord0 < spriteSize) {
-			if (oam[2] & OAMATTR_VFLIP) yCoord0 = spriteSize - yCoord0;
+	if (oam[2] & OAMATTR_VFLIP) yCoord0 = spriteSize - yCoord0;
 
-			unsigned char* patternTable = chrMap + ((spriteSize == 8 && (PPUCTRL & PPUCTRL_OAMTABLE)) ? 0x1000 : 0x0000);
+	unsigned char* patternTable = chrMap + ((spriteSize == 8 && (PPUCTRL & PPUCTRL_OAMTABLE)) ? 0x1000 : 0x0000);
 
-			// determine tile index
-			unsigned char* tile;
-			if (spriteSize == 16) {
-				tile = patternTable + ((((oam[1] & 1) << 8) + (oam[1] & 0xFE)) << 4) + ((yCoord0 & 8) << 1);
-				yCoord0 &= 7;
-			} else {
-				tile = patternTable + (oam[1] << 4);
-			}
+	// determine tile index
+	unsigned char* tile;
+	if (spriteSize == 16) {
+		tile = patternTable + ((((oam[1] & 1) << 8) + (oam[1] & 0xFE)) << 4) + ((yCoord0 & 8) << 1);
+		yCoord0 &= 7;
+	} else {
+		tile = patternTable + (oam[1] << 4);
+	}
 
-			if (tile[yCoord0] | tile[yCoord0 + 8]) {
-				SetPPUSTATUS(PPUSTATUS | PPUSTAT_SPRITE0);
-			}
-		}
+	if (tile[yCoord0] | tile[yCoord0 + 8]) {
+		SetPPUSTATUS(PPUSTATUS | PPUSTAT_SPRITE0);
 	}
 }
 
@@ -354,7 +349,17 @@ void nes_ppu::fastOAMLatchCheck() {
 	}
 }
 
-// TODO : scanline check faster to do with table or function ptr?
+// clocks per scanline formula: (341 / 3) + (scanline % 3 != 0 ? 1 : 0);
+const char scanlineClocks[245] = {
+	113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,
+	114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,
+	114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,
+	113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,
+	114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,
+	114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,
+	113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,
+	114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114
+};
 
 void nes_ppu::step() {
 	TIME_SCOPE_NAMED("PPU Step");
@@ -363,9 +368,9 @@ void nes_ppu::step() {
 	static bool skipFrame = false;
 
 	// cpu time for next scanline
-	mainCPU.ppuClocks += (341 / 3) + (scanline % 3 != 0 ? 1 : 0);
+	DebugAssert(scanline < 245);
+	mainCPU.ppuClocks += scanlineClocks[scanline];
 
-	// TODO: we should be able to render 224 via DMA
 #if TARGET_PRIZM
 	#define FRAME_SKIP 1
 #else
@@ -373,7 +378,7 @@ void nes_ppu::step() {
 #endif
     
 	/*
-		262 scanlines, we render 13-228 (middle 216 screen lines)
+		262 scanlines, we render 9-232 (middle 224 screen lines)
 
 		The idea is to render each scanline at the beginning of its line, and then
 		to get sprite 0 timing right use a different ppuClocks value / update function
@@ -392,11 +397,12 @@ void nes_ppu::step() {
 		}
 	} else if (scanline < 9) {
 		// non-resolved but active scanline (may cause sprite 0 collision)
-		// TODO : sprite 0 collision only render version?
-		if (!skipFrame) {
-			renderScanline(*this);
-		} else {
-			fastSprite0();
+		if (canSprite0Hit()) {
+			if (!skipFrame) {
+				renderScanline(*this);
+			} else {
+				fastSprite0();
+			}
 		}
 
 		// MMC2/4 support
@@ -417,7 +423,7 @@ void nes_ppu::step() {
 			}
 
 			resolveScanline(SCROLLX & 15);
-		} else {
+		} else if (canSprite0Hit()) {
 			fastSprite0();
 		}
 
@@ -426,10 +432,12 @@ void nes_ppu::step() {
 		}
 	} else if (scanline < 241) {
 		// non-resolved scanline
-		if (!skipFrame) {
-			renderScanline(*this);
-		} else {
-			fastSprite0();
+		if (canSprite0Hit()) {
+			if (!skipFrame) {
+				renderScanline(*this);
+			} else {
+				fastSprite0();
+			}
 		}
 
 		if (nesCart.scanlineClock && scanline != 240) {
@@ -763,6 +771,14 @@ void nes_ppu::doOAMRender() {
 		renderOAM<false, 8>(*this);
 	} else {
 		renderOAM<true, 16>(*this);
+	}
+}
+
+void nes_ppu::resolveOAMExternal() {
+	if ((PPUCTRL & PPUCTRL_SPRSIZE) == 0) {
+		resolveOAM<8>();
+	} else {
+		resolveOAM<16>();
 	}
 }
 
