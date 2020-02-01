@@ -1,24 +1,16 @@
 #include "platform.h"
 #include "debug.h"
-
 #include "nes.h"
 
 #include "ptune2_simple/Ptune2_direct.h"
 #include "scope_timer/scope_timer.h"
 
-#include "calctype/fonts/commodore/commodore.c"		// For Menus
 #include "calctype/fonts/arial_small/arial_small.c"		// For Debug Output
 // #include "../../calctype/fonts/consolas_intl/consolas_intl.c"	// for FAQS
 
 #include "imageDraw.h"
 #include "settings.h"
-
-const bool bRebuildGfx = false;
-
-bool shouldExit = false;
-
-void shutdown() {
-}
+#include "frontend.h"
 
 #if TARGET_WINSIM
 int simmain(void) {
@@ -62,47 +54,9 @@ int main(void) {
 	OutputLog("};\n\n");
 #endif
 
-
-	{
-		Bdisp_Fill_VRAM(0, 3);
-		DrawFrame(0);
-
-		extern PrizmImage gfx_logo;
-		extern PrizmImage gfx_bg_warp;
-		extern PrizmImage gfx_nes;
-
-		PrizmImage* logo = &gfx_logo;
-		PrizmImage* bg = &gfx_bg_warp;
-		PrizmImage* nes = &gfx_nes;
-
-#if TARGET_WINSIM
-		if (bRebuildGfx) {
-			logo = PrizmImage::LoadImage("\\\\dev0\\gfx\\logo.bmp");
-			bg = PrizmImage::LoadImage("\\\\dev0\\gfx\\rays.bmp");
-			nes = PrizmImage::LoadImage("\\\\dev0\\gfx\\nes.bmp");
-			logo->Compress();
-			bg->Compress();
-			nes->Compress();
-			logo->ExportZX7("gfx_logo", "src\\gfx\\logo.cpp");
-			bg->ExportZX7("gfx_bg_warp", "src\\gfx\\bg_warp.cpp");
-			nes->ExportZX7("gfx_nes", "src\\gfx\\nes_gfx.cpp");
-		}
-#endif
-		logo->Draw_Blit(5,5);
-		bg->Draw_Blit(0, 71);
-		nes->Draw_OverlayMasked(195, 38, 192);
-		CalcType_Draw(&commodore, "=> Load ROM", 7, 140, COLOR_WHITE, 0, 0);
-		CalcType_Draw(&commodore, "   View FAQ", 7, 156, COLOR_AQUAMARINE, 0, 0);
-		CalcType_Draw(&commodore, "   Options", 7, 172, COLOR_AQUAMARINE, 0, 0);
-		CalcType_Draw(&commodore, "   About", 7, 188, COLOR_AQUAMARINE, 0, 0);
-
-		CalcType_Draw(&commodore, "@TSWilliamson", 255, 5, COLOR_AQUAMARINE, 0, 0);
-		CalcType_Draw(&commodore, "v0.9", 340, 198, 0x302C, 0, 0);
-	
-		int key = 0;
-		GetKey(&key);
-	}
-
+	nesFrontend.SetMainMenu();
+	nesFrontend.Run();
+	/*
 #if TARGET_WINSIM
 	char romFileSystem[512] = { 0 };
 	OPENFILENAME openStruct;
@@ -126,13 +80,8 @@ int main(void) {
 	const char* romFile = "\\\\fls0\\SMB3.nes";
 #endif
 
-	cpu6502_Init();
-	nesPPU.init();
-
 	if (nesCart.loadROM(romFile)) {
 		Bdisp_PutDisp_DD();
-
-		SetQuitHandler(shutdown);
 
 		mainCPU.reset();
 
@@ -147,7 +96,7 @@ int main(void) {
 		int key = 0; 
 		GetKey(&key);
 	}
-
+	*/
 	//Ptune2_LoadSetting(PT2_DEFAULT);
 
 	ScopeTimer::Shutdown();

@@ -33,6 +33,7 @@ typedef unsigned int uint32;
 #define FORCE_INLINE __attribute__((always_inline)) inline
 #define RESTRICT __restrict__
 #include "fxcg_registers.h"
+#define nullptr NULL
 #endif
 
 #ifdef LITTLE_E

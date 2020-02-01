@@ -3,34 +3,49 @@
 
 #include "platform.h"
 
-class MenuOption {
-	friend class FrontEnd;
+struct MenuOption {
+	friend class nes_frontend;
 
 	const char* name;
 	const char* help;
+	bool disabled;
+
+	// returns true if key is handled
+	bool(*OnKey)(MenuOption*, int withKey);
+
+	// returns detail shown to the right of option, null if unused
+	const char*(*GetDetail)();
+
+	// extra draw function if wanted, null if unused
+	const char*(*DrawExtra)(int x, int y, bool selected);
 
 protected:
-	MenuOption(const char* withName, const char* withHelp) : name(withName), help(withHelp) {}
-
 	// draw the menu option to VRAM at the given pixel location
-	virtual void Draw(int x, int y, bool bSelected) const;
-
-	// returns true if selection requires redraw of screen
-	virtual bool OnSelect() const;
+	void Draw(int x, int y, bool bSelected) const;
 };
 
-class FrontEnd {
+class nes_frontend {
 private:
 	// hash of the diagonal pixels of the menu screen to determine overwrite by OS
 	uint32 MenuBGHash;
 
-	void RenderMenuBackground();
+	void RenderMenuBackground(bool bForceRedraw = false);
 	void Render();
+
 public:
+	nes_frontend();
+
 	const MenuOption* currentOptions;
 	int numOptions;
+	int selectedOption;
+	int selectOffset;
 
-	void Startup();
+	bool gotoGame;
+
+	void RenderGameBackground();
+	void SetMainMenu();
 	void Run();
+	void RunGameLoop();
 };
-extern FrontEnd nes_frontend;
+
+extern nes_frontend nesFrontend;

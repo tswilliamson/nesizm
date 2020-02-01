@@ -471,6 +471,7 @@ void nes_ppu::step() {
 		{
 			extern bool shouldExit;
 			shouldExit = true;
+			while (keyDown_fast(79)) {}
 		}
 
 		if (keyDown_fast(69)) // F2
