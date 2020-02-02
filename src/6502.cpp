@@ -481,6 +481,8 @@ FORCE_INLINE void CPY_ZERO(unsigned int addr) {
 // MISC
 
 FORCE_INLINE void BRK() {
+	mainCPU.PC++;
+
 	// BRK moves forward an instruction
 	cpu6502_SoftwareInterrupt(0xFFFE);
 }
@@ -722,6 +724,7 @@ FORCE_INLINE void cpu6502_PerformInstruction() {
 	resolveToP();
 	memcpy(&hist.regs, &mainCPU, sizeof(cpu_6502));
 
+	effByte = 0;
 	hist.instr = mainCPU.readNonIO(mainCPU.PC+0);
 	hist.data1 = mainCPU.readNonIO(mainCPU.PC+1);
 	hist.data2 = mainCPU.readNonIO(mainCPU.PC+2);
@@ -767,14 +770,14 @@ FORCE_INLINE void cpu6502_PerformInstruction() {
 	OPCODE_START(op,clk,sz) \
 		unsigned int data2 = mainCPU.readNonIO(mainCPU.PC++); \
 		if (page && ((data1 + mainCPU.X) & 0x100)) mainCPU.clocks++; \
-		name##_MEM((data1 + (data2 << 8) + (mainCPU.X))); \
+		name##_MEM(eff_address(data1 + (data2 << 8) + (mainCPU.X))); \
 	OPCODE_END(spc) 
 
 #define OPCODE_ABY(op,str,clk,sz,page,name,spc) \
 	OPCODE_START(op,clk,sz) \
 		unsigned int data2 = mainCPU.readNonIO(mainCPU.PC++); \
 		if (page && ((data1 + mainCPU.Y) & 0x100)) mainCPU.clocks++;	\
-		name##_MEM((data1 + (data2 << 8) + (mainCPU.Y))); \
+		name##_MEM(eff_address(data1 + (data2 << 8) + (mainCPU.Y))); \
 	OPCODE_END(spc) 
 
 #define OPCODE_IND(op,str,clk,sz,page,name,spc) \
