@@ -41,6 +41,10 @@ struct nes_cart {
 
 	int handle;						// current file handle
 
+	uint32 savHash;					// hash of battery backed RAM contents
+	char file[128];					// file name
+	char savFile[128];				// cached .sav file name for writing to .SAV on exit
+
 	int mapper;						// mapper ID used with ROM
 	int numPRGBanks;				// num 16 kb Program ROM banks
 	int numCHRBanks;				// num 8 kb CHR ROM banks (0 means CHR RAM)
@@ -54,6 +58,7 @@ struct nes_cart {
 
 	// 8kb banks for various usages based on mapper (allocated on stack due to Prizm deficiencies
 	int availableROMBanks;
+	int allocatedROMBanks;
 	unsigned char* banks[MAX_CACHED_ROM_BANKS];
 	int bankIndex[MAX_CACHED_ROM_BANKS];
 	int bankRequest[MAX_CACHED_ROM_BANKS];
@@ -64,7 +69,14 @@ struct nes_cart {
 
 	int cachedBankCount;			// number of 8 KB banks to use for PRG & CHR (some cached banks are used for extra RAM, etc)
 
-	char file[128];					// file name
+	// returns hash of RAM contents
+	uint32 GetRAMHash();
+
+	// called when pausing emulator back to frontend
+	void OnPause();
+
+	// called when continuing emulator from the menu (forces a rebuild of ROM file blocks)
+	void OnContinue();
 
 	// direct memory block support (direct memcpy from ROM, prevents OS call to read game data as needed)
 	unsigned char* blocks[1024];	

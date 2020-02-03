@@ -74,6 +74,7 @@ static bool Continue_Selected(MenuOption* forOption, int key) {
 	if (isSelectKey(key)) {
 		nesFrontend.RenderGameBackground();
 		nesFrontend.gotoGame = true;
+		nesCart.OnContinue();
 		return true;
 	}
 
@@ -374,5 +375,6 @@ void nes_frontend::RunGameLoop() {
 		if (mainCPU.irqClocks && mainCPU.clocks >= mainCPU.irqClocks) cpu6502_IRQ();
 	}
 
+	nesCart.OnPause();
 	shouldExit = false;
 }
