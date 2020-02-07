@@ -46,6 +46,7 @@
     <ClCompile Include="..\src\nes_cpu.cpp" />
     <ClCompile Include="..\src\nes_input.cpp" />
     <ClCompile Include="..\src\nes_ppu.cpp" />
+    <ClCompile Include="..\src\nes_savestate.cpp" />
     <ClCompile Include="..\src\ptune2_simple\Ptune2_direct.c" />
     <ClCompile Include="..\src\main.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='WindowsSim|x64'">false</ExcludedFromBuild>

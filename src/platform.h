@@ -36,7 +36,6 @@ typedef unsigned int uint32;
 #define nullptr NULL
 #endif
 
-#ifdef LITTLE_E
 static inline void EndianSwap(unsigned short& s) {
 	s = ((s & 0xFF00) >> 8) | ((s & 0x00FF) << 8);
 }
@@ -46,9 +45,17 @@ static inline void ShortSwap(unsigned int& s) {
 static inline void EndianSwap(unsigned int& i) {
 	i = ((i & 0xFF000000) >> 24) | ((i & 0x00FF0000) >> 8) | ((i & 0x0000FF00) << 8) | ((i & 0x000000FF) << 24);
 }
+
+#ifdef LITTLE_E
+#define EndianSwap_Big EndianSwap
+#define ShortSwap_Big ShortSwap
+#define EndianSwap_Little(X) {}
+#define ShortSwap_Little(X) {}
 #else
-#define EndianSwap(...) 
-#define ShortSwap(...) 
+#define EndianSwap_Big(X) {}
+#define ShortSwap_Big(X) {}
+#define EndianSwap_Little EndianSwap
+#define ShortSwap_Little ShortSwap
 #endif
 
 // compile time assert, will throw negative subscript error

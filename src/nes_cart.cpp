@@ -30,7 +30,7 @@ unsigned char openBus[256] = {
 
 nes_cart::nes_cart() : writeSpecial(NULL) {
 	handle = 0;
-	file[0] = 0;
+	romFile[0] = 0;
 }
 
 void nes_cart::allocateBanks(unsigned char* staticAlloced) {
@@ -189,6 +189,7 @@ bool nes_cart::loadROM(const char* withFile) {
 	// mapper logic
 	handle = file;
 	if (setupMapper()) {
+		strcpy(romFile, withFile);
 		printf("Mapper %d : supported", mapper);
 		return true;
 	} else {
@@ -196,6 +197,12 @@ bool nes_cart::loadROM(const char* withFile) {
 		printf("Mapper %d : unsupported", mapper);
 		Bfile_CloseFile_OS(file);
 		return false;
+	}
+}
+
+void nes_cart::readState_WRAM(uint8* data) {
+	if (numRAMBanks >= 1) {
+		memcpy(&banks[availableROMBanks][0], data, 0x2000);
 	}
 }
 

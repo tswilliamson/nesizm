@@ -40,6 +40,12 @@ struct cpu_6502 {
 
 	// clocks for next IRQ, 0 if disabled
 	unsigned int irqClocks;
+
+	// resolve the cached results to P
+	void resolveToP();
+
+	// resolve from P to the cached results
+	void resolveFromP();
 };
 
 struct cpu_instr_history {

@@ -79,14 +79,14 @@ void cpu6502_Init() {
 	RegisterInstructionTimers();
 }
 
-void resolveToP() {
+void cpu_6502::resolveToP() {
 	mainCPU.P = (mainCPU.P & (~ST_ZRO & ~ST_NEG & ~ST_CRY)) |
 		((mainCPU.zeroResult == 0) ? ST_ZRO : 0) |
 		(mainCPU.carryResult) |
 		(mainCPU.negativeResult & ST_NEG);
 }
 
-void resolveFromP() {
+void cpu_6502::resolveFromP() {
 	mainCPU.zeroResult = (~mainCPU.P & ST_ZRO);
 	mainCPU.negativeResult = (mainCPU.P & ST_NEG);
 	mainCPU.carryResult = (mainCPU.P & ST_CRY);
@@ -232,14 +232,14 @@ FORCE_INLINE void PLA() {
 }
 
 FORCE_INLINE void PHP() {
-	resolveToP();
+	mainCPU.resolveToP();
 	mainCPU.push(mainCPU.P | ST_UNUSED | ST_BRK);
 }
 
 // PLP (pop processor status ignoring bit 4)
 FORCE_INLINE void PLP() {
 	mainCPU.P = mainCPU.pop() & ~(ST_BRK);
-	resolveFromP();
+	mainCPU.resolveFromP();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -326,7 +326,7 @@ FORCE_INLINE void RTI() {
 	// TODO : Non- delayed IRQ response behavior?
 	mainCPU.P = mainCPU.pop() & ~(ST_BRK);
 	mainCPU.PC = mainCPU.pop() | (mainCPU.pop() << 8);
-	resolveFromP();
+	mainCPU.resolveFromP();
 }
 			
 FORCE_INLINE void RTS() {
@@ -721,7 +721,7 @@ unsigned int eff_address(unsigned int addr) { effAddr = addr; if (effAddr < 0x20
 FORCE_INLINE void cpu6502_PerformInstruction() {
 #if TRACE_DEBUG
 	cpu_instr_history hist;
-	resolveToP();
+	mainCPU.resolveToP();
 	memcpy(&hist.regs, &mainCPU, sizeof(cpu_6502));
 
 	effByte = 0;
@@ -907,7 +907,7 @@ void cpu6502_DeviceInterrupt(unsigned int vectorAddress, bool masked) {
 		// interrupts are enabled
 
 		// push PC and P (without BRK) onto stack
-		resolveToP();
+		mainCPU.resolveToP();
 		mainCPU.push(mainCPU.PC >> 8);
 		mainCPU.push(mainCPU.PC & 0xFF);
 		mainCPU.push((mainCPU.P & ~ST_BRK) | ST_UNUSED);
@@ -923,7 +923,7 @@ void cpu6502_DeviceInterrupt(unsigned int vectorAddress, bool masked) {
 
 void cpu6502_SoftwareInterrupt(unsigned int vectorAddress) {
 	// push PC and P (with BRK) onto stack
-	resolveToP();
+	mainCPU.resolveToP();
 	mainCPU.push(mainCPU.PC >> 8);
 	mainCPU.push(mainCPU.PC & 0xFF);
 	mainCPU.push(mainCPU.P | ST_BRK | ST_UNUSED);

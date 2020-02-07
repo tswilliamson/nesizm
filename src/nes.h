@@ -42,7 +42,7 @@ struct nes_cart {
 	int handle;						// current file handle
 
 	uint32 savHash;					// hash of battery backed RAM contents
-	char file[128];					// file name
+	char romFile[128];					// file name
 	char savFile[128];				// cached .sav file name for writing to .SAV on exit
 
 	int mapper;						// mapper ID used with ROM
@@ -77,6 +77,9 @@ struct nes_cart {
 
 	// called when continuing emulator from the menu (forces a rebuild of ROM file blocks)
 	void OnContinue();
+
+	// loads the default save state for this cart (filename replaces .nes with .fcs)
+	bool LoadState();
 
 	// direct memory block support (direct memcpy from ROM, prevents OS call to read game data as needed)
 	unsigned char* blocks[1024];	
@@ -140,6 +143,8 @@ struct nes_cart {
 	void setupMapper11_ColorDreams();
 
 	void setupMapper71_Camerica();
+
+	void readState_WRAM(uint8* data);
 };
 
 struct nes_nametable {
