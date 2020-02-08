@@ -31,7 +31,7 @@ int main(void) {
 
 	ScopeTimer::InitSystem();
 
-	nes_settings.SetDefaults();
+	nesSettings.SetDefaults();
 
 	// allocate nes_carts on stack
 	unsigned char stackBanks[STATIC_CACHED_ROM_BANKS * 8192] ALIGN(256);

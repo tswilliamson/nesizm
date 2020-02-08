@@ -23,4 +23,4 @@ struct EmulatorSettings {
 	void Save();
 };
 
-extern EmulatorSettings nes_settings;
+extern EmulatorSettings nesSettings;

@@ -131,9 +131,6 @@ static bool ROMFile_Selected(MenuOption* forOption, int key) {
 
 			mainCPU.reset();
 
-			// attempt to load latest save state
-			nesCart.LoadState();
-
 			nesFrontend.gotoGame = true;
 		} else {
 			// printf has errors

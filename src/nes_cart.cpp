@@ -206,6 +206,14 @@ void nes_cart::readState_WRAM(uint8* data) {
 	}
 }
 
+uint8* nes_cart::GetWRAM() {
+	if (numRAMBanks >= 1) {
+		return &banks[availableROMBanks][0];
+	} else {
+		return nullptr;
+	}
+}
+
 void nes_cart::unload() {
 	if (handle) {
 		Bfile_CloseFile_OS(handle);

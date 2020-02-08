@@ -28,7 +28,7 @@ bool isDown[22];
 
 void input_cacheKeys() {
 	for (int buttonNo = 0; buttonNo < 22; buttonNo++) {
-		isDown[buttonNo] = keyDown_fast(nes_settings.keyMap[buttonNo]);
+		isDown[buttonNo] = keyDown_fast(nesSettings.keyMap[buttonNo]);
 	}
 }
 

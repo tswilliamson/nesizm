@@ -33,19 +33,34 @@ enum SectionTypes {
 	ST_EXTRA = 16
 };
 
+enum SaveStateError {
+	SSE_NoError,
+	SSE_BadData,
+	SSE_Compressed
+};
+
 #define HandleSubsection(SectionName, SubsectionName, ExpectedSize) \
 	if (strcmp(name, #SubsectionName) == 0) { \
-		if (size != ExpectedSize) { OutputLog("      Bad Size!");  hasError = true; return false; } \
+		if (size != ExpectedSize) { OutputLog("      Bad Size!");  hasError = SSE_BadData; return false; } \
 		Read_##SectionName##_##SubsectionName(data, size); return true; \
 	}
 
 struct FCEUX_File {
 	int32 fileID;
-	bool hasError;
+	SaveStateError hasError;
 	int32 Size;
 	int32 Version;
+	int32 WritingToSection;
+	int32 SectionSizes[32];
 
-	FCEUX_File(int withFileID) : fileID(withFileID), hasError(false) {}
+	FCEUX_File(int withFileID) : fileID(withFileID), hasError(SSE_NoError) {
+		memset(SectionSizes, 0, sizeof(SectionSizes));
+	}
+
+	// file size is Size value + header size
+	int32 GetFileSize() {
+		return Size + sizeof(FCEUX_Header);
+	}
 
 	bool ReadHeader() {
 		DebugAssert(sizeof(FCEUX_Header) == 16);
@@ -59,6 +74,13 @@ struct FCEUX_File {
 		Size = header.Size;
 		Version = header.NewVersion;
 		OutputLog("FCEUX savestate: Version %d, Size %u\n", Version, Size);
+
+		if (header.CompressedSize && header.CompressedSize != -1) {
+			OutputLog("Compressed Savestate, not supported\n");
+			hasError = SSE_Compressed;
+			return false;
+		}
+
 		return true;
 	}
 
@@ -242,19 +264,118 @@ struct FCEUX_File {
 	inline void Read_ST_EXTRA_WRAM(uint8* data, uint32 size) {
 		nesCart.readState_WRAM(data);
 	}
+
+	// write state support
+	void StartWrite() {
+		Size = 0;
+		Version = 22000;  // we are testing against FCEUX v 2.2
+	}
+
+	bool WriteState() {
+		WriteHeader();
+
+		// ST_CPU
+		WriteSection(ST_CPU);
+		WriteChunk("PC", 2, mainCPU.PC & 0xFF, mainCPU.PC >> 8);
+		WriteChunk("A", 1, mainCPU.A);
+		WriteChunk("P", 1, mainCPU.P);
+		WriteChunk("X", 1, mainCPU.X);
+		WriteChunk("Y", 1, mainCPU.Y);
+		WriteChunk("S", 1, mainCPU.SP);
+		WriteChunk_Data("RAM", 0x800, &mainCPU.RAM[0]);
+
+		// ST_PPU
+		WriteSection(ST_PPU);
+		WriteChunk_Data("NTAR", 0x800, nesPPU.nameTables);
+		WriteChunk_Data("PRAM", 32, nesPPU.palette);
+		WriteChunk_Data("SPRA", 0x100, nesPPU.oam);
+		WriteChunk("PPUR", 4, nesPPU.PPUCTRL, nesPPU.PPUMASK, nesPPU.PPUSTATUS, nesPPU.OAMADDR);
+		WriteChunk("XOFF", 1, nesPPU.SCROLLX);
+		WriteChunk("VTGL", 1, nesPPU.writeToggle);
+		WriteChunk("RADD", 2, nesPPU.ADDRLO, nesPPU.ADDRHI);
+		WriteChunk("TADD", 2, 0, 0);
+		WriteChunk("VBUF", 1, nesPPU.memoryMap[7]);
+		WriteChunk("PGEN", 1, nesPPU.memoryMap[0]);
+
+		// ST_EXTRA
+		if (nesCart.numRAMBanks) {
+			WriteSection(ST_EXTRA);
+			WriteChunk_Data("WRAM", 0x2000, nesCart.GetWRAM());
+		}
+
+		return true;
+	}
+
+	void WriteHeader() {
+		if (fileID) {
+			FCEUX_Header toWrite;
+			toWrite.FCS[0] = 'F';
+			toWrite.FCS[1] = 'C';
+			toWrite.FCS[2] = 'S';
+			toWrite.OldVersion = 'X';
+			toWrite.Size = Size;
+			toWrite.NewVersion = Version;
+			toWrite.CompressedSize = -1;
+			EndianSwap_Little(toWrite.Size);
+			EndianSwap_Little(toWrite.NewVersion);
+			EndianSwap_Little(toWrite.CompressedSize);
+			Bfile_WriteFile_OS(fileID, &toWrite, sizeof(toWrite));
+		}
+	}
+
+	void WriteSection(SectionTypes section) {
+		DebugAssert(section < 32);
+		WritingToSection = (int)section;
+
+		if (fileID) {
+			FCEUX_SectionHeader toWrite;
+			toWrite.sectionType = (uint8)section;
+			toWrite.sectionSize = SectionSizes[toWrite.sectionType];
+			EndianSwap_Little(toWrite.sectionSize);
+			Bfile_WriteFile_OS(fileID, &toWrite, sizeof(toWrite));
+		} else {
+			Size += sizeof(FCEUX_SectionHeader);
+			SectionSizes[WritingToSection] = 0; // online docs say this includes the section size but it doesn't appear to
+		}
+	}
+
+	void WriteChunk_Data(const char* name, uint32 size, void* dataArray) {
+		if (fileID) {
+			FCEUX_ChunkHeader toWrite;
+			memset(&toWrite.chunkName, 0, sizeof(toWrite.chunkName));
+			strcpy(toWrite.chunkName, name);
+			toWrite.chunkSize = size;
+			EndianSwap_Little(toWrite.chunkSize);
+			Bfile_WriteFile_OS(fileID, &toWrite, sizeof(toWrite));
+			Bfile_WriteFile_OS(fileID, dataArray, size);
+		} else {
+			Size += sizeof(FCEUX_ChunkHeader) + size;
+			SectionSizes[WritingToSection] += sizeof(FCEUX_ChunkHeader) + size;
+		}
+	}
+
+	void WriteChunk(const char* name, uint32 size, uint8 data0, uint8 data1 = 0, uint8 data2 = 0, uint8 data3 = 0) {
+		uint8 dataArray[4] = { data0, data1, data2, data3 };
+		WriteChunk_Data(name, size, dataArray);
+	}
 };
 
-// loads the default save state for this cart (filename replaces .nes with .fcs)
-bool nes_cart::LoadState() {
+static void SetStateName(const char* romFile, uint16* intoName, int32 nameSize) {
 	char saveStateFile[256];
 	strcpy(saveStateFile, romFile);
 	*(strrchr(saveStateFile, '.') + 1) = 0;
 	strcat(saveStateFile, "fcs");
 
+	Bfile_StrToName_ncpy(intoName, saveStateFile, nameSize-1);
+}
+
+// loads the default save state for this cart (filename replaces .nes with .fcs)
+bool nes_cart::LoadState() {
+
 	int fileID;
 	{
 		uint16 saveStateName[256];
-		Bfile_StrToName_ncpy(saveStateName, saveStateFile, 255);
+		SetStateName(romFile, saveStateName, 256);
 		fileID = Bfile_OpenFile_OS(saveStateName, READ, 0);
 	}
 
@@ -273,4 +394,39 @@ bool nes_cart::LoadState() {
 	}
 
 	return fceuxFile.hasError;
+}
+
+bool nes_cart::SaveState() {
+	// if the file is set to 0, FCEUX_File will collect sizes instead
+	FCEUX_File fceuxFile(0);
+	fceuxFile.StartWrite();
+
+	if (!fceuxFile.WriteState())
+		return false;
+
+	int32 Size = fceuxFile.GetFileSize();
+
+	int fileID;
+	{
+		uint16 saveStateName[256];
+		SetStateName(romFile, saveStateName, 256);
+		int32 result = Bfile_CreateEntry_OS(saveStateName, CREATEMODE_FILE, (size_t*) &Size);
+		if (result != 0) {
+			return false;
+		}
+
+		fileID = Bfile_OpenFile_OS(saveStateName, WRITE, 0);
+		if (fileID < 0) {
+			return false;
+		}
+	}
+
+	// prepare data for actual writing
+	mainCPU.resolveToP();
+
+	fceuxFile.fileID = fileID;
+	if (!fceuxFile.WriteState())
+		return false;
+
+	return true;
 }

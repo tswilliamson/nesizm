@@ -4,6 +4,8 @@
 #include "platform.h"
 #include "debug.h"
 #include "nes.h"	
+#include "settings.h"
+
 #include "scope_timer/scope_timer.h"
 
 #if TRACE_DEBUG
@@ -477,6 +479,18 @@ void nes_ppu::step() {
 		if (keyDown_fast(69)) // F2
 		{
 			ScopeTimer::DisplayTimes();
+		}
+
+		if (keyDown_fast(nesSettings.keyMap[NES_SAVESTATE])) // F3 in simulator, 'S" on device
+		{
+			nesCart.SaveState();
+			nesCart.BuildFileBlocks();
+		}
+
+		if (keyDown_fast(nesSettings.keyMap[NES_LOADSTATE])) // F4 in simulator, 'L' on device
+		{
+			nesCart.LoadState();
+			nesCart.BuildFileBlocks();
 		}
 
 		input_cacheKeys();

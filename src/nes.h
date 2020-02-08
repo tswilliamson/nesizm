@@ -81,6 +81,9 @@ struct nes_cart {
 	// loads the default save state for this cart (filename replaces .nes with .fcs)
 	bool LoadState();
 
+	// writes the save state for this cart. Requires block addresses to be reset
+	bool SaveState();
+
 	// direct memory block support (direct memcpy from ROM, prevents OS call to read game data as needed)
 	unsigned char* blocks[1024];	
 	bool BuildFileBlocks();
@@ -145,6 +148,7 @@ struct nes_cart {
 	void setupMapper71_Camerica();
 
 	void readState_WRAM(uint8* data);
+	uint8* GetWRAM();
 };
 
 struct nes_nametable {

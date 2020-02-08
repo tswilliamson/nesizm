@@ -3,7 +3,7 @@
 
 #include "settings.h"
 
-EmulatorSettings nes_settings;
+EmulatorSettings nesSettings;
 
 void EmulatorSettings::SetDefaults() {
 	memset(&keyMap, 0, sizeof(keyMap));
