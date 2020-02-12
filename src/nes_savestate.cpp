@@ -75,7 +75,7 @@ struct FCEUX_File {
 		Version = header.NewVersion;
 		OutputLog("FCEUX savestate: Version %d, Size %u\n", Version, Size);
 
-		if (header.CompressedSize && header.CompressedSize != -1) {
+		if (header.CompressedSize && header.CompressedSize != 0xFFFFFFFF) {
 			OutputLog("Compressed Savestate, not supported\n");
 			hasError = SSE_Compressed;
 			return false;

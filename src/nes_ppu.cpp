@@ -372,12 +372,6 @@ void nes_ppu::step() {
 	// cpu time for next scanline
 	DebugAssert(scanline < 245);
 	mainCPU.ppuClocks += scanlineClocks[scanline];
-
-#if TARGET_PRIZM
-	#define FRAME_SKIP 1
-#else
-	#define FRAME_SKIP 0
-#endif
     
 	/*
 		262 scanlines, we render 9-232 (middle 224 screen lines)
@@ -386,7 +380,19 @@ void nes_ppu::step() {
 		to get sprite 0 timing right use a different ppuClocks value / update function
 	*/
 	if (scanline == 1) {
-		skipFrame = (frameCounter % (FRAME_SKIP + 1) != 0);
+		const int32 frameSkipValue = nesSettings.GetSetting(ST_FrameSkip);
+		switch (frameSkipValue) {
+			case 0: // auto
+				// TODO
+			case 1: // none
+				skipFrame = false;
+				break;
+			case 2:
+			case 3:
+			case 4:
+			case 5:
+				skipFrame = (frameCounter % frameSkipValue) != 0;
+		}
 
 		// clear vblank and sprite 0 flag
 		SetPPUSTATUS(PPUSTATUS & ~(PPUSTAT_NMI | PPUSTAT_SPRITE0));		

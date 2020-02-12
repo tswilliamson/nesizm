@@ -1,10 +1,11 @@
 
 #include "platform.h"
 #include "debug.h"
+#include "nes.h"
 
 #include "frontend.h"
 #include "imageDraw.h"
-#include "nes.h"
+#include "settings.h"
 
 /*
 Menu Layout
@@ -12,38 +13,7 @@ Menu Layout
 	If available: View FAQ - View the game.txt file loaded in parallel with this ROM
 	Load ROM - Load a new ROM file
 	Options - Change various emulator options
-		System
-			Autosave - Whether the game auto saves the state of the game when exiting with menu key
-				[On, Off]
-			Overclock - Whether to enable calculator overclocking for faster emulation (will drain battery faster!)
-				[On, Off]
-			Frame Skip - How many frames are skipped for each rendered frame
-				[Auto, 0, 1, 2, 3, 4]
-			Speed - What target speed to emulate at. Can be useful to make some games easier to play
-				[Unclamped, 100%, 90%, 80%, 50%]
-			Back - Return to Options
-		Controls
-			Remap Keys - Map the controller buttons to new keys
-			Two Players - Whether to enable two players (map keys again if enabled)
-				[On, Off]
-			Turbo Speed - What frequency turbo buttons should toggle (games can struggle with very fast speed)
-				[Disabled, 5 hz, 10 hz, 15 hz, 20 hz]
-			Back - Return to Options
-		Video
-			Palette - Select from a prebuilt color palette, or a
-				[FCEUX, Blargg, Custom]
-			Chop sides - Many emulators chop the left/right 8 most pixels, though these pixels were visible on most TVs
-				[On, Off]
-			Background - Select a background image when playing (see readme for custom background support)
-				[Game BG Color, Warp Field, Old TV, Black, Custom]
-			Back - Return to Options
-		Sound
-			Enable - Whether sounds are enabled or not
-				[On, Off]
-			Sample Rate - Select sample rate quality (High = slower speed)
-				[Low, High]
-			Back - Return to Options
-		Return to Main Menu
+		See Settings.cpp
 	About - Contact me on Twitter at @TSWilliamson or stalk me on the cemetech forums under the same username
 */
 
@@ -69,6 +39,8 @@ nes_frontend nesFrontend;
 bool isSelectKey(int key) {
 	return (key == KEY_CTRL_EXE) || (key == KEY_CTRL_SHIFT);
 }
+
+extern MenuOption optionTree[];
 
 static bool Continue_Selected(MenuOption* forOption, int key) {
 	if (isSelectKey(key)) {
@@ -190,6 +162,14 @@ static bool ViewFAQ_Selected(MenuOption* forOption, int key) {
 }
 
 static bool Options_Selected(MenuOption* forOption, int key) {
+	if (isSelectKey(key)) {
+		nesFrontend.currentOptions = optionTree;
+		nesFrontend.numOptions = 5;
+		nesFrontend.selectedOption = 0;
+		nesFrontend.selectOffset = 0;
+		return true;
+	}
+
 	return false;
 }
 
@@ -197,16 +177,98 @@ static bool About_Selected(MenuOption* forOption, int key) {
 	return false;
 }
 
+static bool OptionsBack(MenuOption* forOption, int key) {
+	if (isSelectKey(key)) {
+		free((void*)nesFrontend.currentOptions);
+		Options_Selected(nullptr, key);
+		return true;
+	}
+
+	return false;
+}
+
+static bool Option_Any(MenuOption* forOption, int key) {
+	if (isSelectKey(key)) {
+		nesSettings.IncSetting((SettingType)forOption->extraData);
+		return true;
+	}
+
+	return false;
+}
+
+static const char* Option_Detail(MenuOption* forOption) {
+	SettingType type = (SettingType) forOption->extraData;
+	return EmulatorSettings::GetSettingValueName(type, nesSettings.GetSetting(type));
+}
+
+static bool OptionMenu(MenuOption* forOption, int key) {
+	if (isSelectKey(key)) {
+		SettingGroup group = (SettingGroup)forOption->extraData;
+		int32 countOptions = 0;
+		for (int32 i = 0; i < MAX_SETTINGS; i++) {
+			if (EmulatorSettings::GetSettingGroup((SettingType)i) == group) {
+				countOptions++;
+			}
+		}
+
+		MenuOption* options = (MenuOption*)malloc(sizeof(MenuOption) * (countOptions + 1));
+		memset(options, 0, sizeof(MenuOption) * (countOptions + 1));
+
+		int32 curOption = 0;
+		for (int32 i = 0; i < MAX_SETTINGS; i++) {
+			if (EmulatorSettings::GetSettingGroup((SettingType)i) == group) {
+				options[curOption].name = EmulatorSettings::GetSettingName((SettingType)i);
+				options[curOption].OnKey = Option_Any;
+				options[curOption].GetDetail = Option_Detail;
+				options[curOption].extraData = i;
+				options[curOption].disabled = EmulatorSettings::GetSettingAvailable((SettingType)i) == false;
+				curOption++;
+			}
+		}
+		options[curOption].name = "Back";
+		options[curOption].OnKey = OptionsBack;
+		curOption++;
+
+		nesFrontend.currentOptions = options;
+		nesFrontend.numOptions = curOption;
+		nesFrontend.selectedOption = 0;
+		nesFrontend.selectOffset = 0;
+
+		return true;
+	}
+
+	return false;
+}
+
+static bool LeaveOptions(MenuOption* forOption, int key) {
+	if (isSelectKey(key)) {
+		nesSettings.Save();
+		nesFrontend.SetMainMenu();
+		return true;
+	}
+
+	return false;
+}
+
 MenuOption mainOptions[] =
 {
-	{"Continue", "Continue the current loaded game", false, Continue_Selected, nullptr, nullptr },
-	{"Load ROM", "Select a ROM to load from your Root folder", false, LoadROM_Selected, nullptr, nullptr },
-	{"View FAQ", "View .txt file of the same name as your ROM", true, ViewFAQ_Selected, nullptr, nullptr },
-	{"Options", "Select a ROM to load from your Root folder", false, Options_Selected, nullptr, nullptr },
-	{"About", "Where did this emulator come from?", false, About_Selected, nullptr, nullptr },
+	{"Continue", "Continue the current loaded game", false, Continue_Selected, nullptr, 0 },
+	{"Load ROM", "Select a ROM to load from your Root folder", false, LoadROM_Selected, nullptr, 0 },
+	{"View FAQ", "View .txt file of the same name as your ROM", true, ViewFAQ_Selected, nullptr, 0 },
+	{"Options", "Select a ROM to load from your Root folder", false, Options_Selected, nullptr, 0 },
+	{"About", "Where did this emulator come from?", false, About_Selected, nullptr, 0 },
 };
 
-void MenuOption::Draw(int x, int y, bool bSelected) const {
+MenuOption optionTree[] = 
+{
+	{ "System", "System clock and main options", false, OptionMenu, nullptr, (int) SG_System },
+	{ "Controls", "Controls options and keymappings", false, OptionMenu, nullptr, (int) SG_Controls },
+	{ "Display", "Misc video options", false, OptionMenu, nullptr, (int) SG_Video },
+	{ "Sound", "Sound options", true, OptionMenu, nullptr, (int) SG_Sound },
+	{ "Back", "Return to main menu", false, LeaveOptions, nullptr, 0 }
+};
+
+void MenuOption::Draw(int x, int y, bool bSelected) {
 	int color = bSelected ? COLOR_WHITE : COLOR_AQUAMARINE;
 	if (disabled) {
 		color = COLOR_GRAY;
@@ -216,6 +278,10 @@ void MenuOption::Draw(int x, int y, bool bSelected) const {
 	sprintf(buffer, "%s%s", bSelected ? "=> " : "   ", name);
 
 	CalcType_Draw(&commodore, buffer, x, y, color, 0, 0);
+
+	if (GetDetail && disabled == false) {
+		CalcType_Draw(&commodore, GetDetail(this), x + 150, y, color, 0, 0);
+	}
 }
 
 nes_frontend::nes_frontend() {
@@ -330,7 +396,8 @@ void nes_frontend::Run() {
 		int key = 0;
 		GetKey(&key);
 
-		if (currentOptions[selectedOption].OnKey((MenuOption*) &currentOptions[selectedOption], key) == false) {
+		if (currentOptions[selectedOption].disabled ||
+			currentOptions[selectedOption].OnKey((MenuOption*) &currentOptions[selectedOption], key) == false) {
 			int keyOffset = 0;
 
 			switch (key) {

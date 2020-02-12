@@ -14,14 +14,14 @@ struct MenuOption {
 	bool(*OnKey)(MenuOption*, int withKey);
 
 	// returns detail shown to the right of option, null if unused
-	const char*(*GetDetail)();
+	const char*(*GetDetail)(MenuOption*);
 
-	// extra draw function if wanted, null if unused
-	const char*(*DrawExtra)(int x, int y, bool selected);
+	// extra data (used for options type)
+	int32 extraData;
 
 protected:
 	// draw the menu option to VRAM at the given pixel location
-	void Draw(int x, int y, bool bSelected) const;
+	void Draw(int x, int y, bool bSelected);
 };
 
 class nes_frontend {
@@ -35,7 +35,7 @@ private:
 public:
 	nes_frontend();
 
-	const MenuOption* currentOptions;
+	MenuOption* currentOptions;
 	int numOptions;
 	int selectedOption;
 	int selectOffset;

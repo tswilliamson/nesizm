@@ -31,7 +31,7 @@ int main(void) {
 
 	ScopeTimer::InitSystem();
 
-	nesSettings.SetDefaults();
+	nesSettings.Load();
 
 	// allocate nes_carts on stack
 	unsigned char stackBanks[STATIC_CACHED_ROM_BANKS * 8192] ALIGN(256);
@@ -56,47 +56,7 @@ int main(void) {
 
 	nesFrontend.SetMainMenu();
 	nesFrontend.Run();
-	/*
-#if TARGET_WINSIM
-	char romFileSystem[512] = { 0 };
-	OPENFILENAME openStruct;
-	memset(&openStruct, 0, sizeof(OPENFILENAME));
-	openStruct.lStructSize = sizeof(OPENFILENAME);
-	openStruct.lpstrFilter = "NES ROMs\0*.nes\0";
-	openStruct.lpstrFile = romFileSystem;
-	openStruct.nMaxFile = 512;
-	openStruct.lpstrInitialDir = "%USERPROFILE%\\Documents\\Prizm\\ROM";
-	openStruct.Flags = OFN_EXPLORER | OFN_DONTADDTORECENT | OFN_FILEMUSTEXIST;
 
-	if (!GetOpenFileName(&openStruct)) {
-		return -1;
-	}
-
-	char* ROMdir = strstr(romFileSystem, "ROM\\");
-	char romFile[512];
-	strcpy(romFile, "\\\\fls0\\");
-	strcat(romFile, ROMdir + 4);
-#else
-	const char* romFile = "\\\\fls0\\SMB3.nes";
-#endif
-
-	if (nesCart.loadROM(romFile)) {
-		Bdisp_PutDisp_DD();
-
-		mainCPU.reset();
-
-		while (!shouldExit) {
-			cpu6502_Step();
-			if (mainCPU.clocks >= mainCPU.ppuClocks) nesPPU.step();
-			if (mainCPU.irqClocks && mainCPU.clocks >= mainCPU.irqClocks) cpu6502_IRQ();
-		}
-
-		nesCart.unload();
-	} else {
-		int key = 0; 
-		GetKey(&key);
-	}
-	*/
 	//Ptune2_LoadSetting(PT2_DEFAULT);
 
 	ScopeTimer::Shutdown();
