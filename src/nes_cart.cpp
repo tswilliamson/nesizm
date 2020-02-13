@@ -251,9 +251,17 @@ void nes_cart::OnPause() {
 			}
 		}
 	}
+
+	// close rom handle for now (will re open on continue)
+	Bfile_CloseFile_OS(handle);
+	handle = 0;
 }
 
 void nes_cart::OnContinue() {
+	DebugAssert(handle == 0 && romFile[0]);
+	unsigned short filename[128];
+	Bfile_StrToName_ncpy(filename, romFile, 127);
+	handle = Bfile_OpenFile_OS(filename, READ, 0);
 	BuildFileBlocks();
 }
 

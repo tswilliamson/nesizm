@@ -87,9 +87,9 @@ foundFile* discoverFiles(int& numFound) {
 
 static bool ROMFile_Selected(MenuOption* forOption, int key) {
 	if (isSelectKey(key)) {
-		// unload existing game if there is one:
-		if (nesCart.handle) {
-			nesCart.unload();
+		// unload existing game file if there is one:
+		if (nesCart.romFile) {
+			nesCart.romFile[0] = 0;
 		}
 
 		// set up rom file, tell nes to go to game
@@ -374,7 +374,7 @@ void nes_frontend::Render() {
 void nes_frontend::SetMainMenu() {
 	currentOptions = mainOptions;
 	numOptions = 5;
-	if (nesCart.handle == 0) {
+	if (nesCart.romFile[0] == 0) {
 		// no ROM loaded
 		mainOptions[0].disabled = true;
 		selectedOption = 1;

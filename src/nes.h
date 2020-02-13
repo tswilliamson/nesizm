@@ -42,7 +42,7 @@ struct nes_cart {
 	int handle;						// current file handle
 
 	uint32 savHash;					// hash of battery backed RAM contents
-	char romFile[128];					// file name
+	char romFile[128];				// file name, if this is set, then the cart is setup to run 
 	char savFile[128];				// cached .sav file name for writing to .SAV on exit
 
 	int mapper;						// mapper ID used with ROM
