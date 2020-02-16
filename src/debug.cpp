@@ -37,10 +37,6 @@ void failedAssert(const char* assertion) {
 #endif
 }
 
-void LogRegisters(void) {
-	// TODO
-}
-
 #if DEBUG_TRACKINSTRUCTIONS
 int instr_slot = 0;
 InstructionsHistory instr_hist[DEBUG_TRACKINSTRUCTIONS] = { 0 };
@@ -91,9 +87,6 @@ void HitMemAccess() {
 	OutputLog("\n");
 	*/
 
-	// display register values:
-	LogRegisters();
-
 	// display recent instructions:
 	LogInstructionsHistory();
 
@@ -103,12 +96,8 @@ void HitMemAccess() {
 
 #if DEBUG_BREAKPOINT
 void HitBreakpoint() {
-	// TODO 
 	OutputLog("Hit Breakpoint! 0x%04x\n", debugBreakpoint);
 	OutputLog(BORDER);
-
-	// display register values:
-	LogRegisters();
 
 	// display recent instructions:
 	LogInstructionsHistory();
