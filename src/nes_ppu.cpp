@@ -976,7 +976,7 @@ void nes_ppu::renderScanline_HorzMirror(nes_ppu& ppu) {
 					RenderToScanline(patternTable, chr, palette, x);
 
 					if (chr >= 0xFD0 && nesCart.renderLatch) {
-						nesCart.renderLatch(chr + chrOffset + 8);
+						nesCart.renderLatch(chr + chrOffset + 8 + ((ppu.PPUCTRL & PPUCTRL_BGDTABLE) << 8));
 						patternTable = ppu.chrPages[(ppu.PPUCTRL & PPUCTRL_BGDTABLE) >> 4] + chrOffset;
 					}
 				}
@@ -1079,7 +1079,7 @@ static void renderScanline_VertMirror_Latched(nes_ppu& ppu) {
 
 				if (hasLatch) {
 					if (chr == 0xFD0 || chr == 0xFE0) {
-						nesCart.renderLatch(chr + chrOffset + 8);
+						nesCart.renderLatch(chr + chrOffset + 8 + ((ppu.PPUCTRL & PPUCTRL_BGDTABLE) << 8));
 						hadLatch = true;
 					}
 				}
@@ -1109,7 +1109,7 @@ static void renderScanline_VertMirror_Latched(nes_ppu& ppu) {
 
 				if (hasLatch) {
 					if (chr == 0xFD0 || chr == 0xFE0) {
-						nesCart.renderLatch(chr + chrOffset + 8);
+						nesCart.renderLatch(chr + chrOffset + 8 + ((ppu.PPUCTRL & PPUCTRL_BGDTABLE) << 8));
 						hadLatch = true;
 					}
 				}
@@ -1128,7 +1128,7 @@ static void renderScanline_VertMirror_Latched(nes_ppu& ppu) {
 				int chr = nameTable[curTileX] << 4;
 
 				if (chr == 0xFD0 || chr == 0xFE0) {
-					nesCart.renderLatch(chr + chrOffset + 8);
+					nesCart.renderLatch(chr + chrOffset + 8 + ((ppu.PPUCTRL & PPUCTRL_BGDTABLE) << 8));
 				}
 			}
 		}
