@@ -705,7 +705,7 @@ void static renderOAM(nes_ppu& ppu) {
 					// determine tile index
 					unsigned char* tile;
 					if (sprite16) {
-						tile = patternTable + ((curObj[1] & 1) << 12) + ((curObj[1] & 0xFE) << 4) + ((yCoord & 8) << 1) + (yCoord & 7);
+						tile = ppu.chrPages[curObj[1] & 1] + ((curObj[1] & 0xFE) << 4) + ((yCoord & 8) << 1) + (yCoord & 7);
 					} else {
 						tile = patternTable + (curObj[1] << 4) + yCoord;
 					}
