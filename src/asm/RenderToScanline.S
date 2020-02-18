@@ -13,7 +13,7 @@
     .global _RenderToScanline
     .text; .align 4
 _RenderToScanline:
-	// bitshift palette into 8 bit copies of itself and assign into r4
+	// bitshift palette into 8 bit copies of itself and assign back into r6
 	shll r6;		// palette <<= 1
 	mov r6,r0		// r0 = palette
 	shll8 r0		// r0 = palette << 8

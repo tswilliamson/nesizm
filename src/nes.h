@@ -241,8 +241,8 @@ struct nes_ppu {
 	// up to four name tables potentially (most games use 2)
 	nes_nametable* nameTables;
 
-	// all 8 kb mapped for character memory at once (0x0000 - 0x2000)
-	unsigned char* chrMap;
+	// character memory split into 4 kb pages (0x0000 and 0x1000)
+	unsigned char* chrPages[2];
 
 	// current scanline (0 = prerender line, 1 = first real scanline)
 	unsigned int scanline;
@@ -283,7 +283,7 @@ struct nes_ppu {
 		address &= 0x3FFF;
 		if (address < 0x2000) {
 			// pattern table memory
-			return &chrMap[address];
+			return &chrPages[address >> 12][address & 0x0FFF];
 		} else if (address < 0x3F00 || mirrorBehindPalette) {
 			// name table memory
 			switch (mirror) {

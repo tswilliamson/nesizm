@@ -406,7 +406,7 @@ void nes_cart::clearCacheData() {
 bool nes_cart::isBankUsed(int index) {
 	unsigned char* ptr = banks[index];
 
-	if (ptr == nesPPU.chrMap)
+	if (ptr == nesPPU.chrPages[0] || ptr == nesPPU.chrPages[1] || ptr + 0x1000 == nesPPU.chrPages[0] || ptr + 0x1000 == nesPPU.chrPages[1])
 		return true;
 
 	for (int i = 0; i < 8; i++) {
@@ -498,8 +498,12 @@ inline void mapCPU(unsigned int startAddrHigh, unsigned int numKB, unsigned char
 
 inline void mapPPU(unsigned int startAddrHigh, unsigned int numKB, unsigned char* ptr) {
 	// just copy to CHR ROM
-	DebugAssert(startAddrHigh * 0x100 + numKB * 1024 <= 0x2000);	
-	memcpy_fast32(nesPPU.chrMap + startAddrHigh * 0x100, ptr, numKB * 1024);
+	DebugAssert(startAddrHigh * 0x100 + numKB * 1024 <= 0x2000);
+	DebugAssert(numKB <= 4);
+
+	int page = (startAddrHigh & 0x10) >> 4;
+	startAddrHigh &= 0x0F;
+	memcpy_fast32(nesPPU.chrPages[page] + startAddrHigh * 0x100, ptr, numKB * 1024);
 }
 
 
@@ -527,9 +531,11 @@ void nes_cart::MapCharacterBanks(int32 toBank, int32 cartBank, int32 numBanks, b
 			chrBanks[i] = cartBank + i;
 		}
 		if (bDirectMap) {
-			nesPPU.chrMap = bankData;
+			nesPPU.chrPages[0] = bankData;
+			nesPPU.chrPages[1] = bankData + 0x1000;
 		} else {
-			mapPPU(0x00, 8, bankData);
+			mapPPU(0x00, 4, bankData);
+			mapPPU(0x10, 4, bankData + 0x1000);
 		}
 		return;
 	}
@@ -795,7 +801,8 @@ void nes_cart::setupMapper1_MMC1() {
 	cachedBankCount = availableROMBanks - 1;
 
 	// chr map uses best bank for chr caching locality:
-	nesPPU.chrMap = banks[cachedBankCount];
+	nesPPU.chrPages[0] = banks[cachedBankCount];
+	nesPPU.chrPages[1] = banks[cachedBankCount] + 0x1000;
 
 	// RAM bank (first index if applicable) set up at 0x6000
 	if (numRAMBanks) {
@@ -842,7 +849,8 @@ void nes_cart::setupMapper2_UNROM() {
 	int chrBank = cachedBankCount;
 
 	// read CHR bank (always one ROM.. or RAM?) directly into PPU chrMap
-	nesPPU.chrMap = banks[chrBank];
+	nesPPU.chrPages[0] = banks[chrBank];
+	nesPPU.chrPages[1] = banks[chrBank] + 0x1000;
 	if (numCHRBanks == 1) {
 		MapCharacterBanks(0, 0, 8, false);
 	}
@@ -922,8 +930,7 @@ void nes_cart::setupMapper3_CNROM() {
 // registers 16-19 contain an integer of the last time the IRQ counter was reset, used to fix IRQ timing since we are cheating by performing logic at beginning ot scanline
 #define MMC3_IRQ_LASTSET *((unsigned int*) &nesCart.registers[16])
 
-#define MMC3_CHRBANK0 (nesCart.availableROMBanks - 2)
-#define MMC3_CHRBANK1 (nesCart.availableROMBanks - 1)
+#define MMC3_CHRBANK (nesCart.availableROMBanks - 1)
 
 void MMC3_writeSpecial(unsigned int address, unsigned char value) {
 	if (address >= 0x6000) {
@@ -947,8 +954,14 @@ void MMC3_writeSpecial(unsigned int address, unsigned char value) {
 							nesCart.MMC3_UpdateMapping(-1);
 						}
 						if (upperBits & 0x80) {
-							// CHR mode change, fast A12 switch
-							nesPPU.chrMap = (MMC3_BANK_SELECT & 0x80) ? nesCart.banks[MMC3_CHRBANK1] : nesCart.banks[MMC3_CHRBANK0];
+							// CHR mode change, fast A12 switch w/ paging swap
+							if (MMC3_BANK_SELECT & 0x80) {
+								nesPPU.chrPages[0] = nesCart.banks[MMC3_CHRBANK] + 0x1000;
+								nesPPU.chrPages[1] = nesCart.banks[MMC3_CHRBANK];
+							} else {
+								nesPPU.chrPages[0] = nesCart.banks[MMC3_CHRBANK];
+								nesPPU.chrPages[1] = nesCart.banks[MMC3_CHRBANK] + 0x1000;
+							}
 						}
 					}
 				}
@@ -1011,48 +1024,42 @@ void nes_cart::MMC3_UpdateMapping(int regNumber) {
 		{
 			// 2 KB bank at $00 and $10
 			unsigned char* chrData = cacheCHRBank(registers[0] >> 3) + (registers[0] & 0x6) * 1024;
-			memcpy_fast32(banks[MMC3_CHRBANK0] + 0x0000, chrData, 2048);
-			memcpy_fast32(banks[MMC3_CHRBANK1] + 0x1000, chrData, 2048);
+			memcpy_fast32(banks[MMC3_CHRBANK] + 0x0000, chrData, 2048);
 			break;
 		}
 		case 1:
 		{
 			// 2 KB bank at $08 and $18
 			unsigned char* chrData = cacheCHRBank(registers[1] >> 3) + (registers[1] & 0x6) * 1024;
-			memcpy_fast32(banks[MMC3_CHRBANK0] + 0x0800, chrData, 2048);
-			memcpy_fast32(banks[MMC3_CHRBANK1] + 0x1800, chrData, 2048);
+			memcpy_fast32(banks[MMC3_CHRBANK] + 0x0800, chrData, 2048);
 			break;
 		}
 		case 2:
 		{
 			// 1 KB bank at $10 and $00
 			unsigned char* chrData = cacheCHRBank(registers[2] >> 3) + (registers[2] & 0x7) * 1024;
-			memcpy(banks[MMC3_CHRBANK0] + 0x1000, chrData, 1024);
-			memcpy(banks[MMC3_CHRBANK1] + 0x0000, chrData, 1024);
+			memcpy_fast32(banks[MMC3_CHRBANK] + 0x1000, chrData, 1024);
 			break;
 		}
 		case 3:
 		{
 			// 1 KB bank at $14 and $04
 			unsigned char* chrData = cacheCHRBank(registers[3] >> 3) + (registers[3] & 0x7) * 1024;
-			memcpy_fast32(banks[MMC3_CHRBANK0] + 0x1400, chrData, 1024);
-			memcpy_fast32(banks[MMC3_CHRBANK1] + 0x0400, chrData, 1024);
+			memcpy_fast32(banks[MMC3_CHRBANK] + 0x1400, chrData, 1024);
 			break;
 		}
 		case 4:
 		{
 			// 1 KB bank at $18 and $08
 			unsigned char* chrData = cacheCHRBank(registers[4] >> 3) + (registers[4] & 0x7) * 1024;
-			memcpy_fast32(banks[MMC3_CHRBANK0] + 0x1800, chrData, 1024);
-			memcpy_fast32(banks[MMC3_CHRBANK1] + 0x0800, chrData, 1024);
+			memcpy_fast32(banks[MMC3_CHRBANK] + 0x1800, chrData, 1024);
 			break;
 		}
 		case 5:
 		{
 			// 1 KB bank at $1C and $0C
 			unsigned char* chrData = cacheCHRBank(registers[5] >> 3) + (registers[5] & 0x7) * 1024;
-			memcpy_fast32(banks[MMC3_CHRBANK0] + 0x1C00, chrData, 1024);
-			memcpy_fast32(banks[MMC3_CHRBANK1] + 0x0C00, chrData, 1024);
+			memcpy_fast32(banks[MMC3_CHRBANK] + 0x1C00, chrData, 1024);
 			break;
 		}
 		case 6:
@@ -1181,13 +1188,14 @@ void nes_cart::setupMapper4_MMC3() {
 	writeSpecial = MMC3_writeSpecial;
 	scanlineClock = MMC3_ScanlineClock;
 
-	// 2 banks for chr memory to allow fast A12 CHR inversion
-	cachedBankCount = MMC3_CHRBANK0;
+	cachedBankCount = MMC3_CHRBANK;
 
-	nesPPU.chrMap = banks[MMC3_CHRBANK0];
+	// start with banks in normal order
+	nesPPU.chrPages[0] = banks[MMC3_CHRBANK];
+	nesPPU.chrPages[1] = banks[MMC3_CHRBANK] + 0x1000;
 
 	// map first 8 KB of CHR memory to ppu chr if not ram
-	mapPPU(0x00, 8, cacheCHRBank(0));
+	MapCharacterBanks(0, 0, 8, false);
 
 	// set fixed page up
 	MapProgramBanks(3, numPRGBanks * 2 - 1, 1);
@@ -1246,7 +1254,8 @@ void nes_cart::setupMapper7_AOROM() {
 	int chrBank = cachedBankCount;
 
 	// read CHR bank (always one ROM.. or RAM?) directly into PPU chrMap
-	nesPPU.chrMap = banks[chrBank];
+	nesPPU.chrPages[0] = banks[chrBank];
+	nesPPU.chrPages[1] = banks[chrBank] + 0x1000;
 	if (numCHRBanks == 1) {
 		MapCharacterBanks(0, 0, 8, false);
 	}
@@ -1287,7 +1296,8 @@ void nes_cart::setupMapper7_AOROM() {
 #define MMC2_CHRBANK3 (nesCart.availableROMBanks-1)
 
 inline void MMC2_selectCHRMap() {
-	nesPPU.chrMap = nesCart.banks[MMC2_CHRBANK0 + nesCart.registers[0] + nesCart.registers[1] * 2];
+	nesPPU.chrPages[0] = nesCart.banks[MMC2_CHRBANK0 + nesCart.registers[0] + nesCart.registers[1] * 2];
+	nesPPU.chrPages[1] = nesCart.banks[MMC2_CHRBANK0 + nesCart.registers[0] + nesCart.registers[1] * 2] + 0x1000;
 }
 
 void MMC2_renderLatch(unsigned int address) {
@@ -1404,7 +1414,8 @@ void nes_cart::setupMapper9_MMC2() {
 	memcpy_fast32(banks[MMC2_CHRBANK1], chrBank, 1024 * 8);
 	memcpy_fast32(banks[MMC2_CHRBANK2], chrBank, 1024 * 8);
 	memcpy_fast32(banks[MMC2_CHRBANK3], chrBank, 1024 * 8);
-	nesPPU.chrMap = banks[availableROMBanks-1];
+	nesPPU.chrPages[0] = banks[availableROMBanks - 1];
+	nesPPU.chrPages[1] = banks[availableROMBanks - 1] + 0x1000;
 
 	// RAM bank if one is set up
 	if (numRAMBanks == 1) {
@@ -1476,7 +1487,8 @@ void nes_cart::setupMapper71_Camerica() {
 	int chrBank = cachedBankCount;
 
 	// read CHR bank (always one RAM) directly into PPU chrMap
-	nesPPU.chrMap = banks[chrBank];
+	nesPPU.chrPages[0] = banks[chrBank];
+	nesPPU.chrPages[1] = banks[chrBank] + 0x1000;
 	if (numCHRBanks == 1) {
 		MapCharacterBanks(0, 0, 8, false);
 	}

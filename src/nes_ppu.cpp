@@ -300,7 +300,7 @@ void nes_ppu::fastSprite0() {
 
 	if (oam[2] & OAMATTR_VFLIP) yCoord0 = spriteSize - yCoord0;
 
-	unsigned char* patternTable = chrMap + ((spriteSize == 8 && (PPUCTRL & PPUCTRL_OAMTABLE)) ? 0x1000 : 0x0000);
+	unsigned char* patternTable = chrPages[((spriteSize == 8 && (PPUCTRL & PPUCTRL_OAMTABLE)) ? 1 : 0)];
 
 	// determine tile index
 	unsigned char* tile;
@@ -681,8 +681,8 @@ void static renderOAM(nes_ppu& ppu) {
 		// render objects to separate buffer
 		int numSprites = 0;
 		unsigned char* curObj = &ppu.oam[252];
-		unsigned int patternOffset = ((!sprite16 && (ppu.PPUCTRL & PPUCTRL_OAMTABLE)) ? 0x1000 : 0x0000);
-		unsigned char* patternTable = ppu.chrMap + patternOffset;
+		unsigned int patternOffset = ((!sprite16 && (ppu.PPUCTRL & PPUCTRL_OAMTABLE)) ? 1 : 0);
+		unsigned char* patternTable = ppu.chrPages[patternOffset];
 		static uint8 spriteMask[33] = { 0 };
 		int minSpriteMask = 32;
 		int maxSpriteMask = 0;
@@ -840,8 +840,8 @@ void nes_ppu::renderScanline_SingleMirror(nes_ppu& ppu) {
 		// determine base addresses
 		unsigned char* nameTable;
 		unsigned char* attr;
-		unsigned int chrOffset = ((ppu.PPUCTRL & PPUCTRL_BGDTABLE) << 8) + (line & 7);
-		unsigned char* patternTable = ppu.chrMap + chrOffset;
+		unsigned int chrOffset = (line & 7);
+		unsigned char* patternTable = ppu.chrPages[(ppu.PPUCTRL & PPUCTRL_BGDTABLE) >> 4] + chrOffset;
 
 		if (tileLine >= 30) {
 			tileLine -= 30;
@@ -922,8 +922,8 @@ void nes_ppu::renderScanline_HorzMirror(nes_ppu& ppu) {
 		// determine base addresses
 		unsigned char* nameTable;
 		unsigned char* attr;
-		unsigned int chrOffset = ((ppu.PPUCTRL & PPUCTRL_BGDTABLE) << 8) + (line & 7);
-		unsigned char* patternTable = ppu.chrMap + chrOffset;
+		unsigned int chrOffset = (line & 7);
+		unsigned char* patternTable = ppu.chrPages[(ppu.PPUCTRL & PPUCTRL_BGDTABLE) >> 4] + chrOffset;
 
 		if (ppu.flipY) {
 			tileLine += 30;
@@ -977,7 +977,7 @@ void nes_ppu::renderScanline_HorzMirror(nes_ppu& ppu) {
 
 					if (chr >= 0xFD0 && nesCart.renderLatch) {
 						nesCart.renderLatch(chr + chrOffset + 8);
-						patternTable = ppu.chrMap + chrOffset;
+						patternTable = ppu.chrPages[(ppu.PPUCTRL & PPUCTRL_BGDTABLE) >> 4] + chrOffset;
 					}
 				}
 			}
@@ -1053,8 +1053,8 @@ static void renderScanline_VertMirror_Latched(nes_ppu& ppu) {
 		unsigned char* nameTable;
 		unsigned char* attr;
 		int attrShift = (tileLine & 2) << 1;	// 4 bit shift for bottom row of attribute
-		unsigned int chrOffset = ((ppu.PPUCTRL & PPUCTRL_BGDTABLE) << 8) + (line & 7);
-		unsigned char* patternTable = ppu.chrMap + chrOffset;
+		unsigned int chrOffset = (line & 7);
+		unsigned char* patternTable = ppu.chrPages[(ppu.PPUCTRL & PPUCTRL_BGDTABLE) >> 4] + chrOffset;
 
 		if (ppu.PPUCTRL & PPUCTRL_FLIPXTBL) scrollX += 256;
 
@@ -1087,7 +1087,7 @@ static void renderScanline_VertMirror_Latched(nes_ppu& ppu) {
 				RenderToScanline(patternTable, chr, palette, x);
 
 				if (hasLatch && hadLatch) {
-					patternTable = ppu.chrMap + chrOffset;
+					patternTable = ppu.chrPages[(ppu.PPUCTRL & PPUCTRL_BGDTABLE) >> 4] + chrOffset;
 				}
 			}
 		}
@@ -1117,7 +1117,7 @@ static void renderScanline_VertMirror_Latched(nes_ppu& ppu) {
 				RenderToScanline(patternTable, chr, palette, x);
 
 				if (hasLatch && hadLatch) {
-					patternTable = ppu.chrMap + chrOffset;
+					patternTable = ppu.chrPages[(ppu.PPUCTRL & PPUCTRL_BGDTABLE) >> 4] + chrOffset;
 				}
 			}
 		}
