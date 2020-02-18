@@ -9,6 +9,50 @@ nes_cart nesCart;
 
 nes_nametable nes_onboardPPUTables[4];
 
+FORCE_INLINE void memcpy_fast32(void* dest, const void* src, unsigned int size) {
+#if TARGET_WINSIM
+	DebugAssert((((uint32)dest) & 3) == 0);
+	DebugAssert((((uint32)src) & 3) == 0);
+	DebugAssert((((uint32)size) & 31) == 0);
+	memcpy(dest, src, size);
+#elif TARGET_PRIZM
+	asm(
+		// line 1
+		"mov %[dest],r1							\n\t"
+		"add %[size],r1							\n\t"  // r1 = size + dest ( loop point end)
+		"mov.l @%[src]+,r0						\n\t"
+		"1:\n"	// local label
+		"mov.l r0,@(0,%[dest])					\n\t" // copy 32 bytes accting for branch delay
+		"mov.l @%[src]+,r0						\n\t"
+		"mov.l r0,@(4,%[dest])					\n\t" 
+		"mov.l @%[src]+,r0						\n\t"
+		"mov.l r0,@(8,%[dest])					\n\t" 
+		"mov.l @%[src]+,r0						\n\t"
+		"mov.l r0,@(12,%[dest])					\n\t" 
+		"mov.l @%[src]+,r0						\n\t"
+		"mov.l r0,@(16,%[dest])					\n\t" 
+		"mov.l @%[src]+,r0						\n\t"
+		"mov.l r0,@(20,%[dest])					\n\t" 
+		"mov.l @%[src]+,r0						\n\t"
+		"mov.l r0,@(24,%[dest])					\n\t" 
+		"mov.l @%[src]+,r0						\n\t"
+		"mov.l r0,@(28,%[dest])					\n\t" 
+		"add #32,%[dest]						\n\t"			
+		"cmp/eq %[dest],r1						\n\t" // if dest == dest + size (end point), T = 1
+		"bf/s 1b								\n\t" // if T == 0 go back to last local label 1: after delay instruction
+		"mov.l @%[src]+,r0						\n\t" // delayed branch instruction
+		// outputs
+		: 
+		// inputs
+		: [dest] "r" (dest), [src] "r" (src), [size] "r" (size)
+		// clobbers
+		: "r0", "r1"
+	);
+#else
+#pragma Unknown Target!
+#endif
+}
+
 unsigned char openBus[256] = {
 	0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
 	0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
@@ -202,7 +246,7 @@ bool nes_cart::loadROM(const char* withFile) {
 
 void nes_cart::readState_WRAM(uint8* data) {
 	if (numRAMBanks >= 1) {
-		memcpy(&banks[availableROMBanks][0], data, 0x2000);
+		memcpy_fast32(&banks[availableROMBanks][0], data, 0x2000);
 	}
 }
 
@@ -455,7 +499,7 @@ inline void mapCPU(unsigned int startAddrHigh, unsigned int numKB, unsigned char
 inline void mapPPU(unsigned int startAddrHigh, unsigned int numKB, unsigned char* ptr) {
 	// just copy to CHR ROM
 	DebugAssert(startAddrHigh * 0x100 + numKB * 1024 <= 0x2000);	
-	memcpy(nesPPU.chrMap + startAddrHigh * 0x100, ptr, numKB * 1024);
+	memcpy_fast32(nesPPU.chrMap + startAddrHigh * 0x100, ptr, numKB * 1024);
 }
 
 
@@ -528,7 +572,7 @@ void nes_cart::setupMapper0_NROM() {
 
 	// read CHR bank (always one ROM) directly into PPU chrMap
 	DebugAssert(numCHRBanks == 1);
-	nesPPU.chrMap = cacheCHRBank(0);
+	MapCharacterBanks(0, 0, 8, true);
 
 	// map memory to read-in ROM
 	if (numPRGBanks == 1) {
@@ -967,16 +1011,16 @@ void nes_cart::MMC3_UpdateMapping(int regNumber) {
 		{
 			// 2 KB bank at $00 and $10
 			unsigned char* chrData = cacheCHRBank(registers[0] >> 3) + (registers[0] & 0x6) * 1024;
-			memcpy(banks[MMC3_CHRBANK0] + 0x0000, chrData, 2048);
-			memcpy(banks[MMC3_CHRBANK1] + 0x1000, chrData, 2048);
+			memcpy_fast32(banks[MMC3_CHRBANK0] + 0x0000, chrData, 2048);
+			memcpy_fast32(banks[MMC3_CHRBANK1] + 0x1000, chrData, 2048);
 			break;
 		}
 		case 1:
 		{
 			// 2 KB bank at $08 and $18
 			unsigned char* chrData = cacheCHRBank(registers[1] >> 3) + (registers[1] & 0x6) * 1024;
-			memcpy(banks[MMC3_CHRBANK0] + 0x0800, chrData, 2048);
-			memcpy(banks[MMC3_CHRBANK1] + 0x1800, chrData, 2048);
+			memcpy_fast32(banks[MMC3_CHRBANK0] + 0x0800, chrData, 2048);
+			memcpy_fast32(banks[MMC3_CHRBANK1] + 0x1800, chrData, 2048);
 			break;
 		}
 		case 2:
@@ -991,24 +1035,24 @@ void nes_cart::MMC3_UpdateMapping(int regNumber) {
 		{
 			// 1 KB bank at $14 and $04
 			unsigned char* chrData = cacheCHRBank(registers[3] >> 3) + (registers[3] & 0x7) * 1024;
-			memcpy(banks[MMC3_CHRBANK0] + 0x1400, chrData, 1024);
-			memcpy(banks[MMC3_CHRBANK1] + 0x0400, chrData, 1024);
+			memcpy_fast32(banks[MMC3_CHRBANK0] + 0x1400, chrData, 1024);
+			memcpy_fast32(banks[MMC3_CHRBANK1] + 0x0400, chrData, 1024);
 			break;
 		}
 		case 4:
 		{
 			// 1 KB bank at $18 and $08
 			unsigned char* chrData = cacheCHRBank(registers[4] >> 3) + (registers[4] & 0x7) * 1024;
-			memcpy(banks[MMC3_CHRBANK0] + 0x1800, chrData, 1024);
-			memcpy(banks[MMC3_CHRBANK1] + 0x0800, chrData, 1024);
+			memcpy_fast32(banks[MMC3_CHRBANK0] + 0x1800, chrData, 1024);
+			memcpy_fast32(banks[MMC3_CHRBANK1] + 0x0800, chrData, 1024);
 			break;
 		}
 		case 5:
 		{
 			// 1 KB bank at $1C and $0C
 			unsigned char* chrData = cacheCHRBank(registers[5] >> 3) + (registers[5] & 0x7) * 1024;
-			memcpy(banks[MMC3_CHRBANK0] + 0x1C00, chrData, 1024);
-			memcpy(banks[MMC3_CHRBANK1] + 0x0C00, chrData, 1024);
+			memcpy_fast32(banks[MMC3_CHRBANK0] + 0x1C00, chrData, 1024);
+			memcpy_fast32(banks[MMC3_CHRBANK1] + 0x0C00, chrData, 1024);
 			break;
 		}
 		case 6:
@@ -1037,7 +1081,6 @@ void nes_cart::MMC3_UpdateMapping(int regNumber) {
 		}
 
 		// possible bank mode change
-		unsigned char* penultBank = cachePRGBank(numPRGBanks * 2 - 2);
 		if (MMC3_BANK_SELECT & 0x40) {
 			// 2nd to last bank set to 80-9F
 			MapProgramBanks(0, numPRGBanks * 2 - 2, 1);
@@ -1291,8 +1334,8 @@ void MMC2_writeSpecial(unsigned int address, unsigned char value) {
 				if (value != nesCart.registers[3]) {
 					unsigned char* chrMap = nesCart.cacheCHRBank(value >> 1) + ((value & 1) << 12);
 					// map to lower 4k of bank 0 and 2
-					memcpy(nesCart.banks[MMC2_CHRBANK0], chrMap, 4096);
-					memcpy(nesCart.banks[MMC2_CHRBANK2], chrMap, 4096);
+					memcpy_fast32(nesCart.banks[MMC2_CHRBANK0], chrMap, 4096);
+					memcpy_fast32(nesCart.banks[MMC2_CHRBANK2], chrMap, 4096);
 					nesCart.registers[3] = value;
 				}
 			} else if (address < 0xD000) {
@@ -1301,8 +1344,8 @@ void MMC2_writeSpecial(unsigned int address, unsigned char value) {
 				if (value != nesCart.registers[4]) {
 					unsigned char* chrMap = nesCart.cacheCHRBank(value >> 1) + ((value & 1) << 12);
 					// map to lower 4k of bank 1 and 3
-					memcpy(nesCart.banks[MMC2_CHRBANK1], chrMap, 4096);
-					memcpy(nesCart.banks[MMC2_CHRBANK3], chrMap, 4096);
+					memcpy_fast32(nesCart.banks[MMC2_CHRBANK1], chrMap, 4096);
+					memcpy_fast32(nesCart.banks[MMC2_CHRBANK3], chrMap, 4096);
 					nesCart.registers[4] = value;
 				}
 			} else if (address < 0xE000) {
@@ -1311,8 +1354,8 @@ void MMC2_writeSpecial(unsigned int address, unsigned char value) {
 				if (value != nesCart.registers[5]) {
 					unsigned char* chrMap = nesCart.cacheCHRBank(value >> 1) + ((value & 1) << 12);
 					// map to higher 4k of bank 0 and 1
-					memcpy(nesCart.banks[MMC2_CHRBANK0] + 4096, chrMap, 4096);
-					memcpy(nesCart.banks[MMC2_CHRBANK1] + 4096, chrMap, 4096);
+					memcpy_fast32(nesCart.banks[MMC2_CHRBANK0] + 4096, chrMap, 4096);
+					memcpy_fast32(nesCart.banks[MMC2_CHRBANK1] + 4096, chrMap, 4096);
 					nesCart.registers[5] = value;
 				}
 			} else if (address < 0xF000) {
@@ -1321,8 +1364,8 @@ void MMC2_writeSpecial(unsigned int address, unsigned char value) {
 				if (value != nesCart.registers[6]) {
 					unsigned char* chrMap = nesCart.cacheCHRBank(value >> 1) + ((value & 1) << 12);
 					// map to higher 4k of bank 2 and 3
-					memcpy(nesCart.banks[MMC2_CHRBANK2] + 4096, chrMap, 4096);
-					memcpy(nesCart.banks[MMC2_CHRBANK3] + 4096, chrMap, 4096);
+					memcpy_fast32(nesCart.banks[MMC2_CHRBANK2] + 4096, chrMap, 4096);
+					memcpy_fast32(nesCart.banks[MMC2_CHRBANK3] + 4096, chrMap, 4096);
 					nesCart.registers[6] = value;
 				}
 			} else {
@@ -1357,10 +1400,10 @@ void nes_cart::setupMapper9_MMC2() {
 
 	// read first CHR bank (for now) and put it into all 4 CHR banks
 	unsigned char* chrBank = cacheCHRBank(0);
-	memcpy(banks[MMC2_CHRBANK0], chrBank, 1024 * 8);
-	memcpy(banks[MMC2_CHRBANK1], chrBank, 1024 * 8);
-	memcpy(banks[MMC2_CHRBANK2], chrBank, 1024 * 8);
-	memcpy(banks[MMC2_CHRBANK3], chrBank, 1024 * 8);
+	memcpy_fast32(banks[MMC2_CHRBANK0], chrBank, 1024 * 8);
+	memcpy_fast32(banks[MMC2_CHRBANK1], chrBank, 1024 * 8);
+	memcpy_fast32(banks[MMC2_CHRBANK2], chrBank, 1024 * 8);
+	memcpy_fast32(banks[MMC2_CHRBANK3], chrBank, 1024 * 8);
 	nesPPU.chrMap = banks[availableROMBanks-1];
 
 	// RAM bank if one is set up

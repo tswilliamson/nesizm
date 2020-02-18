@@ -57,10 +57,10 @@ struct nes_cart {
 	unsigned int registers[32];
 
 	// bank index storage for program memory (which 8KB from cart at 0x8000, 0xA000, 0xC000, amd 0xE000)
-	unsigned int programBanks[4];
+	int32 programBanks[4];
 
 	// bank index storage for program memory (which 1KB from cart at 0x0000 - 0x1FFF in ppu memory)
-	unsigned int chrBanks[8];
+	int32 chrBanks[8];
 
 	// caches program memory as needed, maps to CPU mem, and updates programBanks[]
 	void MapProgramBanks(int32 toBank, int32 cartBank, int32 numBanks);
