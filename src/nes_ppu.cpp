@@ -404,6 +404,10 @@ void nes_ppu::step() {
 			nesCart.scanlineClock();
 		}
 	} else if (scanline < 9) {
+		if (nesCart.bDirtyChrBanks) {
+			nesCart.CommitChrBanks();
+		}
+
 		// non-resolved but active scanline (may cause sprite 0 collision)
 		if (canSprite0Hit()) {
 			if (!skipFrame) {
@@ -422,6 +426,10 @@ void nes_ppu::step() {
 			nesCart.scanlineClock();
 		}
 	} else if (scanline < 233) {
+		if (nesCart.bDirtyChrBanks) {
+			nesCart.CommitChrBanks();
+		}
+
 		// rendered scanline
 		if (!skipFrame) {
 			renderScanline(*this);
@@ -439,6 +447,10 @@ void nes_ppu::step() {
 			nesCart.scanlineClock();
 		}
 	} else if (scanline < 241) {
+		if (nesCart.bDirtyChrBanks) {
+			nesCart.CommitChrBanks();
+		}
+
 		// non-resolved scanline
 		if (canSprite0Hit()) {
 			if (!skipFrame) {

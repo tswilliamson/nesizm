@@ -389,7 +389,7 @@ bool nes_cart::LoadState() {
 		return false;
 	}
 
-	void* scratch = nesCart.banks[nesCart.findOldestUnusedBank()];
+	void* scratch = nesCart.cache[nesCart.findOldestUnusedBank()].ptr;
 	while (fceuxFile.ReadSection(scratch)) {
 	}
 

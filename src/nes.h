@@ -35,6 +35,19 @@ bool keyDown_fast(unsigned char keyCode);
 #define MAX_CACHED_ROM_BANKS 32
 #define STATIC_CACHED_ROM_BANKS 24
 
+struct nes_cached_bank {
+	unsigned char* ptr;
+	int32 request;
+
+	int32 prgIndex;
+	int16 chrIndex[8];
+
+	void clear() {
+		request = -1;
+		prgIndex = -2;
+	}
+};
+
 // specifications about the cart, rom file, mapper, etc
 struct nes_cart {
 	nes_cart();
@@ -56,30 +69,37 @@ struct nes_cart {
 	// up to 32 internal registers
 	unsigned int registers[32];
 
-	// bank index storage for program memory (which 8KB from cart at 0x8000, 0xA000, 0xC000, amd 0xE000)
+	// bank index storage for program memory (which 8 KB from cart at 0x8000, 0xA000, 0xC000, amd 0xE000)
 	int32 programBanks[4];
 
-	// bank index storage for program memory (which 1KB from cart at 0x0000 - 0x1FFF in ppu memory)
-	int32 chrBanks[8];
+	// chr rom index map (which 1 KB from cart at 0x0000 - 0x1FFF in ppu memory)
+	int16 chrBanks[8];
+
+	// when chrBanks is dirty, actual bank data is set to the chrPages at the start of the rendered scanline
+	bool bDirtyChrBanks;
+
+	// whether chr bank pages should be swapped (for MMC2/3 support)
+	bool bSwapChrPages;
+
+	// sets chrPages with banks as specified in chrBanks
+	void CommitChrBanks();
 
 	// caches program memory as needed, maps to CPU mem, and updates programBanks[]
 	void MapProgramBanks(int32 toBank, int32 cartBank, int32 numBanks);
 
-	// caches character memory as needed, maps or copies to PPU mem, and updates chrBanks[]
-	void MapCharacterBanks(int32 toBank, int32 cartBank, int32 numBanks, bool bDirectMap);
+	// this simply updates chrBanks[], which is then flushed to chrPages on CommitChrBanks()
+	void MapCharacterBanks(int32 toBank, int32 cartBank, int32 numBanks);
 
 	// 8kb cached banks for various usages based on mapper (allocated on stack due to Prizm deficiencies
 	int availableROMBanks;
 	int allocatedROMBanks;
-	unsigned char* banks[MAX_CACHED_ROM_BANKS];
-	int bankIndex[MAX_CACHED_ROM_BANKS];
-	int bankRequest[MAX_CACHED_ROM_BANKS];
-	void* mappedCPUPtrs[8];
+	nes_cached_bank cache[MAX_CACHED_ROM_BANKS];
 
 	// common bank caching set up. Caching is used for PRG and CHR. RAM is stored permanently in memory
 	int requestIndex;
 
-	int cachedBankCount;			// number of 8 KB banks to use for PRG & CHR (some cached banks are used for extra RAM, etc)
+	// number of 8 KB banks to use for PRG & CHR (some cached banks are used for permanently mapped RAM, etc)
+	int cachedBankCount;
 
 	// returns hash of RAM contents
 	uint32 GetRAMHash();
@@ -121,8 +141,8 @@ struct nes_cart {
 	// caches an 8 KB PRG bank (so index up to 2 * numPRGBanks), returns result bank memory pointer
 	unsigned char* cachePRGBank(int index);
 
-	// caches an 8 KB CHR bank, returns result bank memory pointer
-	unsigned char* cacheCHRBank(int index);
+	// caches a 4 KB CHR bank, returns result bank memory pointer
+	unsigned char* cacheCHRBank(int16* indices);
 
 	// sets up bank pointers with the given allocated data
 	void allocateBanks(unsigned char* staticAlloced);
@@ -282,6 +302,10 @@ struct nes_ppu {
 	inline unsigned char* resolveMemoryAddress(unsigned int address, bool mirrorBehindPalette) {
 		address &= 0x3FFF;
 		if (address < 0x2000) {
+			if (nesCart.bDirtyChrBanks) {
+				nesCart.CommitChrBanks();
+			}
+
 			// pattern table memory
 			return &chrPages[address >> 12][address & 0x0FFF];
 		} else if (address < 0x3F00 || mirrorBehindPalette) {
