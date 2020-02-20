@@ -1,27 +1,17 @@
 
-# void RenderToScanline(unsigned char*patternTable, int chr, int palette, int x);
+# void RenderToScanline(unsigned char*patternTable, int chr, int palette, uint8* buffer);
 # Using C code for blitting method.. currently crashes on device, not sure why 
 # r4 = uint8* patternTable;
 # r5 = int chr; (spriteIndex * !6)
 # r6 = int palette;
-# r7 = x;
-# symbol = uint8* ppu_scanlineBuffer
+# r7 = uint8* buffer; (4-byte aligned)
+# symbol = uint8* OverlayTable
 # 
 # r0 - r3 = scratch
-
 
     .global _RenderToScanline
     .text; .align 4
 _RenderToScanline:
-	// bitshift palette into 8 bit copies of itself and assign back into r6
-	shll r6;		// palette <<= 1
-	mov r6,r0		// r0 = palette
-	shll8 r0		// r0 = palette << 8
-	or r0,r6		// r6 = r0 | r6
-	mov r6,r0		// r0 = r6
-	shll16 r0		// r0 <<= 16
-	or r0, r6		// r6 = r0 | r6
-
 	// r5 = &patternTable[chr] (the bottom plane)
 	add r4, r5
 
@@ -67,18 +57,11 @@ _RenderToScanline:
 	or r2, r4
 
 	// now our scanline contents are in r3 and r4, assign to buffer:
-	// r0 = ppu_scanlineBuffer + x
-	mov.l .PPUBuffer, r0
-	mov.l @r0, r0
-	add r7, r0
-
-	mov.l r3,@r0
+	mov.l r3,@r7
 	rts
-	mov.l r4,@(4,r0)
+	mov.l r4,@(4,r7)
 	
     .text; .align 4
-.PPUBuffer:
-	.long	_ppu_scanlineBuffer
 .OverlayTable:
 	.long	_OverlayTable
 

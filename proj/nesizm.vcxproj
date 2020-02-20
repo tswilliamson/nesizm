@@ -63,7 +63,6 @@
     <None Include="..\src\6502_opcodes.inl" />
     <None Include="..\src\asm\RenderScanlineBuffer.S" />
     <None Include="..\src\asm\RenderToScanline.S" />
-    <None Include="..\src\asm\RenderToScanlineOld.S" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\6502.h" />

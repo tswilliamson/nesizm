@@ -151,9 +151,6 @@
     <None Include="..\src\asm\RenderScanlineBuffer.S">
       <Filter>Source Files\asm</Filter>
     </None>
-    <None Include="..\src\asm\RenderToScanlineOld.S">
-      <Filter>Source Files\asm</Filter>
-    </None>
     <None Include="..\src\6502_instr_timing.inl">
       <Filter>Source Files\6502</Filter>
     </None>

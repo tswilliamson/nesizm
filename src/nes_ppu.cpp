@@ -18,6 +18,36 @@ nes_ppu nesPPU ALIGN(256);
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Scanline handling
 
+inline void CopyOver16(uint8* srcBytes) {
+#if TARGET_WINSIM
+	memcpy(srcBytes + 16, srcBytes, 16);
+#elif TARGET_PRIZM
+	asm(
+		"mov.l @%[src],r0						\n\t"
+		"mov.l r0,@(16,%[src])					\n\t" 
+		"mov.l @(4, %[src]),r0					\n\t"
+		"mov.l r0,@(20,%[src])					\n\t" 
+		"mov.l @(8, %[src]),r0					\n\t"
+		"mov.l r0,@(24,%[src])					\n\t" 
+		"mov.l @(12, %[src]),r0					\n\t"
+		"mov.l r0,@(28,%[src])					\n\t" 
+		// outputs
+		: 
+		// inputs
+		: [src] "r" (srcBytes)
+		// clobbers
+		: "r0"
+	);
+#endif
+}
+
+inline void UnrollPalette(uint32& palette) {
+	// put palette in every 4 bytes (* 2 to account for offset into word sized color table during resolve)
+	palette <<= 1;
+	palette = palette | (palette << 8);
+	palette = palette | (palette << 16);
+}
+
 // scanline buffers with padding to allow fast rendering with clipping
 static unsigned char oamScanlineBuffer[256 + 8] = { 0 }; 
 
@@ -613,26 +643,19 @@ uint8 OverlayTable[8 * 256] = {
 
 #if TARGET_WINSIM
 // super fast blitting method!
-inline void RenderToScanline(unsigned char*patternTable, int chr, unsigned int palette, int x) {
-	DebugAssert(x % 4 == 0); // long alignment required in SH4
+inline void RenderToScanline(unsigned char*patternTable, int chr, uint32 unrolledPalette, uint8* buffer) {
+	DebugAssert(uint32(buffer) % 4 == 0); // long alignment required in SH4
 
-	// put palette in every 4 bytes (* 2 to account for offset into word sized color table during resolve)
-	palette <<= 1;
-	palette = palette | (palette << 8);
-	palette = palette | (palette << 16);
 	unsigned int* bitPlane1 = (unsigned int*) &OverlayTable[patternTable[chr] * 8];
 	unsigned int* bitPlane2 = (unsigned int*) &OverlayTable[patternTable[chr + 8] * 8];
-	unsigned int* scanline = (unsigned int*) &nesPPU.scanlineBuffer[x];
-	scanline[0] = palette | bitPlane1[0] | (bitPlane2[0] << 1);
-	scanline[1] = palette | bitPlane1[1] | (bitPlane2[1] << 1);
+	unsigned int* scanline = (unsigned int*) buffer;
+	scanline[0] = unrolledPalette | bitPlane1[0] | (bitPlane2[0] << 1);
+	scanline[1] = unrolledPalette | bitPlane1[1] | (bitPlane2[1] << 1);
 }
 #else
 extern "C" {
-	void RenderToScanline(unsigned char*patternTable, int chr, int palette, int x);
-	void RenderToScanlineOld(unsigned char*patternTable, int chr, int palette, int x);
+	void RenderToScanline(unsigned char*patternTable, int chr, uint32 unrolledPalette, uint8* buffer);
 }
-// new method is crashing still.. hrmmm
-#define RenderToScanline RenderToScanline
 #endif
 
 // mask of which sprites to check per scanline (bit 0 = sprites 56-63, bit 1 = sprites 48-55, and so on)
@@ -886,21 +909,33 @@ void nes_ppu::renderScanline_SingleMirror(nes_ppu& ppu) {
 		}
 
 		// we render 16 pixels at a time (easy attribute table lookup), 17 times and clip
-		int x = 0;
+		uint8* buffer = ppu.scanlineBuffer;
 		int tileX = (ppu.SCROLLX >> 4) * 2;	// always start on an even numbered tile
+		int lastChr = -1;
 
 		for (int loop = 0; loop < 17; loop++) {
 			// grab and rotate palette selection
-			unsigned int palette = (attrPalette & 0x0C);
+			uint32 palette = (attrPalette & 0x0C);
 			attrPalette = (attrPalette >> 2) | (attrPalette << 30);
 
 			// keep tileX mirroring
 			tileX &= 0x1F;
 
-			for (int twice = 0; twice < 2; twice++, x += 8) {
-				int chr = nameTable[tileX++] << 4;
+			int chr1 = nameTable[tileX++];
+			int chr2 = nameTable[tileX++];
+			int chrSig = (chr1 << 16) | (chr2 << 8) | palette;
 
-				RenderToScanline(patternTable, chr, palette, x);
+			UnrollPalette(palette);
+
+			if (chrSig == lastChr) {
+				CopyOver16(buffer - 16);
+				buffer += 16;
+			} else {
+				lastChr = chrSig;
+				RenderToScanline(patternTable, chr1 << 4, palette, buffer);
+				buffer += 8;
+				RenderToScanline(patternTable, chr2 << 4, palette, buffer);
+				buffer += 8;
 			}
 		}
 	} else {
@@ -969,43 +1004,72 @@ void nes_ppu::renderScanline_HorzMirror(nes_ppu& ppu) {
 		}
 
 		// we render 16 pixels at a time (easy attribute table lookup), 17 times and clip
-		int x = 0;
+		uint8* buffer = ppu.scanlineBuffer;
 		int tileX = (ppu.SCROLLX >> 4) * 2;	// always start on an even numbered tile
 
 		// MMC2/4 too branch here for faster code:
 		if (nesCart.renderLatch) {
+			int lastChr = -1;
 			for (int loop = 0; loop < 17; loop++) {
 				// grab and rotate palette selection
-				int palette = (attrPalette & 0x0C);
+				uint32 palette = (attrPalette & 0x0C);
 				attrPalette = (attrPalette >> 2) | (attrPalette << 30);
+				UnrollPalette(palette);
 
 				// keep tileX mirroring
 				tileX &= 0x1F;
 
-				for (int twice = 0; twice < 2; twice++, x += 8) {
-					int chr = nameTable[tileX++] << 4;
+				int chr1 = nameTable[tileX++];
+				int chr2 = nameTable[tileX++];
+				int chrSig = (chr1 << 16) | (chr2 << 8) | palette;
 
-					RenderToScanline(patternTable, chr, palette, x);
+				UnrollPalette(palette);
 
-					if (chr >= 0xFD0 && nesCart.renderLatch) {
-						nesCart.renderLatch(chr + chrOffset + 8 + ((ppu.PPUCTRL & PPUCTRL_BGDTABLE) << 8));
+				if (chrSig == lastChr) {
+					CopyOver16(buffer - 16);
+					buffer += 16;
+				} else {
+					lastChr = chrSig;
+					RenderToScanline(patternTable, chr1 << 4, palette, buffer);
+					if (chr1 >= 0xFD && nesCart.renderLatch) {
+						nesCart.renderLatch((chr1 << 4) + chrOffset + 8 + ((ppu.PPUCTRL & PPUCTRL_BGDTABLE) << 8));
 						patternTable = ppu.chrPages[(ppu.PPUCTRL & PPUCTRL_BGDTABLE) >> 4] + chrOffset;
 					}
+					buffer += 8;
+					RenderToScanline(patternTable, chr2 << 4, palette, buffer);
+					if (chr2 >= 0xFD && nesCart.renderLatch) {
+						nesCart.renderLatch((chr2 << 4) + chrOffset + 8 + ((ppu.PPUCTRL & PPUCTRL_BGDTABLE) << 8));
+						patternTable = ppu.chrPages[(ppu.PPUCTRL & PPUCTRL_BGDTABLE) >> 4] + chrOffset;
+					}
+					buffer += 8;
 				}
 			}
 		} else {
+			int lastChr = -1;
+
 			for (int loop = 0; loop < 17; loop++) {
 				// grab and rotate palette selection
-				int palette = (attrPalette & 0x0C);
+				uint32 palette = (attrPalette & 0x0C);
 				attrPalette = (attrPalette >> 2) | (attrPalette << 30);
 
 				// keep tileX mirroring
 				tileX &= 0x1F;
 
-				for (int twice = 0; twice < 2; twice++, x += 8) {
-					int chr = nameTable[tileX++] << 4;
+				int chr1 = nameTable[tileX++];
+				int chr2 = nameTable[tileX++];
+				int chrSig = (chr1 << 16) | (chr2 << 8) | palette;
 
-					RenderToScanline(patternTable, chr, palette, x);
+				UnrollPalette(palette);
+
+				if (chrSig == lastChr) {
+					CopyOver16(buffer - 16);
+					buffer += 16;
+				} else {
+					lastChr = chrSig;
+					RenderToScanline(patternTable, chr1 << 4, palette, buffer);
+					buffer += 8;
+					RenderToScanline(patternTable, chr2 << 4, palette, buffer);
+					buffer += 8;
 				}
 			}
 		}
@@ -1071,7 +1135,7 @@ static void renderScanline_VertMirror_Latched(nes_ppu& ppu) {
 		if (ppu.PPUCTRL & PPUCTRL_FLIPXTBL) scrollX += 256;
 
 		// we render 16 pixels at a time (easy attribute table lookup), 17 times and clip
-		int x = 0;
+		uint8* buffer = ppu.scanlineBuffer;
 		int tileX = ((scrollX >> 4) * 2) & 0x3F;	// always start on an even numbered tile
 		nameTableIndex += (tileX & 0x20) >> 5;
 		
@@ -1080,26 +1144,56 @@ static void renderScanline_VertMirror_Latched(nes_ppu& ppu) {
 
 		// render tileX up to the end of the current nametable
 		int curTileX = tileX & 0x1F;
+		int lastChr = -1;
 		while (curTileX < 32) {
 			// grab and rotate palette selection
 			bool hadLatch = false;
 			int attrPalette = (attr[(curTileX >> 2)] >> attrShift) >> (curTileX & 2);
-			int palette = (attrPalette & 0x03) << 2;
+			uint32 palette = (attrPalette & 0x03) << 2;
+			
+			int chr1 = nameTable[curTileX++];
+			int chr2 = nameTable[curTileX++];
+			int chrSig = (chr1 << 16) | (chr2 << 8) | palette;
 
-			for (int twice = 0; twice < 2; twice++, x += 8) {
-				int chr = nameTable[curTileX++] << 4;
+			UnrollPalette(palette);
+
+			if (chrSig == lastChr) {
+				CopyOver16(buffer - 16);
+				buffer += 16;
+			} else {
+				lastChr = chrSig;
 
 				if (hasLatch) {
-					if (chr == 0xFD0 || chr == 0xFE0) {
-						nesCart.renderLatch(chr + chrOffset + 8 + ((ppu.PPUCTRL & PPUCTRL_BGDTABLE) << 8));
+					if (chr1 == 0xFD || chr1 == 0xFE) {
+						nesCart.renderLatch((chr1 << 4) + chrOffset + 8 + ((ppu.PPUCTRL & PPUCTRL_BGDTABLE) << 8));
 						hadLatch = true;
 					}
-				}
-				
-				RenderToScanline(patternTable, chr, palette, x);
 
-				if (hasLatch && hadLatch) {
-					patternTable = ppu.chrPages[(ppu.PPUCTRL & PPUCTRL_BGDTABLE) >> 4] + chrOffset;
+					RenderToScanline(patternTable, chr1 << 4, palette, buffer);
+					buffer += 8;
+
+					if (hadLatch) {
+						patternTable = ppu.chrPages[(ppu.PPUCTRL & PPUCTRL_BGDTABLE) >> 4] + chrOffset;
+						hadLatch = false;
+					}
+
+					if (chr2 == 0xFD || chr2 == 0xFE) {
+						nesCart.renderLatch((chr2 << 4) + chrOffset + 8 + ((ppu.PPUCTRL & PPUCTRL_BGDTABLE) << 8));
+						hadLatch = true;
+					}
+
+					RenderToScanline(patternTable, chr2 << 4, palette, buffer);
+					buffer += 8;
+
+					if (hadLatch) {
+						patternTable = ppu.chrPages[(ppu.PPUCTRL & PPUCTRL_BGDTABLE) >> 4] + chrOffset;
+						hadLatch = false;
+					}
+				} else {
+					RenderToScanline(patternTable, chr1 << 4, palette, buffer);
+					buffer += 8;
+					RenderToScanline(patternTable, chr2 << 4, palette, buffer);
+					buffer += 8;
 				}
 			}
 		}
@@ -1109,38 +1203,68 @@ static void renderScanline_VertMirror_Latched(nes_ppu& ppu) {
 		nameTableIndex = nameTableIndex ^ 1;
 		nameTable = &ppu.nameTables[nameTableIndex].table[tileLine << 5];
 		attr = &ppu.nameTables[nameTableIndex].attr[(tileLine >> 2) << 3];
+		uint8* bufferEnd = ppu.scanlineBuffer + 16 * 17;
 
-		while (x < 256 + 16) {
+		while (buffer < bufferEnd) {
 			// grab and rotate palette selection
 			bool hadLatch = false;
 			int attrPalette = (attr[(curTileX >> 2)] >> attrShift) >> (curTileX & 2);
-			int palette = (attrPalette & 0x03) << 2;
+			uint32 palette = (attrPalette & 0x03) << 2;
 
-			for (int twice = 0; twice < 2; twice++, x += 8) {
-				int chr = nameTable[curTileX++] << 4;
+			int chr1 = nameTable[curTileX++];
+			int chr2 = nameTable[curTileX++];
+			int chrSig = (chr1 << 16) | (chr2 << 8) | palette;
+
+			UnrollPalette(palette);
+			
+			if (chrSig == lastChr) {
+				CopyOver16(buffer - 16);
+				buffer += 16;
+			} else {
+				lastChr = chrSig;
 
 				if (hasLatch) {
-					if (chr == 0xFD0 || chr == 0xFE0) {
-						nesCart.renderLatch(chr + chrOffset + 8 + ((ppu.PPUCTRL & PPUCTRL_BGDTABLE) << 8));
+					if (chr1 == 0xFD || chr1 == 0xFE) {
+						nesCart.renderLatch((chr1 << 4) + chrOffset + 8 + ((ppu.PPUCTRL & PPUCTRL_BGDTABLE) << 8));
 						hadLatch = true;
 					}
-				}
 
-				RenderToScanline(patternTable, chr, palette, x);
+					RenderToScanline(patternTable, chr1 << 4, palette, buffer);
+					buffer += 8;
 
-				if (hasLatch && hadLatch) {
-					patternTable = ppu.chrPages[(ppu.PPUCTRL & PPUCTRL_BGDTABLE) >> 4] + chrOffset;
+					if (hadLatch) {
+						patternTable = ppu.chrPages[(ppu.PPUCTRL & PPUCTRL_BGDTABLE) >> 4] + chrOffset;
+						hadLatch = false;
+					}
+
+					if (chr2 == 0xFD || chr2 == 0xFE) {
+						nesCart.renderLatch((chr2 << 4) + chrOffset + 8 + ((ppu.PPUCTRL & PPUCTRL_BGDTABLE) << 8));
+						hadLatch = true;
+					}
+
+					RenderToScanline(patternTable, chr2 << 4, palette, buffer);
+					buffer += 8;
+
+					if (hadLatch) {
+						patternTable = ppu.chrPages[(ppu.PPUCTRL & PPUCTRL_BGDTABLE) >> 4] + chrOffset;
+						hadLatch = false;
+					}
+				} else {
+					RenderToScanline(patternTable, chr1 << 4, palette, buffer);
+					buffer += 8;
+					RenderToScanline(patternTable, chr2 << 4, palette, buffer);
+					buffer += 8;
 				}
 			}
 		}
 
 		if (hasLatch) {
 			// fetch 34th tile
-			if (x < 256 + 24 && curTileX < 32) {
-				int chr = nameTable[curTileX] << 4;
+			if (buffer < bufferEnd + 8 && curTileX < 32) {
+				int chr = nameTable[curTileX];
 
-				if (chr == 0xFD0 || chr == 0xFE0) {
-					nesCart.renderLatch(chr + chrOffset + 8 + ((ppu.PPUCTRL & PPUCTRL_BGDTABLE) << 8));
+				if (chr == 0xFD || chr == 0xFE) {
+					nesCart.renderLatch((chr << 4) + chrOffset + 8 + ((ppu.PPUCTRL & PPUCTRL_BGDTABLE) << 8));
 				}
 			}
 		}
