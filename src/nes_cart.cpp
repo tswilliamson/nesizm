@@ -702,8 +702,8 @@ void nes_cart::MMC1_Write(unsigned int addr, int regValue) {
 
 			if (newPRGBankMode == 2) {
 				// fix lower
-				MapProgramBanks(0, 0, 2);
-				registers[7] = 0;
+				registers[7] = (registers[7] & 0x20);
+				MapProgramBanks(0, registers[7], 2);
 			}
 			if (newPRGBankMode == 3) {
 				// fix upper

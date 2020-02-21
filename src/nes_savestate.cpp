@@ -154,6 +154,9 @@ struct FCEUX_File {
 			case ST_EXTRA:
 			{
 				HandleSubsection(ST_EXTRA, WRAM, 0x2000);
+				HandleSubsection(ST_EXTRA, DREG, 4);
+				HandleSubsection(ST_EXTRA, BFFR, 1);
+				HandleSubsection(ST_EXTRA, BFRS, 1);
 				break;
 			}
 		}
@@ -226,6 +229,9 @@ struct FCEUX_File {
 		nesPPU.PPUMASK = data[1];
 		nesPPU.PPUSTATUS = data[2];
 		nesPPU.OAMADDR = data[3];
+
+		nesPPU.memoryMap[2] = data[2];
+		nesPPU.memoryMap[4] = data[3];
 	}
 
 	inline void Read_ST_PPU_XOFF(uint8* data, uint32) {
@@ -265,6 +271,87 @@ struct FCEUX_File {
 		nesCart.readState_WRAM(data);
 	}
 
+	void Read_ST_EXTRA_DREG(uint8* data, uint32 size) {
+		// MMC1
+		if (nesCart.mapper == 1) {
+			// data[0] is the MMC1 control register
+
+			// Mirror mode
+			switch (data[0] & 3) {
+				case 0:
+					nesPPU.setMirrorType(nes_mirror_type::MT_SINGLE);
+					break;
+				case 1:
+					nesPPU.setMirrorType(nes_mirror_type::MT_SINGLE_UPPER);
+					break;
+				case 2:
+					nesPPU.setMirrorType(nes_mirror_type::MT_VERTICAL);
+					break;
+				case 3:
+					nesPPU.setMirrorType(nes_mirror_type::MT_HORIZONTAL);
+					break;
+			}
+
+			// PRG BANKS
+			unsigned int PRGBankMode = (data[0] & 0x0C) >> 2;
+			nesCart.registers[3] = PRGBankMode;
+
+			uint8 selectedPRGBlock = (data[1] & 0x10);
+			uint8 prgBank = (data[3] & 0xF) | selectedPRGBlock;
+			switch (PRGBankMode) {
+			case 0:
+			case 1:
+				// 32 kb mode
+				prgBank &= 0xFE;
+				nesCart.registers[7] = prgBank * 2;
+				nesCart.registers[8] = prgBank * 2 + 2;
+				break;
+			case 2:
+				// fixed lower
+				nesCart.registers[7] = selectedPRGBlock * 2;
+				nesCart.registers[8] = prgBank * 2;
+				break;
+			case 3:
+				// fixed upper
+				nesCart.registers[7] = prgBank * 2;
+				nesCart.registers[8] = (((nesCart.numPRGBanks - 1) & 0xF) | selectedPRGBlock) * 2;
+				break;
+			}
+			nesCart.MapProgramBanks(0, nesCart.registers[7], 2);
+			nesCart.MapProgramBanks(2, nesCart.registers[8], 2);
+
+			// CHR BANKS : registers[4] indicates 4 KB mode:
+			nesCart.registers[4] = (data[0] & 0x10) ? 1 : 0;
+			if (nesCart.registers[4]) {
+				// DRegs 1 and 2 for each character selection in 4KB
+				nesCart.MapCharacterBanks(0, data[1] * 4, 4);
+				nesCart.MapCharacterBanks(4, data[2] * 4, 4);
+			} else {
+				// 8 KB mode
+				nesCart.MapCharacterBanks(0, data[1] * 4, 8);
+			}
+
+			// ram enable
+			nesCart.MMC1_SetRAMBank(data[3] & 0x10);
+		}
+	}
+
+	void Read_ST_EXTRA_BFFR(uint8* data, uint32 size) {
+		// MMC1
+		if (nesCart.mapper == 1) {
+			// Buffer
+			nesCart.registers[2] = data[0];
+		}
+	}
+
+	void Read_ST_EXTRA_BFRS(uint8* data, uint32 size) {
+		// MMC1
+		if (nesCart.mapper == 1) {
+			// Buffer shift
+			nesCart.registers[1] = data[0];
+		}
+	}
+
 	// write state support
 	void StartWrite() {
 		Size = 0;
@@ -301,6 +388,52 @@ struct FCEUX_File {
 		if (nesCart.numRAMBanks) {
 			WriteSection(ST_EXTRA);
 			WriteChunk_Data("WRAM", 0x2000, nesCart.GetWRAM());
+
+			// MMC1 Mapper
+			if (nesCart.mapper == 1) {
+				WriteChunk("BFFR", 1, nesCart.registers[2]); // MMC1 shift register
+				WriteChunk("BFRS", 1, nesCart.registers[1]); // MMC1 shift register bit
+
+				// build DRegs:
+				uint8 DRegs[4] = { 0, 0, 0, 0 };
+
+				switch (nesPPU.mirror) {
+					case nes_mirror_type::MT_SINGLE:
+						DRegs[0] = 0;
+						break;
+					case nes_mirror_type::MT_SINGLE_UPPER:
+						DRegs[0] = 1;
+						break;
+					case nes_mirror_type::MT_VERTICAL:
+						DRegs[0] = 2;
+						break;
+					case nes_mirror_type::MT_HORIZONTAL:
+						DRegs[0] = 3;
+						break;
+				}
+
+				// CHR ROM
+				if (nesCart.registers[4]) {
+					DRegs[0] |= 0x10;
+					DRegs[2] = nesCart.chrBanks[4] / 4;
+				}
+				DRegs[1] = nesCart.chrBanks[0] / 4;
+
+				// PRG ROM
+				DRegs[0] |= (nesCart.registers[3] << 2);
+				if (nesCart.registers[3] == 2) {
+					DRegs[3] = (nesCart.registers[8] / 2) & 0xF;
+					if (nesCart.registers[8] & 0x20) DRegs[1] = 0x10;
+				} else {
+					DRegs[3] = (nesCart.registers[7] / 2) & 0xF;
+					if (nesCart.registers[7] & 0x20) DRegs[1] = 0x10;
+				}
+
+				if (nesCart.registers[5]) {
+					DRegs[3] |= 0x10;
+				}
+				WriteChunk("DREG", 4, DRegs[0], DRegs[1], DRegs[2], DRegs[3]);
+			}
 		}
 
 		return true;
