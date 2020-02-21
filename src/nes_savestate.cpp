@@ -526,6 +526,8 @@ bool nes_cart::LoadState() {
 	while (fceuxFile.ReadSection(scratch)) {
 	}
 
+	Bfile_CloseFile_OS(fileID);
+
 	return fceuxFile.hasError;
 }
 
@@ -558,8 +560,7 @@ bool nes_cart::SaveState() {
 	mainCPU.resolveToP();
 
 	fceuxFile.fileID = fileID;
-	if (!fceuxFile.WriteState())
-		return false;
-
-	return true;
+	bool success = fceuxFile.WriteState();
+	Bfile_CloseFile_OS(fileID);
+	return success;
 }
