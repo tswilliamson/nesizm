@@ -1280,35 +1280,41 @@ void nes_cart::setupMapper7_AOROM() {
 // register 1 is the current high CHR map latch value : 0 = FD, 1 = FE
 
 // register 2 is the current bank copied into the PRG select
-// register 3 is the current CHR bank selected for low CHR map, latched with FD
-// register 4 is the current CHR bank selected for low CHR map, latched with FE
-// register 5 is the current CHR bank selected for high CHR map, latched with FD
-// register 6 is the current CHR bank selected for high CHR map, latched with FE
 
-#define MMC2_CHRBANK0 (nesCart.availableROMBanks-4)
-#define MMC2_CHRBANK1 (nesCart.availableROMBanks-3)
-#define MMC2_CHRBANK2 (nesCart.availableROMBanks-2)
-#define MMC2_CHRBANK3 (nesCart.availableROMBanks-1)
+// register 3 is the current 4K CHR bank selected for low CHR map, latched with FD
+// register 4 is the current 4K CHR bank selected for low CHR map, latched with FE
+// register 5 is the current 4K CHR bank selected for high CHR map, latched with FD
+// register 6 is the current 4K CHR bank selected for high CHR map, latched with FE
 
 inline void MMC2_selectCHRMap() {
-	// TODO
-	/*
-	nesPPU.chrPages[0] = nesCart.banks[MMC2_CHRBANK0 + nesCart.registers[0] + nesCart.registers[1] * 2];
-	nesPPU.chrPages[1] = nesCart.banks[MMC2_CHRBANK0 + nesCart.registers[0] + nesCart.registers[1] * 2] + 0x1000;
-	*/
+	if (nesCart.registers[0]) {
+		nesCart.MapCharacterBanks(0, nesCart.registers[4] * 4, 4);
+	} else {
+		nesCart.MapCharacterBanks(0, nesCart.registers[3] * 4, 4);
+	}
+
+	if (nesCart.registers[1]) {
+		nesCart.MapCharacterBanks(4, nesCart.registers[6] * 4, 4);
+	} else {
+		nesCart.MapCharacterBanks(4, nesCart.registers[5] * 4, 4);
+	}
 }
 
 void MMC2_renderLatch(unsigned int address) {
+	bool bNeedCommit = false;
+
 	if (address < 0x1000) {
 		if (address == 0x0FD8) {
 			if (nesCart.registers[0] == 1) {
 				nesCart.registers[0] = 0;
 				MMC2_selectCHRMap();
+				bNeedCommit = true;
 			}
 		} else if (address == 0x0FE8) {
 			if (nesCart.registers[0] == 0) {
 				nesCart.registers[0] = 1;
 				MMC2_selectCHRMap();
+				bNeedCommit = true;
 			}
 		}
 	} else {
@@ -1316,13 +1322,19 @@ void MMC2_renderLatch(unsigned int address) {
 			if (nesCart.registers[1] == 1) {
 				nesCart.registers[1] = 0;
 				MMC2_selectCHRMap();
+				bNeedCommit = true;
 			}
 		} else if (address >= 0x1FE8 && address <= 0x1FEF) {
 			if (nesCart.registers[1] == 0) {
 				nesCart.registers[1] = 1;
 				MMC2_selectCHRMap();
+				bNeedCommit = true;
 			}
 		}
+	}
+
+	if (bNeedCommit) {
+		nesCart.CommitChrBanks();
 	}
 }
 
@@ -1337,49 +1349,39 @@ void MMC2_writeSpecial(unsigned int address, unsigned char value) {
 				value &= 0xF;
 				nesCart.MapProgramBanks(0, value, 1);
 			}
-			// TODO
-			/*
 			else if (address < 0xC000) {
 				// low CHR / FD select
 				value &= 0x1F;
 				if (value != nesCart.registers[3]) {
-					unsigned char* chrMap = nesCart.cacheCHRBank(value >> 1) + ((value & 1) << 12);
 					// map to lower 4k of bank 0 and 2
-					memcpy_fast32(nesCart.banks[MMC2_CHRBANK0], chrMap, 4096);
-					memcpy_fast32(nesCart.banks[MMC2_CHRBANK2], chrMap, 4096);
 					nesCart.registers[3] = value;
+					MMC2_selectCHRMap();
 				}
 			} else if (address < 0xD000) {
 				// low CHR / FE select
 				value &= 0x1F;
 				if (value != nesCart.registers[4]) {
-					unsigned char* chrMap = nesCart.cacheCHRBank(value >> 1) + ((value & 1) << 12);
 					// map to lower 4k of bank 1 and 3
-					memcpy_fast32(nesCart.banks[MMC2_CHRBANK1], chrMap, 4096);
-					memcpy_fast32(nesCart.banks[MMC2_CHRBANK3], chrMap, 4096);
 					nesCart.registers[4] = value;
+					MMC2_selectCHRMap();
 				}
 			} else if (address < 0xE000) {
 				// high CHR / FD select
 				value &= 0x1F;
 				if (value != nesCart.registers[5]) {
-					unsigned char* chrMap = nesCart.cacheCHRBank(value >> 1) + ((value & 1) << 12);
 					// map to higher 4k of bank 0 and 1
-					memcpy_fast32(nesCart.banks[MMC2_CHRBANK0] + 4096, chrMap, 4096);
-					memcpy_fast32(nesCart.banks[MMC2_CHRBANK1] + 4096, chrMap, 4096);
 					nesCart.registers[5] = value;
+					MMC2_selectCHRMap();
 				}
 			} else if (address < 0xF000) {
 				// high CHR / FE select
 				value &= 0x1F;
 				if (value != nesCart.registers[6]) {
-					unsigned char* chrMap = nesCart.cacheCHRBank(value >> 1) + ((value & 1) << 12);
 					// map to higher 4k of bank 2 and 3
-					memcpy_fast32(nesCart.banks[MMC2_CHRBANK2] + 4096, chrMap, 4096);
-					memcpy_fast32(nesCart.banks[MMC2_CHRBANK3] + 4096, chrMap, 4096);
 					nesCart.registers[6] = value;
+					MMC2_selectCHRMap();
 				}
-			}*/
+			}
 			else {
 				// mirror select
 				if (value & 1) {
@@ -1396,31 +1398,21 @@ void nes_cart::setupMapper9_MMC2() {
 	writeSpecial = MMC2_writeSpecial;
 	renderLatch = MMC2_renderLatch;
 
-	cachedBankCount = MMC2_CHRBANK0;
+	cachedBankCount = availableROMBanks;
 
 	registers[0] = 0;
 	registers[1] = 0;
 	registers[2] = -1;
-	registers[3] = -1;
-	registers[4] = -1;
-	registers[5] = -1;
-	registers[6] = -1;
+	registers[3] = 0;
+	registers[4] = 0;
+	registers[5] = 0;
+	registers[6] = 0;
 
 	// map memory to read-in ROM
 	MapProgramBanks(0, 0, 1);
 	MapProgramBanks(1, numPRGBanks * 2 - 3, 3);
 
-	// read first CHR bank (for now) and put it into all 4 CHR banks
-	// TODO
-	/*
-	unsigned char* chrBank = cacheCHRBank(0);
-	memcpy_fast32(banks[MMC2_CHRBANK0], chrBank, 1024 * 8);
-	memcpy_fast32(banks[MMC2_CHRBANK1], chrBank, 1024 * 8);
-	memcpy_fast32(banks[MMC2_CHRBANK2], chrBank, 1024 * 8);
-	memcpy_fast32(banks[MMC2_CHRBANK3], chrBank, 1024 * 8);
-	nesPPU.chrPages[0] = banks[availableROMBanks - 1];
-	nesPPU.chrPages[1] = banks[availableROMBanks - 1] + 0x1000;
-	*/
+	MMC2_selectCHRMap();
 
 	// RAM bank if one is set up
 	if (numRAMBanks == 1) {
