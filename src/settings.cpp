@@ -106,7 +106,8 @@ static SettingInfo infos[] = {
 	{ ST_Palette,			SG_Video,		false,	0,	3,	"Palette",			PaletteOptions},
 	{ ST_Background,		SG_Video,		false,	0,	5,	"Background",		BackgroundOptions},
 	{ ST_SoundEnabled,		SG_Sound,		false,	0,	2,	"Enable Sound",		OffOn},
-	{ ST_SoundRate,			SG_Sound,		false,	0,  2,  "Quality",			SoundQualityOptions}
+	{ ST_SoundRate,			SG_Sound,		false,	0,  2,  "Quality",			SoundQualityOptions},
+	{ ST_DimScreen,			SG_Video,		true,	0,  2,  "Dim Screen",		OffOn }
 };
 
 const char* EmulatorSettings::GetSettingName(SettingType setting) {

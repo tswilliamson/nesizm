@@ -349,17 +349,7 @@ struct nes_ppu {
 	void step();
 
 	// internals
-	inline void resolveWorkingPalette() {
-		for (int i = 0; i < 0x20; i++) {
-			if (i & 3) {
-				workingPalette[i] = rgbPalettePtr[palette[i]];
-			} else {
-				workingPalette[i] = rgbPalettePtr[palette[0]];
-			}
-		}
-
-		dirtyPalette = false;
-	}
+	void resolveWorkingPalette();
 
 	// internal NMI handling
 	bool triggerNMI;

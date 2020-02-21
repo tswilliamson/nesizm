@@ -14,6 +14,7 @@ enum SettingType {
 	ST_Background,
 	ST_SoundEnabled,
 	ST_SoundRate,
+	ST_DimScreen,
 
 	MAX_SETTINGS
 };

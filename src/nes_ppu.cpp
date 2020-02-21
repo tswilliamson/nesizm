@@ -48,6 +48,84 @@ inline void UnrollPalette(uint32& palette) {
 	palette = palette | (palette << 16);
 }
 
+void nes_ppu::resolveWorkingPalette() {
+	for (int i = 0; i < 0x20; i++) {
+		if (i & 3) {
+			workingPalette[i] = rgbPalettePtr[palette[i]];
+		} else {
+			workingPalette[i] = rgbPalettePtr[palette[0]];
+		}
+	}
+
+	// emphasis bits
+	uint32 emph = PPUMASK & (PPUMASK_EMPHRED | PPUMASK_EMPHGREEN | PPUMASK_EMPHBLUE);
+	if (emph || nesSettings.GetSetting(ST_DimScreen)) {
+		int shiftRed = 1;
+		int shiftGreen = 1;
+		int shiftBlue = 1;
+		if (emph & PPUMASK_EMPHRED) {
+			shiftRed -= 1;
+			shiftGreen += 1;
+			shiftBlue += 1;
+		}
+		if (emph & PPUMASK_EMPHGREEN) {
+			shiftRed += 1;
+			shiftGreen -= 1;
+			shiftBlue += 1;
+		}
+		if (emph & PPUMASK_EMPHBLUE) {
+			shiftRed += 1;
+			shiftGreen += 1;
+			shiftBlue -= 1;
+		}
+		if (nesSettings.GetSetting(ST_DimScreen)) {
+			shiftRed += 1;
+			shiftGreen += 1;
+			shiftBlue += 1;
+		}
+
+		const uint16 ShiftUpTable[32] =
+		{
+			0b00000, 0b00010, 0b00100, 0b00110, 0b01000, 0b01010, 0b01100, 0b01110,
+			0b10000, 0b10010, 0b10100, 0b10110, 0b11000, 0b11010, 0b11100, 0b11110,
+			0b11111, 0b11111, 0b11111, 0b11111, 0b11111, 0b11111, 0b11111, 0b11111,
+			0b11111, 0b11111, 0b11111, 0b11111, 0b11111, 0b11111, 0b11111, 0b11111,
+		};
+		const uint16 ShiftNoneTable[32] =
+		{
+			0b00000, 0b00001, 0b00010, 0b00011, 0b00100, 0b00101, 0b00110, 0b00111,
+			0b01000, 0b01001, 0b01010, 0b01011, 0b01100, 0b01101, 0b01110, 0b01111,
+			0b10000, 0b10001, 0b10010, 0b10011, 0b10100, 0b10101, 0b10110, 0b10111,
+			0b11000, 0b11001, 0b11010, 0b11011, 0b11100, 0b11101, 0b11110, 0b11111,
+		};
+		const uint16 ShiftDownTable[32] =
+		{
+			0b00000, 0b00001, 0b00010, 0b00010, 0b00011, 0b00100, 0b00101, 0b00101,
+			0b00110, 0b00111, 0b01000, 0b01000, 0b01001, 0b01010, 0b01011, 0b01011,
+			0b01100, 0b01101, 0b01110, 0b01110, 0b01111, 0b10000, 0b10001, 0b10001,
+			0b10010, 0b10011, 0b10100, 0b10100, 0b10101, 0b10110, 0b10111, 0b10111,
+		};
+		const uint16 ShiftDown2Table[32] =
+		{
+			0b00000, 0b00001, 0b00001, 0b00001, 0b00010, 0b00010, 0b00011, 0b00011,
+			0b00100, 0b00100, 0b00101, 0b00101, 0b00110, 0b00110, 0b00111, 0b00111,
+			0b01000, 0b01000, 0b01001, 0b01001, 0b01010, 0b01010, 0b01011, 0b01011,
+			0b01100, 0b01100, 0b01101, 0b01101, 0b01110, 0b01110, 0b01111, 0b01111,
+		};
+		const uint16* ShiftTables[5] = { ShiftUpTable, ShiftNoneTable, ShiftDownTable, ShiftDown2Table, ShiftDown2Table };
+
+		for (int32 i = 0; i < 0x20; i++) {
+			workingPalette[i] =
+				(ShiftTables[shiftRed + 1][(workingPalette[i] & 0b1111100000000000) >> 11] << 11) |
+				(ShiftTables[shiftGreen + 1][(workingPalette[i] & 0b0000011111000000) >> 6] << 6) |
+				(workingPalette[i] & 0b0000000000100000) |
+				ShiftTables[shiftBlue + 1][workingPalette[i] & 0b0000000000011111];
+		}
+	}
+
+	dirtyPalette = false;
+}
+
 // scanline buffers with padding to allow fast rendering with clipping
 static unsigned char oamScanlineBuffer[256 + 8] = { 0 }; 
 
