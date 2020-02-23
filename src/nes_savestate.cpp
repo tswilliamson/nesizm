@@ -371,6 +371,11 @@ struct FCEUX_File {
 		if (nesCart.mapper == 2) {
 			nesCart.MapProgramBanks(0, data[0] * 2, 2);
 		}
+		// CNROM
+		else if (nesCart.mapper == 3) {
+			nesCart.registers[0] = data[0];
+			nesCart.MapCharacterBanks(0, data[0] * 8, 8);
+		}
 	}
 
 	// write state support
@@ -462,6 +467,10 @@ struct FCEUX_File {
 					DebugAssert(nesPPU.chrPages[0] + 4096 == nesPPU.chrPages[1]);
 					WriteChunk_Data("CHRR", 8192, nesPPU.chrPages[0]);
 				}
+			}
+			// CNROM Mapper
+			else if (nesCart.mapper == 3) {
+				WriteChunk("LATC", 1, nesCart.chrBanks[0] / 8);
 			}
 		}
 
