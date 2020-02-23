@@ -68,6 +68,7 @@
     <ClInclude Include="..\src\6502.h" />
     <ClInclude Include="..\src\frontend.h" />
     <ClInclude Include="..\src\imageDraw.h" />
+    <ClInclude Include="..\src\mappers.h" />
     <ClInclude Include="..\src\nes.h" />
     <ClInclude Include="..\src\nes_cpu.h" />
     <ClInclude Include="..\src\ptune2_simple\Ptune2_direct.h" />

@@ -2,6 +2,7 @@
 #include "platform.h"
 #include "debug.h"
 #include "nes.h"
+#include "mappers.h"
 
 // save state support is designed to be partially compatible with FCEUX, provided the states
 // from FCEUX are uncompressed
@@ -155,10 +156,20 @@ struct FCEUX_File {
 			{
 				HandleSubsection(ST_EXTRA, WRAM, 0x2000);
 				HandleSubsection(ST_EXTRA, CHRR, 0x2000);
+				// MMC1
 				HandleSubsection(ST_EXTRA, DREG, 4);
 				HandleSubsection(ST_EXTRA, BFFR, 1);
 				HandleSubsection(ST_EXTRA, BFRS, 1);
+				// AOROM / UNROM
 				HandleSubsection(ST_EXTRA, LATC, 1);
+				// MMC3
+				HandleSubsection(ST_EXTRA, REGS, 8);
+				HandleSubsection(ST_EXTRA, CMD, 1);
+				HandleSubsection(ST_EXTRA, A000, 1);
+				HandleSubsection(ST_EXTRA, IRQR, 1);
+				HandleSubsection(ST_EXTRA, IRQC, 1);
+				HandleSubsection(ST_EXTRA, IRQL, 1);
+				HandleSubsection(ST_EXTRA, IRQA, 1);
 				break;
 			}
 		}
@@ -378,6 +389,65 @@ struct FCEUX_File {
 		}
 	}
 
+	void Read_ST_EXTRA_REGS(uint8* data, uint32 size) {
+		// MMC3
+		if (nesCart.mapper == 4) {
+			// internal MMC3 registers:
+			for (int32 r = 0; r < 8; r++) {
+				MMC3_BANK_REG[r] = data[r];
+			}
+		}
+	}
+
+	void Read_ST_EXTRA_CMD(uint8* data, uint32 size) {
+		// MMC3
+		if (nesCart.mapper == 4) {
+			MMC3_BANK_SELECT = data[0];
+		}
+	}
+
+	void Read_ST_EXTRA_A000(uint8* data, uint32 size) {
+		// MMC3 
+		if (nesCart.mapper == 4) {
+			// A000 write (mapper select)
+			if (nesPPU.mirror != nes_mirror_type::MT_4PANE) {
+				if (data[0] & 1) {
+					nesPPU.setMirrorType(nes_mirror_type::MT_HORIZONTAL);
+				} else {
+					nesPPU.setMirrorType(nes_mirror_type::MT_VERTICAL);
+				}
+			}
+		}
+	}
+
+	void Read_ST_EXTRA_IRQR(uint8* data, uint32 size) {
+		// MMC3
+		if (nesCart.mapper == 4) {
+			MMC3_IRQ_RELOAD = data[0];
+		}
+	}
+
+	void Read_ST_EXTRA_IRQC(uint8* data, uint32 size) {
+		// MMC3
+		if (nesCart.mapper == 4) {
+			MMC3_IRQ_COUNTER = data[0];
+		}
+	}
+
+	void Read_ST_EXTRA_IRQL(uint8* data, uint32 size) {
+		// MMC3
+		if (nesCart.mapper == 4) {
+			MMC3_IRQ_LATCH = data[0];
+		}
+	}
+
+	void Read_ST_EXTRA_IRQA(uint8* data, uint32 size) {
+		// MMC3
+		if (nesCart.mapper == 4) {
+			MMC3_IRQ_ENABLE = data[0];
+		}
+	}
+
 	// write state support
 	void StartWrite() {
 		Size = 0;
@@ -472,6 +542,20 @@ struct FCEUX_File {
 			else if (nesCart.mapper == 3) {
 				WriteChunk("LATC", 1, nesCart.chrBanks[0] / 8);
 			}
+			// MMC3 Mapper
+			else if (nesCart.mapper == 4) {
+				uint8 regs[8];
+				for (int32 r = 0; r < 8; r++) {
+					regs[r] = MMC3_BANK_REG[r];
+				}
+				WriteChunk_Data("REGS", 8, regs);
+				WriteChunk("CMD", 1, uint8(MMC3_BANK_SELECT));
+				WriteChunk("A000", 1, nesPPU.mirror == nes_mirror_type::MT_HORIZONTAL ? 1 : 0);
+				WriteChunk("IRQR", 1, uint8(MMC3_IRQ_RELOAD));
+				WriteChunk("IRQC", 1, uint8(MMC3_IRQ_COUNTER));
+				WriteChunk("IRQL", 1, uint8(MMC3_IRQ_LATCH));
+				WriteChunk("IRQA", 1, uint8(MMC3_IRQ_ENABLE));
+			}
 		}
 
 		return true;
@@ -565,6 +649,12 @@ bool nes_cart::LoadState() {
 	}
 
 	Bfile_CloseFile_OS(fileID);
+
+	if (!fceuxFile.hasError) {
+		if (mapper == 4) {
+			MMC3_StateLoaded();
+		}
+	}
 
 	return fceuxFile.hasError;
 }

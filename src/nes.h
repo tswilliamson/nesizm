@@ -170,6 +170,7 @@ struct nes_cart {
 	void setupMapper4_MMC3();
 	void MMC3_UpdateMapping(int regNumber);
 	static void MMC3_ScanlineClock();
+	void MMC3_StateLoaded();
 
 	void setupMapper7_AOROM();
 
