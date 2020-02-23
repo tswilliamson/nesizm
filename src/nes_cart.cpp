@@ -743,14 +743,17 @@ void nes_cart::MMC1_Write(unsigned int addr, int regValue) {
 			MMC1_SetRAMBank(openBusMode);
 		}
 
-		int selectePRGBlock = registers[7] & 0x20;
+		int selectedPRGBlock = 0;
+		if (numPRGBanks >= 0x10) {
+			selectedPRGBlock = ((chrBanks[0] / 4) & 0x10) * 2;
+		}
 		regValue = regValue & (numPRGBanks - 1);
 		// PRG Bank
 		if (registers[3] < 2) {
 			// 32 kb mode
 			regValue &= 0xFE;
 			regValue *= 2;
-			regValue |= selectePRGBlock;
+			regValue |= selectedPRGBlock;
 			registers[7] = regValue;
 			registers[8] = regValue + 2;
 
@@ -758,13 +761,13 @@ void nes_cart::MMC1_Write(unsigned int addr, int regValue) {
 		} else if (registers[3] == 2) {
 			// changes bank at 0xC000
 			regValue *= 2;
-			regValue |= selectePRGBlock;
+			regValue |= selectedPRGBlock;
 			registers[8] = regValue;
 			MapProgramBanks(2, registers[8], 2);
 		} else if (registers[3] == 3) {
 			// changes bank at 0x8000
 			regValue *= 2;
-			regValue |= selectePRGBlock;
+			regValue |= selectedPRGBlock;
 			registers[7] = regValue;
 			MapProgramBanks(0, registers[7], 2);
 		}

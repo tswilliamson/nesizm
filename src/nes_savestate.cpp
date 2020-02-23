@@ -154,9 +154,11 @@ struct FCEUX_File {
 			case ST_EXTRA:
 			{
 				HandleSubsection(ST_EXTRA, WRAM, 0x2000);
+				HandleSubsection(ST_EXTRA, CHRR, 0x2000);
 				HandleSubsection(ST_EXTRA, DREG, 4);
 				HandleSubsection(ST_EXTRA, BFFR, 1);
 				HandleSubsection(ST_EXTRA, BFRS, 1);
+				HandleSubsection(ST_EXTRA, LATC, 1);
 				break;
 			}
 		}
@@ -271,6 +273,15 @@ struct FCEUX_File {
 		nesCart.readState_WRAM(data);
 	}
 
+	void Read_ST_EXTRA_CHRR(uint8* data, uint32 size) {
+		if (nesCart.mapper == 2) {
+			if (nesCart.numCHRBanks == 0) {
+				memcpy(nesPPU.chrPages[0], data, 0x1000);
+				memcpy(nesPPU.chrPages[1], data + 0x1000, 0x2000);
+			}
+		}
+	}
+
 	void Read_ST_EXTRA_DREG(uint8* data, uint32 size) {
 		// MMC1
 		if (nesCart.mapper == 1) {
@@ -296,7 +307,10 @@ struct FCEUX_File {
 			unsigned int PRGBankMode = (data[0] & 0x0C) >> 2;
 			nesCart.registers[3] = PRGBankMode;
 
-			uint8 selectedPRGBlock = (data[1] & 0x10);
+			uint8 selectedPRGBlock = 0;
+			if (nesCart.numPRGBanks >= 0x10) {
+				selectedPRGBlock = (data[1] & 0x10);
+			}
 			uint8 prgBank = (data[3] & 0xF) | selectedPRGBlock;
 			switch (PRGBankMode) {
 			case 0:
@@ -349,6 +363,13 @@ struct FCEUX_File {
 		if (nesCart.mapper == 1) {
 			// Buffer shift
 			nesCart.registers[1] = data[0];
+		}
+	}
+
+	void Read_ST_EXTRA_LATC(uint8* data, uint32 size) {
+		// UNROM
+		if (nesCart.mapper == 2) {
+			nesCart.MapProgramBanks(0, data[0] * 2, 2);
 		}
 	}
 
@@ -433,6 +454,14 @@ struct FCEUX_File {
 					DRegs[3] |= 0x10;
 				}
 				WriteChunk("DREG", 4, DRegs[0], DRegs[1], DRegs[2], DRegs[3]);
+			}
+			// UNROM Mapper
+			else if (nesCart.mapper == 2) {
+				WriteChunk("LATC", 1, nesCart.programBanks[0] / 2);
+				if (nesCart.numCHRBanks == 0) {
+					DebugAssert(nesPPU.chrPages[0] + 4096 == nesPPU.chrPages[1]);
+					WriteChunk_Data("CHRR", 8192, nesPPU.chrPages[0]);
+				}
 			}
 		}
 
