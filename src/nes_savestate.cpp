@@ -316,7 +316,7 @@ struct FCEUX_File {
 
 			// PRG BANKS
 			unsigned int PRGBankMode = (data[0] & 0x0C) >> 2;
-			nesCart.registers[3] = PRGBankMode;
+			MMC1_PRG_BANK_MODE = PRGBankMode;
 
 			uint8 selectedPRGBlock = 0;
 			if (nesCart.numPRGBanks >= 0x10) {
@@ -328,26 +328,24 @@ struct FCEUX_File {
 			case 1:
 				// 32 kb mode
 				prgBank &= 0xFE;
-				nesCart.registers[7] = prgBank * 2;
-				nesCart.registers[8] = prgBank * 2 + 2;
+				MMC1_PRG_BANK_1 = prgBank * 2;
+				MMC1_PRG_BANK_2 = prgBank * 2 + 2;
 				break;
 			case 2:
 				// fixed lower
-				nesCart.registers[7] = selectedPRGBlock * 2;
-				nesCart.registers[8] = prgBank * 2;
+				MMC1_PRG_BANK_1 = selectedPRGBlock * 2;
+				MMC1_PRG_BANK_2 = prgBank * 2;
 				break;
 			case 3:
 				// fixed upper
-				nesCart.registers[7] = prgBank * 2;
-				nesCart.registers[8] = (((nesCart.numPRGBanks - 1) & 0xF) | selectedPRGBlock) * 2;
+				MMC1_PRG_BANK_1 = prgBank * 2;
+				MMC1_PRG_BANK_2 = (((nesCart.numPRGBanks - 1) & 0xF) | selectedPRGBlock) * 2;
 				break;
 			}
-			nesCart.MapProgramBanks(0, nesCart.registers[7], 2);
-			nesCart.MapProgramBanks(2, nesCart.registers[8], 2);
 
-			// CHR BANKS : registers[4] indicates 4 KB mode:
-			nesCart.registers[4] = (data[0] & 0x10) ? 1 : 0;
-			if (nesCart.registers[4]) {
+			// CHR BANKS : MMC1_CHR_BANK_MODE indicates 4 KB mode:
+			MMC1_CHR_BANK_MODE = (data[0] & 0x10) ? 1 : 0;
+			if (MMC1_CHR_BANK_MODE) {
 				// DRegs 1 and 2 for each character selection in 4KB
 				nesCart.MapCharacterBanks(0, data[1] * 4, 4);
 				nesCart.MapCharacterBanks(4, data[2] * 4, 4);
@@ -365,7 +363,7 @@ struct FCEUX_File {
 		// MMC1
 		if (nesCart.mapper == 1) {
 			// Buffer
-			nesCart.registers[2] = data[0];
+			MMC1_SHIFT_VALUE = data[0];
 		}
 	}
 
@@ -373,7 +371,7 @@ struct FCEUX_File {
 		// MMC1
 		if (nesCart.mapper == 1) {
 			// Buffer shift
-			nesCart.registers[1] = data[0];
+			MMC1_SHIFT_BIT = data[0];
 		}
 	}
 
@@ -384,8 +382,15 @@ struct FCEUX_File {
 		}
 		// CNROM
 		else if (nesCart.mapper == 3) {
-			nesCart.registers[0] = data[0];
+			CNROM_CUR_CHR_BANK = data[0];
 			nesCart.MapCharacterBanks(0, data[0] * 8, 8);
+		}
+		// AOROM
+		else if (nesCart.mapper == 7) {
+			uint8 nameTable = (data[0] >> 4) & 1;
+			uint8 prgBank = data[0] & 0xF;
+			AOROM_CUR_NAMETABLE = nameTable;
+			nesCart.MapProgramBanks(0, prgBank * 4, 4);
 		}
 	}
 
@@ -487,8 +492,8 @@ struct FCEUX_File {
 
 			// MMC1 Mapper
 			if (nesCart.mapper == 1) {
-				WriteChunk("BFFR", 1, nesCart.registers[2]); // MMC1 shift register
-				WriteChunk("BFRS", 1, nesCart.registers[1]); // MMC1 shift register bit
+				WriteChunk("BFFR", 1, MMC1_SHIFT_VALUE); // MMC1 shift register
+				WriteChunk("BFRS", 1, MMC1_SHIFT_BIT); // MMC1 shift register bit
 
 				// build DRegs:
 				uint8 DRegs[4] = { 0, 0, 0, 0 };
@@ -509,15 +514,15 @@ struct FCEUX_File {
 				}
 
 				// CHR ROM
-				if (nesCart.registers[4]) {
+				if (MMC1_CHR_BANK_MODE) {
 					DRegs[0] |= 0x10;
 					DRegs[2] = nesCart.chrBanks[4] / 4;
 				}
 				DRegs[1] = nesCart.chrBanks[0] / 4;
 
 				// PRG ROM
-				DRegs[0] |= (nesCart.registers[3] << 2);
-				if (nesCart.registers[3] == 2) {
+				DRegs[0] |= (MMC1_PRG_BANK_MODE << 2);
+				if (MMC1_PRG_BANK_MODE == 2) {
 					DRegs[3] = (nesCart.registers[8] / 2) & 0xF;
 					if (nesCart.registers[8] & 0x20) DRegs[1] = 0x10;
 				} else {
@@ -525,9 +530,10 @@ struct FCEUX_File {
 					if (nesCart.registers[7] & 0x20) DRegs[1] = 0x10;
 				}
 
-				if (nesCart.registers[5]) {
+				if (MMC1_RAM_DISABLE) {
 					DRegs[3] |= 0x10;
 				}
+
 				WriteChunk("DREG", 4, DRegs[0], DRegs[1], DRegs[2], DRegs[3]);
 			}
 			// UNROM Mapper
@@ -555,6 +561,12 @@ struct FCEUX_File {
 				WriteChunk("IRQC", 1, uint8(MMC3_IRQ_COUNTER));
 				WriteChunk("IRQL", 1, uint8(MMC3_IRQ_LATCH));
 				WriteChunk("IRQA", 1, uint8(MMC3_IRQ_ENABLE));
+			}
+			// AOROM Mapper
+			else if (nesCart.mapper == 7) {
+				uint8 nameTable = AOROM_CUR_NAMETABLE;
+				uint8 prgBank = nesCart.programBanks[0] / 4;
+				WriteChunk("LATC", 1, (nameTable << 4) | prgBank);
 			}
 		}
 
@@ -653,6 +665,8 @@ bool nes_cart::LoadState() {
 	if (!fceuxFile.hasError) {
 		if (mapper == 4) {
 			MMC3_StateLoaded();
+		} else if (mapper == 7) {
+			AOROM_StateLoaded();
 		}
 	}
 

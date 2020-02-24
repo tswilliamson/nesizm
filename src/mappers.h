@@ -12,21 +12,35 @@
 // 1 : SOROM (extra RAM bank, bit 3 of chr bank select selects RAM bank)
 // 2 : SUROM (512 KB PRG ROM, high chr bank bit selects bank)
 // 3 : SXROM (32 KB RAM, bits 3-4 of chr bank select selects RAM bank high bits)
-#define S_ROM 0
-#define SOROM 1
-#define SUROM 2
-#define SXROM 3
+#define MMC1_BOARD_TYPE nesCart.registers[0]
+#define MMC1_S_ROM 0
+#define MMC1_SOROM 1
+#define MMC1_SUROM 2
+#define MMC1_SXROM 3
 
 // register 1 holds the shift register bit
+#define MMC1_SHIFT_BIT nesCart.registers[1]
+
 // register 2 holds the shift register value
+#define MMC1_SHIFT_VALUE nesCart.registers[2]
 
 // register 3 holds PRG bank mode
+#define MMC1_PRG_BANK_MODE nesCart.registers[3]
+
 // register 4 holds CHR bank mode
+#define MMC1_CHR_BANK_MODE nesCart.registers[4]
+
 // register 5 holds the RAM chip enable bit (0 = enabled)
+#define MMC1_RAM_DISABLE nesCart.registers[5]
+
 // register 6 holds the bank containing the ram
+#define MMC1_RAM_BANK nesCart.registers[6]
 
 // register 7 holds the PRG bank in lower 16 KB
+#define MMC1_PRG_BANK_1 nesCart.registers[7]
+
 // register 8 holds the PRG bank in higher 16 KB 
+#define MMC1_PRG_BANK_2 nesCart.registers[8]
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // CNROM (switchable CHR banks)
