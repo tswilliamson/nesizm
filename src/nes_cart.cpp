@@ -1397,6 +1397,7 @@ void Mapper11_writeSpecial(unsigned int address, unsigned char value) {
 	if (address >= 0x8000) {
 		unsigned int prg = (value & 0x03) * 4;
 		unsigned int chr = (value & 0xF0) >> 4;
+		prg &= nesCart.numPRGBanks - 1;
 
 		if (prg != Mapper11_PRG_SELECT) {
 			nesCart.MapProgramBanks(0, prg, 4);

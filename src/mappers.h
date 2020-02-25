@@ -108,5 +108,6 @@
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Color Dreams Mapper 11
 
-#define Mapper11_PRG_SELECT nesCart.registers[8]
-#define Mapper11_CHR_SELECT nesCart.registers[8]
+#define Mapper11_PRG_SELECT nesCart.registers[0]
+
+#define Mapper11_CHR_SELECT nesCart.registers[1]

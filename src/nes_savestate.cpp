@@ -396,6 +396,16 @@ struct FCEUX_File {
 			AOROM_CUR_NAMETABLE = nameTable;
 			nesCart.MapProgramBanks(0, prgBank * 4, 4);
 		}
+		// ColourDreams
+		else if (nesCart.mapper == 11) {
+			unsigned int prg = (data[0] & 0x0F) * 4;
+			unsigned int chr = (data[0] & 0xF0) >> 4;
+			prg &= nesCart.numPRGBanks - 1;
+			nesCart.MapProgramBanks(0, prg, 4);
+			Mapper11_PRG_SELECT = prg;
+			nesCart.MapCharacterBanks(0, chr * 8, 8);
+			Mapper11_CHR_SELECT = chr;
+		}
 	}
 
 	void Read_ST_EXTRA_REGS(uint8* data, uint32 size) {
@@ -618,6 +628,10 @@ struct FCEUX_File {
 				WriteChunk("MIRR", 1, uint8(nesPPU.mirror == nes_mirror_type::MT_HORIZONTAL ? 1 : 0));
 				WriteChunk("LAT0", 1, uint8(MMC2_LOLATCH));
 				WriteChunk("LAT1", 1, uint8(MMC2_HILATCH));
+			}
+			// ColourDreams Mapper
+			else if (nesCart.mapper == 11) {
+				WriteChunk("LATC", 1, uint8(Mapper11_PRG_SELECT / 4) | uint8(Mapper11_CHR_SELECT << 4));
 			}
 
 			// chr ram expected if there are no chr banks in the ROM
