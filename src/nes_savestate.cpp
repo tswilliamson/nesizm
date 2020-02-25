@@ -285,11 +285,9 @@ struct FCEUX_File {
 	}
 
 	void Read_ST_EXTRA_CHRR(uint8* data, uint32 size) {
-		if (nesCart.mapper == 2) {
-			if (nesCart.numCHRBanks == 0) {
-				memcpy(nesPPU.chrPages[0], data, 0x1000);
-				memcpy(nesPPU.chrPages[1], data + 0x1000, 0x2000);
-			}
+		if (nesCart.numCHRBanks == 0) {
+			memcpy(nesPPU.chrPages[0], data, 0x1000);
+			memcpy(nesPPU.chrPages[1], data + 0x1000, 0x1000);
 		}
 	}
 
@@ -539,10 +537,6 @@ struct FCEUX_File {
 			// UNROM Mapper
 			else if (nesCart.mapper == 2) {
 				WriteChunk("LATC", 1, nesCart.programBanks[0] / 2);
-				if (nesCart.numCHRBanks == 0) {
-					DebugAssert(nesPPU.chrPages[0] + 4096 == nesPPU.chrPages[1]);
-					WriteChunk_Data("CHRR", 8192, nesPPU.chrPages[0]);
-				}
 			}
 			// CNROM Mapper
 			else if (nesCart.mapper == 3) {
@@ -567,6 +561,12 @@ struct FCEUX_File {
 				uint8 nameTable = AOROM_CUR_NAMETABLE;
 				uint8 prgBank = nesCart.programBanks[0] / 4;
 				WriteChunk("LATC", 1, (nameTable << 4) | prgBank);
+			}
+
+			// chr ram expected if there are no chr banks in the ROM
+			if (nesCart.numCHRBanks == 0) {
+				DebugAssert(nesPPU.chrPages[0] + 4096 == nesPPU.chrPages[1]);
+				WriteChunk_Data("CHRR", 8192, nesPPU.chrPages[0]);
 			}
 		}
 
@@ -670,7 +670,25 @@ bool nes_cart::LoadState() {
 		}
 	}
 
+	nesCart.BuildFileBlocks();
+	nesCart.FlushCache();	
+	if (nesCart.numCHRBanks) {
+		nesCart.CommitChrBanks();
+	}
+
 	return fceuxFile.hasError;
+}
+
+void nes_cart::FlushCache() {
+	for (int32 i = 0; i < cachedBankCount; i++) {
+		cache[i].clear();
+	}
+
+	for (int32 i = 0; i < 4; i++) {
+		int curBank = programBanks[i];
+		programBanks[i] = -1;
+		MapProgramBanks(i, curBank, 1);
+	}
 }
 
 bool nes_cart::SaveState() {

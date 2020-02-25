@@ -81,8 +81,6 @@
 // registers[0] = current nametable page (1 or 0)
 #define AOROM_CUR_NAMETABLE nesCart.registers[0]
 
-#define AOROM_NAMEBANK nesCart.availableROMBanks - 1
-
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // MMC2 (Punch Out mapper)
 

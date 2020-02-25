@@ -616,8 +616,6 @@ void nes_ppu::step() {
 		if (keyDown_fast(nesSettings.keyMap[NES_LOADSTATE])) // F4 in simulator, 'L' on device
 		{
 			nesCart.LoadState();
-			nesCart.BuildFileBlocks(); 
-			nesCart.CommitChrBanks();
 		}
 
 		input_cacheKeys();

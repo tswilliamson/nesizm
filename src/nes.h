@@ -116,6 +116,9 @@ struct nes_cart {
 	// writes the save state for this cart. Requires block addresses to be reset
 	bool SaveState();
 
+	// uncaches all cached block data and resets program banks
+	void FlushCache();
+
 	// direct memory block support (direct memcpy from ROM, prevents OS call to read game data as needed)
 	unsigned char* blocks[1024];	
 	bool BuildFileBlocks();

@@ -538,6 +538,8 @@ void nes_cart::MapProgramBanks(int32 toBank, int32 cartBank, int32 numBanks) {
 }
 
 void nes_cart::CommitChrBanks() {
+	DebugAssert(numCHRBanks); // should not happen with CHR RAM
+
 	uint8* bankData = cacheCHRBank(chrBanks);
 
 	if (bSwapChrPages) {
@@ -1183,7 +1185,7 @@ void nes_cart::setupMapper4_MMC3() {
 // AOROM (switches nametables for single screen mirroring)
 
 inline void AOROM_MapNameBank(int tableNum) {
-	nesPPU.nameTables = (nes_nametable*)(nesCart.cache[AOROM_NAMEBANK].ptr + 4096 * tableNum);
+	nesPPU.setMirrorType(tableNum == 0 ? nes_mirror_type::MT_SINGLE : nes_mirror_type::MT_SINGLE_UPPER);
 }
 
 void AOROM_writeSpecial(unsigned int address, unsigned char value) {
@@ -1219,13 +1221,14 @@ void nes_cart::AOROM_StateLoaded() {
 void nes_cart::setupMapper7_AOROM() {
 	writeSpecial = AOROM_writeSpecial;
 
-	cachedBankCount = AOROM_NAMEBANK - 1;
-	int chrBank = cachedBankCount;
+	cachedBankCount = availableROMBanks;
 
 	// read CHR bank (always one ROM.. or RAM?) directly into PPU chrMap
 	if (numCHRBanks == 1) {
 		MapCharacterBanks(0, 0, 8);
 	} else {
+		cachedBankCount--;
+		int chrBank = cachedBankCount;
 		nesPPU.chrPages[0] = cache[chrBank].ptr;
 		nesPPU.chrPages[1] = cache[chrBank].ptr + 0x1000;
 	}
