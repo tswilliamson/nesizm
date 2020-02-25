@@ -85,14 +85,25 @@
 // MMC2 (Punch Out mapper)
 
 // register 0 is the current low CHR map latch value : 0 = FD, 1 = FE
+#define MMC2_LOLATCH nesCart.registers[0]
+
 // register 1 is the current high CHR map latch value : 0 = FD, 1 = FE
+#define MMC2_HILATCH nesCart.registers[1]
 
 // register 2 is the current bank copied into the PRG select
+#define MMC2_PRG_SELECT nesCart.registers[2]
 
 // register 3 is the current 4K CHR bank selected for low CHR map, latched with FD
+#define MMC2_CHR_LOW_FD nesCart.registers[3]
+
 // register 4 is the current 4K CHR bank selected for low CHR map, latched with FE
+#define MMC2_CHR_LOW_FE nesCart.registers[4]
+
 // register 5 is the current 4K CHR bank selected for high CHR map, latched with FD
+#define MMC2_CHR_HIGH_FD nesCart.registers[5]
+
 // register 6 is the current 4K CHR bank selected for high CHR map, latched with FE
+#define MMC2_CHR_HIGH_FE nesCart.registers[6]
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Color Dreams Mapper 11

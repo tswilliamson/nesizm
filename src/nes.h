@@ -180,6 +180,7 @@ struct nes_cart {
 	void AOROM_StateLoaded();
 
 	void setupMapper9_MMC2();
+	void MMC2_StateLoaded();
 
 	void setupMapper11_ColorDreams();
 

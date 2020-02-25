@@ -160,7 +160,7 @@ struct FCEUX_File {
 				HandleSubsection(ST_EXTRA, DREG, 4);
 				HandleSubsection(ST_EXTRA, BFFR, 1);
 				HandleSubsection(ST_EXTRA, BFRS, 1);
-				// AOROM / UNROM
+				// AOROM / UNROM / CNROM
 				HandleSubsection(ST_EXTRA, LATC, 1);
 				// MMC3
 				HandleSubsection(ST_EXTRA, REGS, 8);
@@ -170,6 +170,12 @@ struct FCEUX_File {
 				HandleSubsection(ST_EXTRA, IRQC, 1);
 				HandleSubsection(ST_EXTRA, IRQL, 1);
 				HandleSubsection(ST_EXTRA, IRQA, 1);
+				// MMC2
+				HandleSubsection(ST_EXTRA, CREG, 4);
+				HandleSubsection(ST_EXTRA, PREG, 1);
+				HandleSubsection(ST_EXTRA, MIRR, 1);
+				HandleSubsection(ST_EXTRA, LAT0, 1);
+				HandleSubsection(ST_EXTRA, LAT1, 1);
 				break;
 			}
 		}
@@ -451,6 +457,49 @@ struct FCEUX_File {
 		}
 	}
 
+	void Read_ST_EXTRA_CREG(uint8* data, uint32 size) {
+		// MMC2
+		if (nesCart.mapper == 9) {
+			MMC2_CHR_LOW_FD = data[0];
+			MMC2_CHR_LOW_FE = data[1];
+			MMC2_CHR_HIGH_FD = data[2];
+			MMC2_CHR_HIGH_FE = data[3];
+		}
+	}
+
+	void Read_ST_EXTRA_PREG(uint8* data, uint32 size) {
+		// MMC2
+		if (nesCart.mapper == 9) {
+			MMC2_PRG_SELECT = data[0];
+		}
+	}
+
+	void Read_ST_EXTRA_MIRR(uint8* data, uint32 size) {
+		// MMC2
+		if (nesCart.mapper == 9) {
+			if (data[0] & 1) {
+				nesPPU.setMirrorType(nes_mirror_type::MT_HORIZONTAL);
+			} else {
+				nesPPU.setMirrorType(nes_mirror_type::MT_VERTICAL);
+			}
+		}
+	}
+
+	void Read_ST_EXTRA_LAT0(uint8* data, uint32 size) {
+		// MMC2
+		if (nesCart.mapper == 9) {
+			MMC2_LOLATCH = data[0];
+		}
+	}
+
+	void Read_ST_EXTRA_LAT1(uint8* data, uint32 size) {
+		// MMC2
+		if (nesCart.mapper == 9) {
+			MMC2_HILATCH = data[0];
+		}
+	}
+
+
 	// write state support
 	void StartWrite() {
 		Size = 0;
@@ -562,6 +611,14 @@ struct FCEUX_File {
 				uint8 prgBank = nesCart.programBanks[0] / 4;
 				WriteChunk("LATC", 1, (nameTable << 4) | prgBank);
 			}
+			// MMC2 Mapper
+			else if (nesCart.mapper == 9) {
+				WriteChunk("CREG", 4, uint8(MMC2_CHR_LOW_FD), uint8(MMC2_CHR_LOW_FE), uint8(MMC2_CHR_HIGH_FD), uint8(MMC2_CHR_HIGH_FE));
+				WriteChunk("PREG", 1, uint8(MMC2_PRG_SELECT));
+				WriteChunk("MIRR", 1, uint8(nesPPU.mirror == nes_mirror_type::MT_HORIZONTAL ? 1 : 0));
+				WriteChunk("LAT0", 1, uint8(MMC2_LOLATCH));
+				WriteChunk("LAT1", 1, uint8(MMC2_HILATCH));
+			}
 
 			// chr ram expected if there are no chr banks in the ROM
 			if (nesCart.numCHRBanks == 0) {
@@ -667,6 +724,8 @@ bool nes_cart::LoadState() {
 			MMC3_StateLoaded();
 		} else if (mapper == 7) {
 			AOROM_StateLoaded();
+		} else if (mapper == 9) {
+			MMC2_StateLoaded();
 		}
 	}
 
