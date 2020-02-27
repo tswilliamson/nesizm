@@ -293,6 +293,7 @@ struct nes_ppu {
 
 	// current frame
 	unsigned int frameCounter;
+	unsigned int autoFrameSkip;
 
 	void setMirrorType(int withType);
 
@@ -377,7 +378,7 @@ struct nes_ppu {
 	void fastSprite0();
 	void doOAMRender();
 	void resolveScanline(int scrollOffset);
-	void finishFrame();
+	void finishFrame(bool bSkippedFrame);
 
 	// checks conditions for a sprite hit being possible
 	bool canSprite0Hit() {

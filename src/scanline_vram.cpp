@@ -28,8 +28,10 @@ void nes_ppu::resolveScanline(int scrollOffset) {
 	}
 }
 
-void nes_ppu::finishFrame() {
-	TIME_SCOPE();
+void nes_ppu::finishFrame(bool bSkippedFrame) {
+	if (bSkippedFrame) {
+		return;
+	}
 
 #if DEBUG
 	char buffer[32];

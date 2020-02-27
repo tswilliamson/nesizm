@@ -5,8 +5,9 @@
 #include "platform.h"
 #include "debug.h"
 #include "nes.h"
+#include "settings.h"
 #include "scope_timer/scope_timer.h"
-
+#include "ptune2_simple/Ptune2_direct.h"
 
 #define LCD_GRAM	0x202
 #define LCD_BASE	0xB4000000
@@ -113,13 +114,84 @@ void nes_ppu::resolveScanline(int scrollOffset) {
 	}
 }
 
-void nes_ppu::finishFrame() {
-	TIME_SCOPE();
+void nes_ppu::finishFrame(bool bSkippedFrame) {
+	// run frame timing
+	if (nesSettings.GetSetting(ST_Speed) != 4) {
+		// use TMU1 to establish time between frames
+		static unsigned int counterStart = 0x7FFFFFFF;		// max int
+		unsigned int counterRegs = 0x0004;
+		unsigned int tmu1Clocks = 0;
+		if (REG_TMU_TCR_1 != counterRegs || (REG_TMU_TSTR & 2) == 0) {
+			// tmu1 needs to be set up
+			REG_TMU_TSTR &= ~(1 << 1);
 
-	// frame end.. kill DMA operations to make sure they stay in sync
-	DmaWaitNext();
-	*((volatile unsigned*)MSTPCR0) &= ~(1 << 21);//Clear bit 21
-	curScan = 0;
+			REG_TMU_TCOR_1 = counterStart;   // max int
+			REG_TMU_TCNT_1 = counterStart;
+			REG_TMU_TCR_1 = counterRegs;    // max division, no interrupt needed
+
+			// enable TMU1
+			REG_TMU_TSTR |= (1 << 1);
+
+			tmu1Clocks = 0;
+		} else {
+			// expected TMU1 based sim frame time (for 60.09 FPS)
+			unsigned int simFrameTime = Ptune2_GetPLLFreq() * 235 >> Ptune2_GetPFCDiv();
+
+			// adjust expected sim time by various speed settings
+			switch (nesSettings.GetSetting(ST_Speed)) {
+				case 0: simFrameTime = simFrameTime * 4 / 5; break;
+				case 2: simFrameTime = simFrameTime * 10 / 9; break;
+				case 3: simFrameTime = simFrameTime * 4 / 3; break;
+			}
+
+			// clamp speed by waiting for frame time only on rendered frames
+			static uint32 accumulatedSimTime = 0;
+			accumulatedSimTime += simFrameTime;
+			
+			if (!bSkippedFrame) {
+				tmu1Clocks = counterStart - REG_TMU_TCNT_1;
+
+				// auto frameskip adjustment based on pre clamped time
+				static unsigned int collectedTime = 0;
+				static unsigned int collectedFrames = 0;
+				collectedTime += tmu1Clocks;
+				collectedFrames++;
+				if (nesSettings.GetSetting(ST_FrameSkip) == 0 && collectedFrames > 7) {
+					int speedUpTime = simFrameTime * 124 / 128;
+					int slowDownTime = simFrameTime * 132 / 128;
+					int avgTime = collectedTime / 8;
+					collectedTime = 0;
+					collectedFrames = 0;
+
+					if (avgTime < speedUpTime && nesPPU.autoFrameSkip != 0) {
+						nesPPU.autoFrameSkip--;
+					} else if (avgTime > slowDownTime && nesPPU.autoFrameSkip != 24) {
+						nesPPU.autoFrameSkip++;
+					}
+				}
+
+				int rtcBackup = RTC_GetTicks();
+				int maxIter = 1000;
+				while (tmu1Clocks < accumulatedSimTime && RTC_GetTicks() - rtcBackup < 10 && maxIter--) {
+					// condSoundUpdate();
+
+					// sleep .1 milliseconds at a time til we are ready for the frame
+					CMT_Delay_micros(100);
+					tmu1Clocks = counterStart - REG_TMU_TCNT_1;
+				}
+
+				accumulatedSimTime = 0;
+				counterStart = REG_TMU_TCNT_1;
+			}
+		}
+	}
+
+	if (!bSkippedFrame) {
+		// frame end.. kill DMA operations to make sure they stay in sync
+		DmaWaitNext();
+		*((volatile unsigned*)MSTPCR0) &= ~(1 << 21);//Clear bit 21
+		curScan = 0;
+	}
 }
 
 #endif

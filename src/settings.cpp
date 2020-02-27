@@ -62,10 +62,10 @@ static const char* FrameSkipOptions[] = {
 };
 
 static const char* SpeedOptions[] = {
+	"125%",
 	"100%",
 	"90%",
-	"80%",
-	"50%",
+	"75%",
 	"Unclamped"
 };
 
@@ -100,7 +100,7 @@ static SettingInfo infos[] = {
 	{ ST_AutoSave,			SG_System,		false,	0,	2,	"Auto Save",		OffOn},
 	{ ST_OverClock,			SG_System,		false,  0,  2,  "Overclock",		OffOn},
 	{ ST_FrameSkip,			SG_System,		true,	0,  6,	"Frame Skip",		FrameSkipOptions},
-	{ ST_Speed,				SG_System,		true,	0,	5,	"Speed",			SpeedOptions},
+	{ ST_Speed,				SG_System,		true,	1,	5,	"Speed",			SpeedOptions},
 	{ ST_TwoPlayer,			SG_Controls,	false,	0,	2,	"2 Player Mode",	OffOn},
 	{ ST_TurboSetting,		SG_Controls,	false,	2,	5,	"Turbo Key",		TurboKeyOptions},
 	{ ST_Palette,			SG_Video,		false,	0,	3,	"Palette",			PaletteOptions},

@@ -491,7 +491,16 @@ void nes_ppu::step() {
 		const int32 frameSkipValue = nesSettings.GetSetting(ST_FrameSkip);
 		switch (frameSkipValue) {
 			case 0: // auto
-				// TODO
+			{
+				// reverse the bits of the previous frame counter xor'd with this one and
+				// compare against our ratio:
+				unsigned int f = (frameCounter % 32) ^ ((frameCounter + 1) % 32);
+				f = ((f & 0x10) >> 4) | ((f & 0x8) >> 2) | ((f & 0x2) << 2) | ((f & 0x01) << 4);
+
+				// negative is automatic (frame skip amt stored in HOW negative it is)
+				skipFrame = f < autoFrameSkip;
+				break;
+			}
 			case 1: // none
 				skipFrame = false;
 				break;
@@ -586,9 +595,7 @@ void nes_ppu::step() {
 			mainCPU.ppuNMI = true;
 		}
 
-		if (!skipFrame) {
-			finishFrame();
-		}
+		finishFrame(skipFrame);
 
 		ScopeTimer::ReportFrame();
 
@@ -1397,4 +1404,5 @@ void nes_ppu::init() {
 	mirror = nes_mirror_type::MT_UNSET;
 	initScanlineBuffer();
 	rgbPalettePtr = rgbPalette;
+	autoFrameSkip = 0;
 }

@@ -308,6 +308,9 @@ void nes_cart::OnContinue() {
 	Bfile_StrToName_ncpy(filename, romFile, 127);
 	handle = Bfile_OpenFile_OS(filename, READ, 0);
 	BuildFileBlocks();
+
+	// reset frame skip value
+	nesPPU.autoFrameSkip = 0;
 }
 
 bool nes_cart::setupMapper() {

@@ -24,7 +24,7 @@ static unsigned int lastFrame = 0;
 
 unsigned int GetCycleFrameTime() {
 #if TARGET_PRIZM
-	return Ptune2_GetPLLFreq() * 242 * 256 >> Ptune2_GetPFCDiv();
+	return Ptune2_GetPLLFreq() * 235 * 256 >> Ptune2_GetPFCDiv();
 #else
 	return ScopeTimer_FrameCycles;
 #endif

@@ -234,6 +234,10 @@ static bool OptionMenu(MenuOption* forOption, int key) {
 		nesFrontend.selectedOption = 0;
 		nesFrontend.selectOffset = 0;
 
+		while (options[nesFrontend.selectedOption].disabled == true) {
+			nesFrontend.selectedOption++;
+		}
+
 		return true;
 	}
 
