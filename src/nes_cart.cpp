@@ -1435,12 +1435,14 @@ void Mapper71_writeSpecial(unsigned int address, unsigned char value) {
 				// RAM
 				mainCPU.map[address >> 8][address & 0xFF] = value;
 			}
-		}
-		else if (address >= 0xC000) {
+		} else if (address >= 0xC000) {
 			// bank select
 			value &= (nesCart.numPRGBanks - 1) & (0xF);
 
 			nesCart.MapProgramBanks(0, value * 2, 2);
+		} else if (address == 0x9000) {
+			// Firehawk special case
+			nesPPU.setMirrorType((value & 0x10) == 0 ? nes_mirror_type::MT_SINGLE : nes_mirror_type::MT_SINGLE_UPPER);
 		}
 	}
 }
@@ -1448,13 +1450,15 @@ void Mapper71_writeSpecial(unsigned int address, unsigned char value) {
 void nes_cart::setupMapper71_Camerica() {
 	writeSpecial = Mapper71_writeSpecial;
 
-	cachedBankCount = availableROMBanks - 1;
-	int chrBank = cachedBankCount;
+	cachedBankCount = availableROMBanks;
 
 	// read CHR bank (always one RAM) directly into PPU chrMap if not in ROM
 	if (numCHRBanks == 1) {
 		MapCharacterBanks(0, 0, 8);
 	} else {
+		DebugAssert(numCHRBanks == 0);
+		cachedBankCount--;
+		int chrBank = cachedBankCount;
 		nesPPU.chrPages[0] = cache[chrBank].ptr;
 		nesPPU.chrPages[1] = cache[chrBank].ptr + 0x1000;
 	}

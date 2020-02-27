@@ -482,6 +482,10 @@ struct FCEUX_File {
 		if (nesCart.mapper == 9) {
 			MMC2_PRG_SELECT = data[0];
 		}
+		// Camerica
+		if (nesCart.mapper == 71) {
+			nesCart.MapProgramBanks(0, data[0] * 2, 2);
+		}
 	}
 
 	void Read_ST_EXTRA_MIRR(uint8* data, uint32 size) {
@@ -491,6 +495,14 @@ struct FCEUX_File {
 				nesPPU.setMirrorType(nes_mirror_type::MT_HORIZONTAL);
 			} else {
 				nesPPU.setMirrorType(nes_mirror_type::MT_VERTICAL);
+			}
+		}
+		// Camerica
+		if (nesCart.mapper == 71) {
+			if (data[0] == 2) {
+				nesPPU.setMirrorType(nes_mirror_type::MT_SINGLE);
+			} else if (data[0] == 3) {
+				nesPPU.setMirrorType(nes_mirror_type::MT_SINGLE_UPPER);
 			}
 		}
 	}
@@ -632,6 +644,17 @@ struct FCEUX_File {
 			// ColourDreams Mapper
 			else if (nesCart.mapper == 11) {
 				WriteChunk("LATC", 1, uint8(Mapper11_PRG_SELECT / 4) | uint8(Mapper11_CHR_SELECT << 4));
+			}
+			// Camerica Mapper
+			else if (nesCart.mapper == 71) {
+				WriteChunk("PREG", 1, nesCart.programBanks[0] / 2);
+				uint8 mirrorByte = 0;
+				if (nesPPU.mirror == nes_mirror_type::MT_SINGLE) {
+					mirrorByte = 2;
+				} else if (nesPPU.mirror == nes_mirror_type::MT_SINGLE_UPPER) {
+					mirrorByte = 3;
+				}
+				WriteChunk("MIRR", 1, mirrorByte);
 			}
 
 			// chr ram expected if there are no chr banks in the ROM
