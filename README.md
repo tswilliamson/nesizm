@@ -34,13 +34,11 @@ You can configure your own keys in the Settings menu, these are the default I fo
 
 A single save state is supported per ROM, which can be loaded/saved using the remappable keys mentioned in the Controls section. These default to the 'S' and 'L' keys on the calculator. The save state file will be saved to your main storage with the .fcs extension.
 
-These save states are intercompatible with FCEUX. 
+These save states are generally intercompatible with FCEUX, the popular PC NES emulator. However, by default, FCEUX enables compression on its save states when saving, so in order to transport a save state back to your calculator, you need to disable save state compression in FCEUX.
 
 ## Support
 
-![Game Banner](/Screens/GameBanner.png?raw=true)
-
-The emulator now plays over 95% of the games I have been able to test smoothly at this point. Some games where timing accuracy is very important suffer, specifically racing games. Road Rash and F1 Race are playable but have some visual issues, and F1 Pole Position does not play at all. Pokemon Rouge (the French Pokemon Red) now officially works.
+The emulator now plays over 90% of the games I have been able to test smoothly at this point. There are scanline artifacts in  a number of them, but nothing that appears to really hamper gameplay.
 
 The emulator now supports Real Time Clock games such as Pokemon Gold and Silver, utilizing the real time clock on the Prizm.
 
@@ -64,5 +62,5 @@ http://bgb.bircd.org/
 A huge special thanks obviously goes to CTurt, who's simple explanations and easy to read source got this project rolling by making it seem much less scary. See the original Cinoop source code here:
 https://github.com/CTurt/Cinoop
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTA3NzE0MTczMywyOTM5NzU5MTZdfQ==
+eyJoaXN0b3J5IjpbLTIwOTA3NDY1ODYsMjkzOTc1OTE2XX0=
 -->
