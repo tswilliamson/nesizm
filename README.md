@@ -16,8 +16,6 @@ In the menu system use the arrow keys and SHIFT or ENTER to select.
 
 When inside a game, the MENU key will exit to the settings screen, and pressing MENU again will take you back to the calculator OS.
 
-A single save state is supported per ROM, which can be loaded/saved using the remappable keys mentioned in the Controls section.
-
 ### In Game
 
 You can configure your own keys in the Settings menu, these are the default I found to work well:
@@ -32,21 +30,11 @@ You can configure your own keys in the Settings menu, these are the default I fo
 - Increase Volume/Distortion : + 
 - Decrease Volume/Distortion : -
 
-Some games, such as the Mario titles, play much better with a reversed control scheme, where you bind left and right to Shift/Option, and A and B to Cos/Tan. This is because the Prizm directional pad is a little flaky and on the opposite side as a traditional game controller.
+### Save States
 
-### FAQ Viewer
+A single save state is supported per ROM, which can be loaded/saved using the remappable keys mentioned in the Controls section. These default to the 'S' and 'L' keys on the calculator. The save state file will be saved to your main storage with the .fcs extension.
 
-![FAQ View](/Screens/FAQ.png?raw=true)
-
-If you have a text file (.txt) with the same base filename as any of your ROM's, this text file can now be viewed inside of Prizoop for easy reference. The FAQ is viewed with a calctype font (see my other repo) that is a clear and easy to read text at just 5 pixels wide per character. To read the FAQ, just use the new FAQ option from within the menu. Prizoop will save your most recently viewed FAQ position to make it simple to go back and forth with the game and between sessions.
-
-Many game FAQs are built to wrap short lines (around 80 characters) and these will display with no trouble on the calculator. Many international characters are supported, but make sure your .txt file is saved in ANSI text format. UTF formats are not supported.
-
-FAQ viewing controls:
-- Up / Down: Scroll up and down
-- Left / Right : Shift left and right (useful for badly wrapping FAQ files)
-- F2: Game settings
-- F6: Return to Game
+These save states are intercompatible with FCEUX. 
 
 ## Support
 
@@ -76,5 +64,5 @@ http://bgb.bircd.org/
 A huge special thanks obviously goes to CTurt, who's simple explanations and easy to read source got this project rolling by making it seem much less scary. See the original Cinoop source code here:
 https://github.com/CTurt/Cinoop
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMjE4OTM0MTUsMjkzOTc1OTE2XX0=
+eyJoaXN0b3J5IjpbMTA3NzE0MTczMywyOTM5NzU5MTZdfQ==
 -->
