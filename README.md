@@ -38,18 +38,18 @@ These save states are generally intercompatible with FCEUX, the popular PC NES e
 
 The emulator now plays over 90% of the games I have been able to test smoothly at this point. There are scanline artifacts in  a number of them, but nothing that appears to really hamper gameplay.
 
-Here is the current mapper support table, only including mappers I intend to implement. Eventually, the emulator will have ~97% coverage of all games released. 
+Here is the current mapper support table, only including mappers I intend to implement. Eventually, the emulator will have ~97% coverage of all games released.
 
 Mapper Name | Working | % | Name | Working | % | Name | Working | %
 -|-|-|-|-|-|-|-|-
-MMC3 | Yes| 27.3%     | MMC5 | No | 0.7%             | FFE F8xxx | No | 0.6%
-MMC1 | Yes | 28.4%    | Camerica | Yes | 0.7%        | FFE F4xxx | No | 0.5%
-UNROM | Yes | 13.0%   | MMC2 | Yes | 0.2%            | 74161/32 | No | 0.5%
-NULL | Yes | 8.9%     | Nanjing | No | 0.05%         | AVE | No | 0.5%
-AOROM | Yes | 2.7%    | Bandai | No | 1.1%           | TC0190 / TC0350 | No | 0.4%
-CNROM | Yes | 7.8%    | Colour Dreams | Yes | 1.0%   | Sunsoft 5 | No | 0.4%
+**MMC3** | Yes| 27.3%     | MMC5 | No | 0.7%             | FFE F8xxx | No | 0.6%
+**MMC1** | Yes | 28.4%    | **Camerica** | Yes | 0.7%        | FFE F4xxx | No | 0.5%
+**UNROM** | Yes | 13.0%   | **MMC2** | Yes | 0.2%            | 74161/32 | No | 0.5%
+**NULL** | Yes | 8.9%     | Nanjing | No | 0.05%         | AVE | No | 0.5%
+**AOROM** | Yes | 2.7%    | Bandai | No | 1.1%           | TC0190 / TC0350 | No | 0.4%
+**CNROM** | Yes | 7.8%    | **Colour Dreams** | Yes | 1.0%   | Sunsoft 5 | No | 0.4%
 Rambo-1 |No | 0.1%    | Namcot 106 | No | 1.0%       | VRC2B | No | 0.3%
-MMC6 | Yes | 0.1%     | SS8806 | No | 0.6%           | Nina-1 | No | 0.3%
+**MMC6** | Yes | 0.1%     | SS8806 | No | 0.6%           | Nina-1 | No | 0.3%
 
 A full table of ROMs and mappers can be found here, but I don't keep it entirely up to date:
 https://docs.google.com/spreadsheets/d/1TfgiU6doDaGvIzSMY3flPSmZviFKiysoxi9uwl-RlRY/edit?usp=sharing
@@ -73,5 +73,5 @@ The Nesdev wiki, found at http://wiki.nesdev.com/ was incredibly useful in the d
 FCEUX, found at http://www.fceux.com provided great debugging tools that allowed me to compare and contrast my emulator state easily for games that had compatibility issues. Show them some love by using their emulator on PC!
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMjg2Mjg0MjYsMjkzOTc1OTE2XX0=
+eyJoaXN0b3J5IjpbNTQ0OTcxNTUwLDI5Mzk3NTkxNl19
 -->
