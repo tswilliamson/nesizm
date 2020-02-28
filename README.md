@@ -1,38 +1,18 @@
 # NESizm v 0.9
-NESizm is a Nintendo Entertainment System emulator for the Casio Prizm series of graphics calculators. It currently supports the FX-CG20 and FX-CG50. NESizm was built from the ground up with performance in mind, while maintaining accurate emulation and compatibility whereever possible with clever caching, forced alignment, and hand written assembly where necessary. It runs most titles at 60 FPS with no overclocking on the FX-CG50.
+NESizm is a Nintendo Entertainment System emulator for the Casio Prizm series of graphics calculators. It currently supports the FX-CG20 and FX-CG50. NESizm was built from the ground up with performance in mind, while maintaining accurate emulation and compatibility wherever possible with clever caching, forced alignment, and hand written assembly where necessary. It runs most titles at 60 FPS with no overclocking on the FX-CG50.
 
-This project has its roots in my interest in early game development technology, as well as the inherent benefits of the Prizm as a platform. There is a large install base of players who can now play NES with 100 hours of battery life with 0 input lag from keyboard to display.
+This project has its roots in my interest in early game development technology, as well as the inherent benefits of the Prizm as a platform. There is a large install base of players who can now play NES over 100 hours of battery life with 0 input lag from keyboard to display.
 
-
-
-
-
-
-
-
-Prizoop v 1.1
-=============
-
-Prizoop is a Game Boy and Game Boy Color emulator for the Casio Prizm series graphing calculator, with intense focus on optimization and decent feature set for the target device. As such, it is not a very accurate emulator but is very fast and compatible. The emulator now supports fx-CG10, fx-CG20, and the new fx-CG50. 
-
-It got its name because it started out as a fork of the multiplatform Game Boy emulator, Cinoop, by CTurt. It has since undergone an almost total rewrite and shares some of the cpu code, organization and constructs from Cinoop, but for the most part resembles Cinoop much less than a normal fork.
 
 ## Install
 
-Copy the prizoop.g3a file to your Casio Prizm calculator's root path when linked via USB. Gameboy and Gameboy Color roms (.gb and .gbc) also should go inside of the root directory. The filenames for these files should be simple and less than 12 characters, such as MyGame.gbc. 
-
-Additionally, Windows users can compress a .gb and .gbc ROM file into a smaller .gbz file that is also compatible, though the game will be slightly slower when starting a new level, etc due to needing to decompress data on the fly. Some games such as Ghosts and Goblins will compress to ~10% of their original size, enabling you to have a much larger library on your calculator. To compress a ROM file, simply run comp-gb.exe and select the ROM to compress. The tool will automatically create a .gbz file in the same folder.
+Copy the nesizm.g3a file to your Casio Prizm calculator's root path when linked via USB. NES roms (.nes) also should go inside of the root directory. The filenames for these files should be simple and less than 12 characters, such as MyGame.nes. The emulator does not support the NES 2.0 ROM format, so stick with old style roms for now.
 
 ## Usage
 
 ### Menu
 
-In the menu system use the arrow keys and SHIFT to select.
-
-- F1: Select ROM
-- F2: Settings (most are self explanatory)
-- F5: FAQ Viewer
-- F6: Play ROM (it will first show diagnostic information)
+In the menu system use the arrow keys and SHIFT or ENTER to select.
 
 When inside a game, the MENU key will exit to the settings screen, and pressing MENU again will take you back to the calculator OS.
 
@@ -96,5 +76,5 @@ http://bgb.bircd.org/
 A huge special thanks obviously goes to CTurt, who's simple explanations and easy to read source got this project rolling by making it seem much less scary. See the original Cinoop source code here:
 https://github.com/CTurt/Cinoop
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTI3MjUyNjEzMSwyOTM5NzU5MTZdfQ==
+eyJoaXN0b3J5IjpbMjE4OTM0MTUsMjkzOTc1OTE2XX0=
 -->
