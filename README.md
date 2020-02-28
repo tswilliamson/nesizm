@@ -1,7 +1,7 @@
 # NESizm v 0.9
 NESizm is a Nintendo Entertainment System emulator for the Casio Prizm series of graphics calculators. It currently supports the FX-CG20 and FX-CG50. NESizm was built from the ground up with performance in mind, while maintaining accurate emulation and compatibility whereever possible with clever caching, forced alignment, and hand written assembly where necessary. It runs most titles at 60 FPS with no overclocking on the FX-CG50.
 
-This project has its roots in my interest in early game development technology, as well as the inherent benefits of this platform
+This project has its roots in my interest in early game development technology, as well as the inherent benefits of the Prizm as a platform. There is a large install base of players who can now play NES with 100 hours of battery life with 0 input lag from keyboard to display.
 
 
 
@@ -96,5 +96,5 @@ http://bgb.bircd.org/
 A huge special thanks obviously goes to CTurt, who's simple explanations and easy to read source got this project rolling by making it seem much less scary. See the original Cinoop source code here:
 https://github.com/CTurt/Cinoop
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTU5MTg3NDIxMiwyOTM5NzU5MTZdfQ==
+eyJoaXN0b3J5IjpbLTI3MjUyNjEzMSwyOTM5NzU5MTZdfQ==
 -->
