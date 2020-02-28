@@ -56,7 +56,9 @@ If you do use Visual Studio, a project is included that uses a Windows Simulator
 
 ## Special Thanks
 
-The NESde
+The Nesdev wiki, found at http://wiki.nesdev.com/ was incredibly useful in the development of NESizm. My sincerest gratitude to the community of emulator developers who collected all of the information I needed to write an emulator in a single place.
+
+FCEUX, found at http://www.fceux.com provided great debugging tools that allowed me to compare and contrast m
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTM4MTAxNzgwNywyOTM5NzU5MTZdfQ==
+eyJoaXN0b3J5IjpbLTE2MTAyNTc3NDYsMjkzOTc1OTE2XX0=
 -->
