@@ -40,6 +40,13 @@ The emulator now plays over 90% of the games I have been able to test smoothly a
 
 Here is a basic mapper support table:
 
+Mapper Name | Working | % Games
+-|-|-
+MMC3 | Yes| 27.3%
+MMC1 | Yes | 28.4%
+UNROM | Yes | 15.61%
+
+
 ### Sound
 
 The emulator has no current support for sound, but it is planned in the future.
@@ -59,5 +66,5 @@ The Nesdev wiki, found at http://wiki.nesdev.com/ was incredibly useful in the d
 FCEUX, found at http://www.fceux.com provided great debugging tools that allowed me to compare and contrast my emulator state easily for games that had compatibility issues. Show them some love by using their emulator on PC!
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTE1NzY5Mjc4MzQsMjkzOTc1OTE2XX0=
+eyJoaXN0b3J5IjpbLTEzMzc3NDk1MjAsMjkzOTc1OTE2XX0=
 -->
