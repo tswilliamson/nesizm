@@ -25,10 +25,8 @@ You can configure your own keys in the Settings menu, these are the default I fo
 - B: OPTN
 - Select: F5
 - Start: F6
-- Save State : X (multiply), which is the alpha 's' key for save
-- Load State : -> (store), which is the alpha 'l' key for load
-- Increase Volume/Distortion : + 
-- Decrease Volume/Distortion : -
+- Save State : X (multiply), which is the alpha 'S' key for save
+- Load State : -> (store), which is the alpha 'L' key for load
 
 ### Save States
 
@@ -58,7 +56,8 @@ If you do use Visual Studio, a project is included that uses a Windows Simulator
 
 The Nesdev wiki, found at http://wiki.nesdev.com/ was incredibly useful in the development of NESizm. My sincerest gratitude to the community of emulator developers who collected all of the information I needed to write an emulator in a single place.
 
-FCEUX, found at http://www.fceux.com provided great debugging tools that allowed me to compare and contrast m
+FCEUX, found at http://www.fceux.com provided great debugging tools that allowed me to compare and contrast my emulator state easily for games that had compatibility issues. Show them some love by using their emulator on PC!
+
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTE2MTAyNTc3NDYsMjkzOTc1OTE2XX0=
+eyJoaXN0b3J5IjpbLTE1NzY5Mjc4MzQsMjkzOTc1OTE2XX0=
 -->
