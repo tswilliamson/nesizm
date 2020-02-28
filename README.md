@@ -40,27 +40,23 @@ These save states are generally intercompatible with FCEUX, the popular PC NES e
 
 The emulator now plays over 90% of the games I have been able to test smoothly at this point. There are scanline artifacts in  a number of them, but nothing that appears to really hamper gameplay.
 
-The emulator now supports Real Time Clock games such as Pokemon Gold and Silver, utilizing the real time clock on the Prizm.
+Here is a basic mapper support table:
 
 ### Sound
 
-The emulator has full support for sound, though it is somewhat limited due to the 1-bit nature of the Prizm serial port. If you have a 2.5 mm to 3.5 mm headphone adapter, you can enjoy low-lag sound with a decent frequency range in one earphone (left or right, depending on the adaptor). Some adaptors seem to have different voltage output, so you may get some distortion or unusually high volume. Volume and distortion can be simultaneously adjusted with the + and - keys.
+The emulator has no current support for sound, but it is planned in the future.
 
 ## Building
 
-My other repository, PrizmSDK, is required to build Prizoop from source. Put your Prizoop clone in the SDK projects directory.
+My other repository, PrizmSDK, is required to build NESizm from source. Put your NESizm clone in the SDK projects directory.
 
-To build on a Windows machine, I recommed using the project files using Visual Studio Community Edition, where I have NMAKE set up nicely. For other systems please refer to your Prizm SDK documentation on how to compile projects. Refer to the configuration options in make-DeviceRelease.bat.
+To build on a Windows machine, I recommend using the project files using Visual Studio Community Edition, where I have NMAKE set up nicely. For other systems please refer to your Prizm SDK documentation on how to compile projects. Refer to the configuration options in make-DeviceRelease.bat.
 
 If you do use Visual Studio, a project is included that uses a Windows Simulator I wrote that wraps Prizm OS functions so that the code and emulator can easily be tested and iterated on within Visual Studio. See the prizmsim.cpp/h code for details on its usage.
 
 ## Special Thanks
 
-BGB was a huge part of bug fixing and obtaining decent ROM compatibility. It is a Gameboy emulator with great debugging and memory visualization tools:
-http://bgb.bircd.org/
-
-A huge special thanks obviously goes to CTurt, who's simple explanations and easy to read source got this project rolling by making it seem much less scary. See the original Cinoop source code here:
-https://github.com/CTurt/Cinoop
+The NESde
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTIwOTA3NDY1ODYsMjkzOTc1OTE2XX0=
+eyJoaXN0b3J5IjpbMTM4MTAxNzgwNywyOTM5NzU5MTZdfQ==
 -->
