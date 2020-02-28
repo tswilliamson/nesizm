@@ -56,7 +56,16 @@ MMC2 | Yes | 0.2%
 Nanjing | No | 0.05%
 Bandai | No | 1.1%
 Colour Dreams | Yes | 1.0%
-
+Namcot 106 | No | 1.0%
+SS8806 | No | 0.6%
+FFE F8xxx | No | 0.6%
+FFE F4xxx | No | 0.5%
+74161/32 | No | 0.5%
+AVE | No | 0.5%
+TC0190 / TC0350 | No | 0.4%
+Sunsoft 5 | No | 0.4%
+VRC2B | No | 0.3%
+Nina-1 | No | 0.3%
 
 
 ### Sound
@@ -78,5 +87,5 @@ The Nesdev wiki, found at http://wiki.nesdev.com/ was incredibly useful in the d
 FCEUX, found at http://www.fceux.com provided great debugging tools that allowed me to compare and contrast my emulator state easily for games that had compatibility issues. Show them some love by using their emulator on PC!
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTU3ODcyMjI5NSwyOTM5NzU5MTZdfQ==
+eyJoaXN0b3J5IjpbOTA2MTkxNiwyOTM5NzU5MTZdfQ==
 -->
