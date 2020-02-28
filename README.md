@@ -40,32 +40,17 @@ The emulator now plays over 90% of the games I have been able to test smoothly a
 
 Here is the current mapper support table, only including mappers I intend to implement.
 
-Mapper Name | Working | % Games
--|-|-
-MMC3 | Yes| 27.3%
-MMC1 | Yes | 28.4%
-UNROM | Yes | 13.0%
-NULL | Yes | 8.9%
-AOROM | Yes | 2.7%
-CNROM | Yes | 7.8%
-Rambo-1 |No | 0.1%
-MMC6 | Yes | 0.1%
-MMC5 | No | 0.7%
-Camerica | Yes | 0.7%
-MMC2 | Yes | 0.2%
-Nanjing | No | 0.05%
-Bandai | No | 1.1%
-Colour Dreams | Yes | 1.0%
-Namcot 106 | No | 1.0%
-SS8806 | No | 0.6%
-FFE F8xxx | No | 0.6%
-FFE F4xxx | No | 0.5%
-74161/32 | No | 0.5%
-AVE | No | 0.5%
-TC0190 / TC0350 | No | 0.4%
-Sunsoft 5 | No | 0.4%
-VRC2B | No | 0.3%
-Nina-1 | No | 0.3%
+Mapper Name | Working | % | Name | Working | % | Name | Working | %
+-|-|-|-|-|-|-|-|-
+MMC3 | Yes| 27.3%     | MMC5 | No | 0.7%             | FFE F8xxx | No | 0.6%
+MMC1 | Yes | 28.4%    | Camerica | Yes | 0.7%        | FFE F4xxx | No | 0.5%
+UNROM | Yes | 13.0%   | MMC2 | Yes | 0.2%            | 74161/32 | No | 0.5%
+NULL | Yes | 8.9%     | Nanjing | No | 0.05%         | AVE | No | 0.5%
+AOROM | Yes | 2.7%    | Bandai | No | 1.1%           | TC0190 / TC0350 | No | 0.4%
+CNROM | Yes | 7.8%    | Colour Dreams | Yes | 1.0%   | Sunsoft 5 | No | 0.4%
+Rambo-1 |No | 0.1%    | Namcot 106 | No | 1.0%       | VRC2B | No | 0.3%
+MMC6 | Yes | 0.1%     | SS8806 | No | 0.6%           | Nina-1 | No | 0.3%
+
 
 
 ### Sound
@@ -87,5 +72,5 @@ The Nesdev wiki, found at http://wiki.nesdev.com/ was incredibly useful in the d
 FCEUX, found at http://www.fceux.com provided great debugging tools that allowed me to compare and contrast my emulator state easily for games that had compatibility issues. Show them some love by using their emulator on PC!
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbOTA2MTkxNiwyOTM5NzU5MTZdfQ==
+eyJoaXN0b3J5IjpbLTEzMjg5NTA1MTEsMjkzOTc1OTE2XX0=
 -->
