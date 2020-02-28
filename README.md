@@ -38,7 +38,7 @@ These save states are generally intercompatible with FCEUX, the popular PC NES e
 
 The emulator now plays over 90% of the games I have been able to test smoothly at this point. There are scanline artifacts in  a number of them, but nothing that appears to really hamper gameplay.
 
-Here is a basic mapper support table:
+Here is the current mapper support table, only including mappers I intend to implement.
 
 Mapper Name | Working | % Games
 -|-|-
@@ -53,6 +53,10 @@ MMC6 | Yes | 0.1%
 MMC5 | No | 0.7%
 Camerica | Yes | 0.7%
 MMC2 | Yes | 0.2%
+Nanjing | No | 0.05%
+Bandai | No | 1.1%
+Colour Dreams | Yes | 1.0%
+
 
 
 ### Sound
@@ -74,5 +78,5 @@ The Nesdev wiki, found at http://wiki.nesdev.com/ was incredibly useful in the d
 FCEUX, found at http://www.fceux.com provided great debugging tools that allowed me to compare and contrast my emulator state easily for games that had compatibility issues. Show them some love by using their emulator on PC!
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTc5NzAzMjA3MCwyOTM5NzU5MTZdfQ==
+eyJoaXN0b3J5IjpbMTU3ODcyMjI5NSwyOTM5NzU5MTZdfQ==
 -->
