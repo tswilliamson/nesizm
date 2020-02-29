@@ -1,4 +1,4 @@
-![Menu Screen](gfx/Menu.png)
+![Menu Screen](gfx/Menu.png) ![Screenshot1](gfx/Shot1.png) 
 
 # NESizm v 0.9
 NESizm is a Nintendo Entertainment System emulator for the Casio Prizm series of graphics calculators. It currently supports the FX-CG20 and FX-CG50. NESizm was built from the ground up with performance in mind, while maintaining accurate emulation and compatibility wherever possible with clever caching, forced alignment, and hand written assembly where necessary. It runs most titles at 60 FPS with no overclocking on the FX-CG50.
@@ -8,10 +8,6 @@ This project has its roots in my interest in early game development technology, 
 ## Install
 
 Copy the nesizm.g3a file to your Casio Prizm calculator's root path when linked via USB. NES roms (.nes) also should go inside of the root directory. The filenames for these files should be simple and less than 12 characters, such as MyGame.nes. The emulator does not support the NES 2.0 ROM format, so stick with old style roms for now.
-
-### PAL Support
-
-PAL is supported, but NES ROMS are notorious for not describing themselves as requiring PAL emulation. In order for NESizm to detect that a game is PAL or not, please make sure 'PAL' case sensitive is in the NES filename, such as GamePAL.nes 
 
 ## Usage
 
@@ -30,18 +26,30 @@ You can configure your own keys in the Settings menu, these are the default I fo
 - B: OPTN
 - Select: F5
 - Start: F6
+- Turbo A: Alpha
+: Turbo B: X^2
 - Save State : X (multiply), which is the alpha 'S' key for save
 - Load State : -> (store), which is the alpha 'L' key for load
 
-### Save States
+Note that if you set the turbo setting to 30 Hz, this may be too fast for some games causing them to malfunction.
 
-![Screenshot1](gfx/Shot1.png) ![Screenshot2](gfx/Shot2.png) ![Screenshot3](gfx/Shot3.png)
+### Two Players
+
+If you desire to play with a second controller, it can be mapped to other buttons on the calculator using the Remap Buttons option in Options->Controls. This is very cumbersome, however, so by default Player 2 is not mapped to any buttons.
+
+### Save States
  
 A single save state is supported per ROM, which can be loaded/saved using the remappable keys mentioned in the Controls section. These default to the 'S' and 'L' keys on the calculator. The save state file will be saved to your main storage with the .fcs extension.
 
 These save states are generally intercompatible with FCEUX, the popular PC NES emulator. However, by default, FCEUX enables compression on its save states when saving, so in order to transport a save state back to your calculator, you need to disable save state compression in FCEUX.
 
+### Battery Backed Support
+
+If a ROM uses a battery backed feature, such as Legend of Zelda, this memory will automatically be saved when you return to the main menu with the MENU button. Keep in mind that using save states will completely overwrite the battery backed data.
+
 ## Support
+
+![Screenshot3](gfx/Shot3.png)
 
 The emulator now plays over 90% of the games I have been able to test smoothly at this point. There are scanline artifacts in  a number of them, but nothing that appears to really hamper gameplay.
 
@@ -60,6 +68,12 @@ Rambo-1 |No | 0.1%    | Namcot 106 | No | 1.0%       | VRC2B | No | 0.3%
 
 A full table of ROMs and mappers can be found here, but I don't keep it entirely up to date:
 https://docs.google.com/spreadsheets/d/1TfgiU6doDaGvIzSMY3flPSmZviFKiysoxi9uwl-RlRY/edit?usp=sharing
+
+### PAL Titles
+
+![Screenshot2](gfx/Shot2.png) 
+
+PAL ROMS run at a different frame rate of 50 Hz compared to games from the USA and Japan (NTSC) which run at 60 Hz. This, plus a few other timing differences means they needs to be emulated differently. Unfortunately, most ROM files for PAL games do not accurately identify themselves as requiring PAL emulation. With NESizm, you can properly run a PAL game by including PAL (ALL CAPS) in the ROM filename, such as GamePAL.nes
 
 ### Sound
 
