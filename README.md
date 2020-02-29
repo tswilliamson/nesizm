@@ -1,8 +1,9 @@
+![Menu Screen](/gfx/Menu.png?raw=true)
+
 # NESizm v 0.9
 NESizm is a Nintendo Entertainment System emulator for the Casio Prizm series of graphics calculators. It currently supports the FX-CG20 and FX-CG50. NESizm was built from the ground up with performance in mind, while maintaining accurate emulation and compatibility wherever possible with clever caching, forced alignment, and hand written assembly where necessary. It runs most titles at 60 FPS with no overclocking on the FX-CG50.
 
 This project has its roots in my interest in early game development technology, as well as the inherent benefits of the Prizm as a platform. There is a large install base of players who can now play NES over 100 hours of battery life with 0 input lag from keyboard to display.
-
 
 ## Install
 
@@ -34,6 +35,14 @@ You can configure your own keys in the Settings menu, these are the default I fo
 
 ### Save States
 
+<table>
+  <tr>
+    <td><img src="gfx/Shot1.png" width=384 height=216></td>
+    <td><img src="gfx/Shot2.png" width=384 height=216></td>
+    <td><img src="gfx/Shot3.png" width=384 height=216></td>
+  </tr>
+ </table>
+ 
 A single save state is supported per ROM, which can be loaded/saved using the remappable keys mentioned in the Controls section. These default to the 'S' and 'L' keys on the calculator. The save state file will be saved to your main storage with the .fcs extension.
 
 These save states are generally intercompatible with FCEUX, the popular PC NES emulator. However, by default, FCEUX enables compression on its save states when saving, so in order to transport a save state back to your calculator, you need to disable save state compression in FCEUX.
