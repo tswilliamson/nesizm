@@ -797,10 +797,27 @@ bool nes_cart::SaveState() {
 
 	int32 Size = fceuxFile.GetFileSize();
 
-	int fileID;
+	uint16 saveStateName[256];
+	SetStateName(romFile, saveStateName, 256);
+
+	int fileID = -1;
 	{
-		uint16 saveStateName[256];
-		SetStateName(romFile, saveStateName, 256);
+		// if there is an existing file and it is with 4 KB of our desired size, then use it, otherwise
+		// delete it
+		fileID = Bfile_OpenFile_OS(saveStateName, WRITE, 0);
+		if (fileID >= 0) {
+			int fileSize = Bfile_GetFileSize_OS(fileID);
+			if (abs(fileSize - Size) > 4096) {
+				Bfile_CloseFile_OS(fileID);
+				Bfile_DeleteEntry(saveStateName);
+				fileID = -1;
+			}
+		}
+	}
+
+	// if file is missing or deleted, create it
+	if (fileID < 0)
+	{
 		int32 result = Bfile_CreateEntry_OS(saveStateName, CREATEMODE_FILE, (size_t*) &Size);
 		if (result != 0) {
 			return false;
