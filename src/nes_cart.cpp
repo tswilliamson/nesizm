@@ -156,6 +156,12 @@ bool nes_cart::loadROM(const char* withFile) {
 		return false;
 	}
 
+	uint8 TVSystem = header[10] & 3;
+	isPAL = TVSystem == 2 ? 1 : 0;
+	if (strstr(withFile, "PAL") || strstr(withFile, "(E)")) { // force PAL hack
+ 		isPAL = 1;
+	}
+
 	bool isNES2 = (header[7] & 0x0C) == 0x08;
 	if (isNES2) {
 		printf("NES 2.0 ROM (not yet supported).");
@@ -187,12 +193,8 @@ bool nes_cart::loadROM(const char* withFile) {
 			return false;
 		}
 
-		// byte 9: 0 bit is PAL / NTSC
-		isPAL = header[9] & 1;
-
 		mapper = (header[7] & 0xF0) | (header[6] >> 4);
 	} else {
-		isPAL = 0;
 		numRAMBanks = 1;
 		mapper = (header[6] >> 4);
 	}
@@ -231,6 +233,9 @@ bool nes_cart::loadROM(const char* withFile) {
 
 	// default memory mapping first
 	mainCPU.mapDefaults();
+
+	// initialize TV settings
+	nesPPU.initTV();
 
 	// mapper logic
 	handle = file;
@@ -969,7 +974,7 @@ void MMC3_writeSpecial(unsigned int address, unsigned char value) {
 				// IRQ counter reload value
 				MMC3_IRQ_SET = value;
 
-				if (MMC3_IRQ_LASTSET + 90 > mainCPU.clocks) {
+				if (MMC3_IRQ_LASTSET + (nesCart.isPAL ? 85 : 90) > mainCPU.clocks) {
 					MMC3_IRQ_COUNTER = value;
 				}
 			} else {

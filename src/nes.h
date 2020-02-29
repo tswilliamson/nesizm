@@ -360,6 +360,7 @@ struct nes_ppu {
 	}
 
 	void init();
+	void initTV();
 	void step();
 
 	// internals

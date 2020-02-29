@@ -150,6 +150,11 @@ void nes_ppu::finishFrame(bool bSkippedFrame) {
 			// expected TMU1 based sim frame time (for 60.09 FPS)
 			unsigned int simFrameTime = Ptune2_GetPLLFreq() * 235 >> Ptune2_GetPFCDiv();
 
+			// PAL is slower (50 Hz)
+			if (nesCart.isPAL) {
+				simFrameTime = simFrameTime * 5 / 6;
+			}
+
 			// adjust expected sim time by various speed settings
 			switch (nesSettings.GetSetting(ST_Speed)) {
 				case 0: simFrameTime = simFrameTime * 4 / 5; break;
@@ -171,7 +176,7 @@ void nes_ppu::finishFrame(bool bSkippedFrame) {
 				collectedFrames++;
 				if (nesSettings.GetSetting(ST_FrameSkip) == 0 && collectedFrames > 7) {
 					int speedUpTime = simFrameTime * 124 / 128;
-					int slowDownTime = simFrameTime * 132 / 128;
+					int slowDownTime = simFrameTime * 129 / 128;
 					int avgTime = collectedTime / 8;
 					collectedTime = 0;
 					collectedFrames = 0;

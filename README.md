@@ -8,6 +8,10 @@ This project has its roots in my interest in early game development technology, 
 
 Copy the nesizm.g3a file to your Casio Prizm calculator's root path when linked via USB. NES roms (.nes) also should go inside of the root directory. The filenames for these files should be simple and less than 12 characters, such as MyGame.nes. The emulator does not support the NES 2.0 ROM format, so stick with old style roms for now.
 
+### PAL Support
+
+PAL is supported, but NES ROMS are notorious for not describing themselves as requiring PAL emulation. In order for NESizm to detect that a game is PAL or not, please make sure 'PAL' case sensitive is in the NES filename, such as GamePAL.nes 
+
 ## Usage
 
 ### Menu

@@ -459,17 +459,8 @@ void nes_ppu::fastOAMLatchCheck() {
 	}
 }
 
-// clocks per scanline formula: (341 / 3) + (scanline % 3 != 0 ? 1 : 0);
-const char scanlineClocks[245] = {
-	113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,
-	114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,
-	114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,
-	113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,
-	114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,
-	114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,
-	113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,
-	114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114,114,113,114
-};
+// clocks per scanline formula: (341 / 3) + (scanline % 3 != 0 ? 1 : 0) for NTSC;
+char scanlineClocks[245];
 
 void nes_ppu::step() {
 	TIME_SCOPE_NAMED("PPU Step");
@@ -631,14 +622,20 @@ void nes_ppu::step() {
 
 	} else if (scanline == 243) {
 		// frame is over, don't run until scanline 262, so add 18 scanlines worth (2047 extra clocks!)
-		mainCPU.ppuClocks += 18 * (341 / 3) + 12;
+		if (nesCart.isPAL == 0) {
+			mainCPU.ppuClocks += 18 * (341 / 3) + 12;
+		} else {
+			mainCPU.ppuClocks += (68 * 1705) / 16;
+		}
 
 	} else {
 		// final scanline 
 		scanline = 0;
 
 		// frame timing .. total ppu frame should be every 29780.5 ppu clocks
-		mainCPU.ppuClocks -= 1;
+		if (nesCart.isPAL == 0) {
+			mainCPU.ppuClocks -= 1;
+		}
 
 		// one scanline "ahead"
 		if (nesCart.scanlineClock) {
@@ -1407,4 +1404,16 @@ void nes_ppu::init() {
 	initScanlineBuffer();
 	rgbPalettePtr = rgbPalette;
 	autoFrameSkip = 0;
+}
+
+void nes_ppu::initTV() {
+	if (nesCart.isPAL == 0) {
+		for (int i = 0; i < 245; i++) {
+			scanlineClocks[i] = (341 / 3) + (scanline % 3 != 0 ? 1 : 0);
+		}
+	} else {
+		for (int i = 0; i < 245; i++) {
+			scanlineClocks[i] = ((i+1) * 1705) / 16 - (i * 1705) / 16;
+		}
+	}
 }
