@@ -1,4 +1,4 @@
-![Menu Screen]([gfx/Menu.png)
+![Menu Screen](gfx/Menu.png)
 
 # NESizm v 0.9
 NESizm is a Nintendo Entertainment System emulator for the Casio Prizm series of graphics calculators. It currently supports the FX-CG20 and FX-CG50. NESizm was built from the ground up with performance in mind, while maintaining accurate emulation and compatibility wherever possible with clever caching, forced alignment, and hand written assembly where necessary. It runs most titles at 60 FPS with no overclocking on the FX-CG50.
@@ -35,13 +35,7 @@ You can configure your own keys in the Settings menu, these are the default I fo
 
 ### Save States
 
-<table width=1200>
-  <tr>
-    <td><img src="gfx/Shot1.png" width=384 height=216></td>
-    <td><img src="gfx/Shot2.png" width=384 height=216></td>
-    <td><img src="gfx/Shot3.png" width=384 height=216></td>
-  </tr>
- </table>
+![Screenshot1](gfx/Shot1.png) ![Screenshot2](gfx/Shot2.png) ![Screenshot3](gfx/Shot3.png)
  
 A single save state is supported per ROM, which can be loaded/saved using the remappable keys mentioned in the Controls section. These default to the 'S' and 'L' keys on the calculator. The save state file will be saved to your main storage with the .fcs extension.
 
