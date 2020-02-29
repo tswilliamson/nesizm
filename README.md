@@ -35,7 +35,7 @@ You can configure your own keys in the Settings menu, these are the default I fo
 
 ### Save States
 
-<table>
+<table width=1200>
   <tr>
     <td><img src="gfx/Shot1.png" width=384 height=216></td>
     <td><img src="gfx/Shot2.png" width=384 height=216></td>
