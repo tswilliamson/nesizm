@@ -369,6 +369,60 @@ void PrizmImage::AdditiveBlock(const uint8* colorData, uint32 size, int32 x, int
 	DebugAssert(size == 0);
 }
 
+// draws a filled solid color rect to VRAM 
+void PrizmImage::Draw_FilledRect(int32 x, int32 y, int32 w, int32 h, uint16 color) {
+	uint16* vram = (uint16*)GetVRAMAddress() + (y * LCD_WIDTH_PX + x);
+	int32 nextLine = LCD_WIDTH_PX - w;
+	while (h--) {
+		int32 fX = w;
+		while (fX--) {
+			*(vram++) = color;
+		}
+		vram += nextLine;
+	}
+}
+
+// draws a border solid color rect to VRAM 
+void PrizmImage::Draw_BorderRect(int32 x, int32 y, int32 w, int32 h, int32 thickness, uint16 color) {
+	Draw_FilledRect(x, y, w, thickness, color);
+	Draw_FilledRect(x, y + h - thickness, w, thickness, color);
+	h -= thickness * 2;
+	y += thickness;
+	Draw_FilledRect(x, y, thickness, h, color);
+	Draw_FilledRect(x + w - thickness, y, thickness, h, color);
+}
+
+// draws a up-down gradient color rect to VRAM 
+void PrizmImage::Draw_GradientRect(int32 x, int32 y, int32 w, int32 h, uint16 color1, uint16 color2) {
+	int32 baseR = (color1 & 0b1111100000000000) >> 11;
+	int32 stepR = (color2 & 0b1111100000000000) >> 11;
+	stepR -= baseR;
+	int32 baseG = (color1 & 0b0000011111100000) >> 5;
+	int32 stepG = (color2 & 0b0000011111100000) >> 5;
+	stepG -= baseG;
+	int32 baseB = (color1 & 0b0000000000011111);
+	int32 stepB = (color2 & 0b0000000000011111);
+	stepB -= baseB;
+
+	uint16* vram = (uint16*)GetVRAMAddress() + (y * LCD_WIDTH_PX + x);
+	int32 nextLine = LCD_WIDTH_PX - w;
+	int32 lineNum = 0;
+	int32 fH = h;
+	while (fH--) {
+		uint16 color =
+			((baseR + stepR * lineNum / h) << 11) |
+			((baseG + stepG * lineNum / h) << 5) |
+			((baseB + stepB * lineNum / h));
+		lineNum++;
+
+		int32 fX = w;
+		while (fX--) {
+			*(vram++) = color;
+		}
+		vram += nextLine;
+	}
+}
+
 #if TARGET_WINSIM
 PrizmImage* PrizmImage::LoadImage(const char* fileName) {
 	unsigned short fileAsName[512];

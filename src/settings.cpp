@@ -70,11 +70,11 @@ static const char* SpeedOptions[] = {
 };
 
 static const char* TurboKeyOptions[] = {
-	"None",
-	"5x",
-	"10x",
-	"15x",
-	"20x"
+	"30 Hz",
+	"15 Hz",
+	"8 Hz",
+	"4 Hz",
+	"2 Hz"
 };
 
 static const char* PaletteOptions[] = {
@@ -102,7 +102,7 @@ static SettingInfo infos[] = {
 	{ ST_FrameSkip,			SG_System,		true,	0,  6,	"Frame Skip",		FrameSkipOptions},
 	{ ST_Speed,				SG_System,		true,	1,	5,	"Speed",			SpeedOptions},
 	{ ST_TwoPlayer,			SG_Controls,	false,	0,	2,	"2 Player Mode",	OffOn},
-	{ ST_TurboSetting,		SG_Controls,	false,	2,	5,	"Turbo Key",		TurboKeyOptions},
+	{ ST_TurboSetting,		SG_Controls,	true,	2,	5,	"Turbo Key",		TurboKeyOptions},
 	{ ST_Palette,			SG_Video,		false,	0,	3,	"Palette",			PaletteOptions},
 	{ ST_Background,		SG_Video,		false,	0,	5,	"Background",		BackgroundOptions},
 	{ ST_SoundEnabled,		SG_Sound,		false,	0,	2,	"Enable Sound",		OffOn},
@@ -133,14 +133,17 @@ bool EmulatorSettings::GetSettingAvailable(SettingType setting) {
 void EmulatorSettings::SetDefaults() {
 	memset(this, 0, sizeof(EmulatorSettings));
 
-	keyMap[NES_A] = 78;			// SHIFT
-	keyMap[NES_B] = 68;			// OPTN
-	keyMap[NES_SELECT] = 39;	// F5
-	keyMap[NES_START] = 29;		// F6
-	keyMap[NES_RIGHT] = 27;
-	keyMap[NES_LEFT] = 38;
-	keyMap[NES_UP] = 28;
-	keyMap[NES_DOWN] = 37;
+	// by default P2 is unmapped
+	keyMap[NES_P1_A] = 78;			// SHIFT
+	keyMap[NES_P1_B] = 68;			// OPTN
+	keyMap[NES_P1_TURBO_A] = 77;	// Alpha
+	keyMap[NES_P1_TURBO_B] = 67;	// X^2
+	keyMap[NES_P1_SELECT] = 39;		// F5
+	keyMap[NES_P1_START] = 29;		// F6
+	keyMap[NES_P1_RIGHT] = 27;
+	keyMap[NES_P1_LEFT] = 38;
+	keyMap[NES_P1_UP] = 28;
+	keyMap[NES_P1_DOWN] = 37;
 	keyMap[NES_SAVESTATE] = 43;		// 'S'
 	keyMap[NES_LOADSTATE] = 25;		// 'L'
 
@@ -182,8 +185,8 @@ void EmulatorSettings::Load() {
 				values[setting] = value;
 			}
 			uint8 numKeys = contents[cur++];
-			if (numKeys == NUM_MAPPABLE_KEYS) {
-				for (int i = 0; i < NUM_MAPPABLE_KEYS; i++) {
+			if (numKeys == NES_MAX_KEYS) {
+				for (int i = 0; i < NES_MAX_KEYS; i++) {
 					keyMap[i] = contents[cur++];
 				}
 			}
@@ -202,8 +205,8 @@ void EmulatorSettings::Save() {
 			contents[size++] = values[i];
 		}
 	}
-	contents[size++] = NUM_MAPPABLE_KEYS;
-	for (int i = 0; i < NUM_MAPPABLE_KEYS; i++) {
+	contents[size++] = NES_MAX_KEYS;
+	for (int i = 0; i < NES_MAX_KEYS; i++) {
 		contents[size++] = keyMap[i];
 	}
 

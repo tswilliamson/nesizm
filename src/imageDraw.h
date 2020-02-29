@@ -23,6 +23,15 @@ struct PrizmImage {
 	// draws this image to VRAM additively w/ alpha (0-255)
 	void Draw_Additive(int32 x, int32 y, uint8 alpha) const;
 
+	// draws a filled solid color rect to VRAM 
+	static void Draw_FilledRect(int32 x, int32 y, int32 w, int32 h, uint16 color);
+
+	// draws a border solid color rect to VRAM 
+	static void Draw_BorderRect(int32 x, int32 y, int32 w, int32 h, int32 thickness, uint16 color);
+
+	// draws a up-down gradient color rect to VRAM 
+	static void Draw_GradientRect(int32 x, int32 y, int32 w, int32 h, uint16 color1, uint16 color2);
+
 #if TARGET_WINSIM
 	// loadable BMP images available on winsim can be zx7 compressed, code can be setup to load/save from src media to
 	// auto update source as images update

@@ -26,7 +26,7 @@ INCLUDES	:=  src
 # options for code and add-in generation
 #---------------------------------------------------------------------------------
 
-MKG3AFLAGS := -n basic:Nesizm -i uns:../unselected.bmp -i sel:../selected.bmp
+MKG3AFLAGS := -n basic:NESizm -i uns:../unselected.bmp -i sel:../selected.bmp
 
 CBASEFLAGS	= -O2 \
 		  -Wall \

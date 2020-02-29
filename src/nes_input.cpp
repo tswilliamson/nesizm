@@ -24,11 +24,20 @@ bool keyDown_fast(unsigned char keyCode) {
 unsigned char curStrobe = 0;
 unsigned int buttonMarch1 = 0;
 unsigned int buttonMarch2 = 0;
-bool isDown[22];
+bool isDown[NES_MAX_KEYS];
 
 void input_cacheKeys() {
-	for (int buttonNo = 0; buttonNo < 22; buttonNo++) {
-		isDown[buttonNo] = keyDown_fast(nesSettings.keyMap[buttonNo]);
+	for (int buttonNo = 0; buttonNo < NES_MAX_KEYS; buttonNo++) {
+		int keyCode = nesSettings.keyMap[buttonNo];
+		if (keyCode) {
+			isDown[buttonNo] = keyDown_fast(keyCode);
+		}
+	}
+
+	int turboBit = 1 << nesSettings.GetSetting(ST_TurboSetting);
+	if (nesPPU.frameCounter & turboBit) {
+		if (isDown[NES_P1_TURBO_A]) isDown[NES_P1_A] = true;
+		if (isDown[NES_P1_TURBO_B]) isDown[NES_P1_B] = true;
 	}
 }
 
@@ -39,7 +48,7 @@ inline unsigned char readButton(int buttonNo) {
 void input_writeStrobe(unsigned char value) {
 	value &= 1;
 
-	if (value != curStrobe) {
+	{
 		curStrobe = value;
 
 		if (value == 0) {
@@ -48,14 +57,15 @@ void input_writeStrobe(unsigned char value) {
 			buttonMarch2 = 0;
 		}
 
-		mainCPU.specialMemory[0x16] = readButton(NES_A) | 0x40;
-		mainCPU.specialMemory[0x17] = 0x40;
+		mainCPU.specialMemory[0x16] = readButton(NES_P1_A) | 0x40;
+		mainCPU.specialMemory[0x17] = readButton(NES_P2_A) | 0x40;
 	}
 }
 
 void input_readController1() {
 	if (!curStrobe) {
 		if (buttonMarch1 < 8) {
+			// the first induced latch will be due to a latched write to $4016, which is why buttonMatch is preincremented for controller 1
 			mainCPU.specialMemory[0x16] = readButton(buttonMarch1++) | 0x40;
 		} else {
 			mainCPU.specialMemory[0x16] = 0x41;
@@ -68,7 +78,7 @@ void input_readController2() {
 	if (!curStrobe) {
 		if (buttonMarch2 < 8) {
 			buttonMarch2++;
-			mainCPU.specialMemory[0x17] = 0x40;
+			mainCPU.specialMemory[0x17] = readButton(buttonMarch2 + NES_P2_A) | 0x40;
 		} else {
 			mainCPU.specialMemory[0x17] = 0x41;
 		}

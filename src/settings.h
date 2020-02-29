@@ -28,10 +28,8 @@ enum SettingGroup {
 	SG_Deprecated
 };
 
-#define NUM_MAPPABLE_KEYS (NES_MAX + NES_NUM_CONTROLLER_KEYS)
-
 struct EmulatorSettings {
-	int32 keyMap[NUM_MAPPABLE_KEYS];
+	int32 keyMap[NES_MAX_KEYS];
 
 	void SetDefaults();
 	void Load();

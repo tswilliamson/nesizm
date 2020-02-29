@@ -602,17 +602,19 @@ void nes_ppu::step() {
 		frameCounter++;
 
 		bool keyDown_fast(unsigned char keyCode);
-		if (keyDown_fast(79)) // F1 
+		if (keyDown_fast(48)) // Menu
 		{
 			extern bool shouldExit;
 			shouldExit = true;
-			while (keyDown_fast(79)) {}
+			while (keyDown_fast(48)) {}
 		}
 
+#if DEBUG
 		if (keyDown_fast(69)) // F2
 		{
 			ScopeTimer::DisplayTimes();
 		}
+#endif
 
 		if (keyDown_fast(nesSettings.keyMap[NES_SAVESTATE])) // F3 in simulator, 'S" on device
 		{

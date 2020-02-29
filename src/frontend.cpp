@@ -40,7 +40,30 @@ bool isSelectKey(int key) {
 	return (key == KEY_CTRL_EXE) || (key == KEY_CTRL_SHIFT);
 }
 
+static int32 findKey() {
+	for (int32 i = 31; i <= 79; i++) {
+		if (keyDown_fast(i)) {
+			return i;
+		}
+	}
+	return 0;
+}
+
+static int32 waitKey() {
+	int32 ret = 0;
+	// wait for press
+	while (ret == 0) {
+		ret = findKey();
+	}
+	// wait for unpress
+	while (findKey() != 0) {}
+
+	return ret;
+}
+
+extern MenuOption mainOptions[];
 extern MenuOption optionTree[];
+extern MenuOption remapOptions[];
 
 static bool Continue_Selected(MenuOption* forOption, int key) {
 	if (isSelectKey(key)) {
@@ -177,6 +200,54 @@ static bool About_Selected(MenuOption* forOption, int key) {
 	return false;
 }
 
+static bool Option_RemapButtons(MenuOption* forOption, int key) {
+	if (isSelectKey(key)) {
+		nesFrontend.currentOptions = remapOptions;
+		nesFrontend.numOptions = NES_MAX_KEYS + 1;
+		nesFrontend.selectedOption = 0;
+		nesFrontend.selectOffset = 0;
+		return true;
+	}
+
+	return false;
+}
+
+static bool Option_RemapKey(MenuOption* forOption, int key) {
+	if (isSelectKey(key)) {
+		PrizmImage::Draw_GradientRect(70, 83, 244, 49, 0b0000000011100000, COLOR_BLACK);
+		PrizmImage::Draw_BorderRect(71, 84, 242, 47, 2, COLOR_AQUAMARINE);
+		const char* text1 = "Press Any Key";
+		const char* text2 = "MENU to Cancel";
+		int32 w1 = CalcType_Width(&commodore, text1);
+		int32 w2 = CalcType_Width(&commodore, text2);
+		CalcType_Draw(&commodore, text1, 192 - w1 / 2, 91, COLOR_WHITE, 0, 0);
+		CalcType_Draw(&commodore, text2, 192 - w2 / 2, 91 + commodore.height + 6, COLOR_DARKMAGENTA, 0, 0);
+		Bdisp_PutDisp_DD_stripe(83, 83 + 49);
+
+		int selectedKey = waitKey();
+		if (selectedKey == 48) { // MENU
+			selectedKey = 0;
+		}
+
+		nesSettings.keyMap[forOption->extraData] = selectedKey;
+		return true;
+	}
+
+	return false;
+}
+
+static const char* Option_GetKeyDetails(MenuOption* forOption) {
+	int32 key = nesSettings.keyMap[forOption->extraData];
+	if (key == 0) {
+		return "None";
+	}
+	static char bufferCode[3];
+	bufferCode[0] = key / 10 + '0';
+	bufferCode[1] = key % 10 + '0';
+	bufferCode[2] = 0;
+	return bufferCode;
+}
+
 static bool OptionsBack(MenuOption* forOption, int key) {
 	if (isSelectKey(key)) {
 		free((void*)nesFrontend.currentOptions);
@@ -211,10 +282,16 @@ static bool OptionMenu(MenuOption* forOption, int key) {
 			}
 		}
 
-		MenuOption* options = (MenuOption*)malloc(sizeof(MenuOption) * (countOptions + 1));
-		memset(options, 0, sizeof(MenuOption) * (countOptions + 1));
+		MenuOption* options = (MenuOption*)malloc(sizeof(MenuOption) * (countOptions + 2));
+		memset(options, 0, sizeof(MenuOption) * (countOptions + 2));
 
 		int32 curOption = 0;
+		if (group == SG_Controls) {
+			options[curOption].name = "Remap Buttons";
+			options[curOption].OnKey = Option_RemapButtons;
+			options[curOption].help = "Map which keys are used for each NES button";
+			curOption++;
+		}
 		for (int32 i = 0; i < MAX_SETTINGS; i++) {
 			if (EmulatorSettings::GetSettingGroup((SettingType)i) == group) {
 				options[curOption].name = EmulatorSettings::GetSettingName((SettingType)i);
@@ -253,24 +330,6 @@ static bool LeaveOptions(MenuOption* forOption, int key) {
 
 	return false;
 }
-
-MenuOption mainOptions[] =
-{
-	{"Continue", "Continue the current loaded game", false, Continue_Selected, nullptr, 0 },
-	{"Load ROM", "Select a ROM to load from your Root folder", false, LoadROM_Selected, nullptr, 0 },
-	{"View FAQ", "View .txt file of the same name as your ROM", true, ViewFAQ_Selected, nullptr, 0 },
-	{"Options", "Select a ROM to load from your Root folder", false, Options_Selected, nullptr, 0 },
-	{"About", "Where did this emulator come from?", false, About_Selected, nullptr, 0 },
-};
-
-MenuOption optionTree[] = 
-{
-	{ "System", "System clock and main options", false, OptionMenu, nullptr, (int) SG_System },
-	{ "Controls", "Controls options and keymappings", false, OptionMenu, nullptr, (int) SG_Controls },
-	{ "Display", "Misc video options", false, OptionMenu, nullptr, (int) SG_Video },
-	{ "Sound", "Sound options", true, OptionMenu, nullptr, (int) SG_Sound },
-	{ "Back", "Return to main menu", false, LeaveOptions, nullptr, 0 }
-};
 
 void MenuOption::Draw(int x, int y, bool bSelected) {
 	int color = bSelected ? COLOR_WHITE : COLOR_AQUAMARINE;
@@ -400,6 +459,9 @@ void nes_frontend::Run() {
 		int key = 0;
 		GetKey(&key);
 
+		// wait for unpress
+		while (findKey() != 0) {}
+
 		if (currentOptions[selectedOption].disabled ||
 			currentOptions[selectedOption].OnKey((MenuOption*) &currentOptions[selectedOption], key) == false) {
 			int keyOffset = 0;
@@ -414,6 +476,15 @@ void nes_frontend::Run() {
 				case KEY_CTRL_F2:
 				{
 					ScopeTimer::DisplayTimes();
+					break;
+				}
+				case KEY_CTRL_OPTN:
+				{
+					// look for "Back" option
+					MenuOption* lastOption = &currentOptions[numOptions - 1];
+					if (!strcmp(lastOption->name, "Back")) {
+						lastOption->OnKey(lastOption, KEY_CTRL_SHIFT);
+					}
 					break;
 				}
 			}
@@ -450,3 +521,46 @@ void nes_frontend::RunGameLoop() {
 	nesCart.OnPause();
 	shouldExit = false;
 }
+
+MenuOption mainOptions[] =
+{
+	{"Continue", "Continue the current loaded game", false, Continue_Selected, nullptr, 0 },
+	{"Load ROM", "Select a ROM to load from your Root folder", false, LoadROM_Selected, nullptr, 0 },
+	{"View FAQ", "View .txt file of the same name as your ROM", true, ViewFAQ_Selected, nullptr, 0 },
+	{"Options", "Select a ROM to load from your Root folder", false, Options_Selected, nullptr, 0 },
+	{"About", "Where did this emulator come from?", false, About_Selected, nullptr, 0 },
+};
+
+MenuOption optionTree[] = 
+{
+	{ "System", "System clock and main options", false, OptionMenu, nullptr, (int) SG_System },
+	{ "Controls", "Controls options and keymappings", false, OptionMenu, nullptr, (int) SG_Controls },
+	{ "Display", "Misc video options", false, OptionMenu, nullptr, (int) SG_Video },
+	{ "Sound", "Sound options", true, OptionMenu, nullptr, (int) SG_Sound },
+	{ "Back", "Return to main menu", false, LeaveOptions, nullptr, 0 }
+};
+
+MenuOption remapOptions[] = 
+{
+	{ "P1 A", "", false, Option_RemapKey, Option_GetKeyDetails, NES_P1_A},
+	{ "P1 B", "", false, Option_RemapKey, Option_GetKeyDetails, NES_P1_B},
+	{ "P1 Select", "", false, Option_RemapKey, Option_GetKeyDetails, NES_P1_SELECT},
+	{ "P1 Start", "", false, Option_RemapKey, Option_GetKeyDetails, NES_P1_START},
+	{ "P1 Up", "", false, Option_RemapKey, Option_GetKeyDetails, NES_P1_UP},
+	{ "P1 Down", "", false, Option_RemapKey, Option_GetKeyDetails, NES_P1_DOWN},
+	{ "P1 Left", "", false, Option_RemapKey, Option_GetKeyDetails, NES_P1_LEFT},
+	{ "P1 Right", "", false, Option_RemapKey, Option_GetKeyDetails, NES_P1_RIGHT},
+	{ "P1 Turbo A", "", false, Option_RemapKey, Option_GetKeyDetails, NES_P1_TURBO_A},
+	{ "P1 Turbo B", "", false, Option_RemapKey, Option_GetKeyDetails, NES_P1_TURBO_B},
+	{ "Save State", "", false, Option_RemapKey, Option_GetKeyDetails, NES_SAVESTATE},
+	{ "Load State", "", false, Option_RemapKey, Option_GetKeyDetails, NES_LOADSTATE},
+	{ "P2 A", "", false, Option_RemapKey, Option_GetKeyDetails, NES_P2_A},
+	{ "P2 B", "", false, Option_RemapKey, Option_GetKeyDetails, NES_P2_B},
+	{ "P2 Select", "", false, Option_RemapKey, Option_GetKeyDetails, NES_P2_SELECT},
+	{ "P2 Start", "", false, Option_RemapKey, Option_GetKeyDetails, NES_P2_START},
+	{ "P2 Up", "", false, Option_RemapKey, Option_GetKeyDetails, NES_P2_UP},
+	{ "P2 Down", "", false, Option_RemapKey, Option_GetKeyDetails, NES_P2_DOWN},
+	{ "P2 Left", "", false, Option_RemapKey, Option_GetKeyDetails, NES_P2_LEFT},
+	{ "P2 Right", "", false, Option_RemapKey, Option_GetKeyDetails, NES_P2_RIGHT},
+	{ "Back", "Return to controls options", false, OptionMenu, nullptr, (int)SG_Controls },
+};
