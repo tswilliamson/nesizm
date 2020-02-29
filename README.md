@@ -35,7 +35,7 @@ You can configure your own keys in the Settings menu, these are the default I fo
 
 ### Save States
 
-<table>
+<table width=1200>
   <tr>
     <td><img src="https://raw.githubusercontent.com/tswilliamson/nesizm/master/gfx/Shot1.png" width=384 height=216></td>
     <td><img src="https://raw.githubusercontent.com/tswilliamson/nesizm/master/gfx/gfx/Shot2.png" width=384 height=216></td>
@@ -86,6 +86,6 @@ The Nesdev wiki, found at http://wiki.nesdev.com/ was incredibly useful in the d
 FCEUX, found at http://www.fceux.com provided great debugging tools that allowed me to compare and contrast my emulator state easily for games that had compatibility issues. Show them some love by using their emulator on PC!
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTEyNDAwMzIwNDUsNTQ0OTcxNTUwLDI5Mz
-k3NTkxNl19
+eyJoaXN0b3J5IjpbMzA0NDY5NzE5LC0xMjQwMDMyMDQ1LDU0ND
+k3MTU1MCwyOTM5NzU5MTZdfQ==
 -->
