@@ -83,6 +83,19 @@ void flushScanBuffer(int startX, int endX, int startY, int endY, int scanBufferS
 	curScan = 0;
 }
 
+void FillBlackBorder() {
+	// DrawFrame is too inconsistent, do it ourselves!
+	memset(scanGroup[0], 0, 8192);
+	memset(scanGroup[1], 0, 8192);
+
+	flushScanBuffer(0, 395, 0, 4, 396 * 2 * 4);
+	flushScanBuffer(0, 395, 216, 224, 396 * 2 * 8);
+	flushScanBuffer(0, 5, 0, 224, 6 * 224 * 2);
+	flushScanBuffer(390, 395, 0, 224, 6 * 224 * 2);
+
+	DmaWaitNext();
+}
+
 #if 0
 inline void RenderScanlineBuffer(unsigned char* scanlineSrc, unsigned int* scanlineDest) {
 	for (int i = 0; i < 120; i++, scanlineSrc += 2) {

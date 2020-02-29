@@ -456,8 +456,14 @@ void nes_frontend::Run() {
 	do {
 		Render();
 
+#if TARGET_PRIZM
+		extern void FillBlackBorder();
+		FillBlackBorder();
+#endif
+
 		int key = 0;
 		GetKey(&key);
+		EnableStatusArea(3);
 
 		// wait for unpress
 		while (findKey() != 0) {}
@@ -473,11 +479,13 @@ void nes_frontend::Run() {
 				case KEY_CTRL_DOWN:
 					keyOffset = 1;
 					break;
+#if DEBUG
 				case KEY_CTRL_F2:
 				{
 					ScopeTimer::DisplayTimes();
 					break;
 				}
+#endif
 				case KEY_CTRL_OPTN:
 				{
 					// look for "Back" option

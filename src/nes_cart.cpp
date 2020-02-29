@@ -5,6 +5,7 @@
 #include "debug.h"
 #include "nes.h"
 #include "mappers.h"
+#include "scope_timer/scope_timer.h"
 
 nes_cart nesCart;
 

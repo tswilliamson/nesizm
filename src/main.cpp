@@ -20,7 +20,6 @@ int main(void) {
 	// prepare for full color mode
 	Bdisp_EnableColor(1);
 	EnableStatusArea(3);
-	DrawFrame(0);
 
 	//Ptune2_LoadSetting(PT2_DOUBLE);
 

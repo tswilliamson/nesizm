@@ -77,3 +77,7 @@ extern InstructionsHistory instr_hist[DEBUG_TRACKINSTRUCTIONS];
 #ifndef DebugAssert
 #define DebugAssert(...)
 #endif
+
+#ifndef OutputLog
+#define OutputLog(...)
+#endif

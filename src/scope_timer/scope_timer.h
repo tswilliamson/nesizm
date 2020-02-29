@@ -1,7 +1,5 @@
 #pragma once
 
-#if DEBUG
-
 #if TARGET_PRIZM
 #include "tmu.h"
 #define GetCycles() REG_TMU_TCNT_2
@@ -18,6 +16,7 @@ inline unsigned int GetCycles() {
 }
 #endif
 
+#if DEBUG
 struct ScopeTimer {
 	unsigned int cycleCount;
 	unsigned int numCounts;
