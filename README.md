@@ -1,4 +1,4 @@
-![Menu Screen](/gfx/Menu.png?raw=true)
+![Menu Screen]([https://raw.githubusercontent.com/tswilliamson/nesizm/master/gfx/Menu.png](https://raw.githubusercontent.com/tswilliamson/nesizm/master/gfx/Menu.png))
 
 # NESizm v 0.9
 NESizm is a Nintendo Entertainment System emulator for the Casio Prizm series of graphics calculators. It currently supports the FX-CG20 and FX-CG50. NESizm was built from the ground up with performance in mind, while maintaining accurate emulation and compatibility wherever possible with clever caching, forced alignment, and hand written assembly where necessary. It runs most titles at 60 FPS with no overclocking on the FX-CG50.
@@ -37,9 +37,9 @@ You can configure your own keys in the Settings menu, these are the default I fo
 
 <table width=1200>
   <tr>
-    <td><img src="gfx/Shot1.png" width=384 height=216></td>
-    <td><img src="gfx/Shot2.png" width=384 height=216></td>
-    <td><img src="gfx/Shot3.png" width=384 height=216></td>
+    <td><img src="https://raw.githubusercontent.com/tswilliamson/nesizm/master/gfx/Shot1.png" width=384 height=216></td>
+    <td><img src="https://raw.githubusercontent.com/tswilliamson/nesizm/master/gfx/gfx/Shot2.png" width=384 height=216></td>
+    <td><img src="https://raw.githubusercontent.com/tswilliamson/nesizm/master/gfx/gfx/Shot3.png" width=384 height=216></td>
   </tr>
  </table>
  
@@ -86,5 +86,6 @@ The Nesdev wiki, found at http://wiki.nesdev.com/ was incredibly useful in the d
 FCEUX, found at http://www.fceux.com provided great debugging tools that allowed me to compare and contrast my emulator state easily for games that had compatibility issues. Show them some love by using their emulator on PC!
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbNTQ0OTcxNTUwLDI5Mzk3NTkxNl19
+eyJoaXN0b3J5IjpbMzA0NDY5NzE5LC0xMjQwMDMyMDQ1LDU0ND
+k3MTU1MCwyOTM5NzU5MTZdfQ==
 -->
