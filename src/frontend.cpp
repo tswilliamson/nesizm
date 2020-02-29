@@ -67,7 +67,6 @@ extern MenuOption remapOptions[];
 
 static bool Continue_Selected(MenuOption* forOption, int key) {
 	if (isSelectKey(key)) {
-		nesFrontend.RenderGameBackground();
 		nesFrontend.gotoGame = true;
 		nesCart.OnContinue();
 		return true;
@@ -122,8 +121,6 @@ static bool ROMFile_Selected(MenuOption* forOption, int key) {
 		char romFile[128];
 		sprintf(romFile, "\\\\fls0\\%s", forOption->name);
 		if (nesCart.loadROM(romFile)) {
-			nesFrontend.RenderGameBackground();
-
 			mainCPU.reset();
 
 			nesFrontend.gotoGame = true;
@@ -411,6 +408,7 @@ void nes_frontend::RenderMenuBackground(bool bForceRedraw) {
 }
 
 void nes_frontend::RenderGameBackground() {
+	// note: this function cannot effect file system! Game should be considered active!
 	Bdisp_Fill_VRAM(0, 3);
 	DrawFrame(0);
 
@@ -513,6 +511,7 @@ void nes_frontend::Run() {
 		}
 
 		if (gotoGame) {
+			nesFrontend.RenderGameBackground();
 			RunGameLoop();
 			gotoGame = false;
 		}
