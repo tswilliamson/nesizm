@@ -26,7 +26,7 @@ INCLUDES	:=  src
 # options for code and add-in generation
 #---------------------------------------------------------------------------------
 
-MKG3AFLAGS := -n basic:NESizm -i uns:../unselected.bmp -i sel:../selected.bmp
+MKG3AFLAGS := -n basic:NESizm
 
 CBASEFLAGS	= -O2 \
 		  -Wall \
@@ -124,7 +124,7 @@ $(BUILD):
 #---------------------------------------------------------------------------------
 export CYGWIN := nodosfilewarning
 clean:
-	$(RM) -fr $(BUILD) $(OUTPUT).bin $(OUTPUT_FINAL).g3a
+	$(RM) -fr $(BUILD) $(OUTPUT).bin $(OUTPUT_FINAL).g3a $(OUTPUT_FINAL)_cg10.g3a
 
 #---------------------------------------------------------------------------------
 else
@@ -134,9 +134,14 @@ DEPENDS	:=	$(OFILES:.o=.d)
 #---------------------------------------------------------------------------------
 # main targets
 #---------------------------------------------------------------------------------
-$(OUTPUT_FINAL).g3a: $(OUTPUT).bin
-	$(MKG3A) $(MKG3AFLAGS) $< $@
+$(OUTPUT_FINAL)_cg10.g3a: $(OUTPUT).bin
+	$(MKG3A) $(MKG3AFLAGS) -i uns:../unselected_cg10.bmp -i sel:../selected_cg10.bmp $(OUTPUT).bin $@
+
+$(OUTPUT_FINAL).g3a: $(OUTPUT_FINAL)_cg10.g3a
+	$(MKG3A) $(MKG3AFLAGS) -i uns:../unselected.bmp -i sel:../selected.bmp $(OUTPUT).bin $@
 	
+.DEFAULT_GOAL := $(OUTPUT_FINAL).g3a
+
 $(OUTPUT).bin: $(OFILES) 
 
 -include $(DEPENDS)
