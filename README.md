@@ -30,6 +30,7 @@ You can configure your own keys in the Settings menu, these are the default I fo
 : Turbo B: X^2
 - Save State : X (multiply), which is the alpha 'S' key for save
 - Load State : -> (store), which is the alpha 'L' key for load
+- Fast Forward: ^ (caret), runs CPU at full speed running rendering every 8th frame, about 3x speed
 
 Note that if you set the turbo setting to 30 Hz, this may be too fast for some games causing them to malfunction.
 

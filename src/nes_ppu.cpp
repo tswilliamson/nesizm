@@ -502,6 +502,10 @@ void nes_ppu::step() {
 				skipFrame = (frameCounter % frameSkipValue) != 0;
 		}
 
+		if (nesSettings.CheckCachedKey(NES_FASTFORWARD)) {
+			skipFrame = (frameCounter & 7) != 0;
+		}
+
 		// clear vblank and sprite 0 flag
 		SetPPUSTATUS(PPUSTATUS & ~(PPUSTAT_NMI | PPUSTAT_SPRITE0));		
 
@@ -607,18 +611,18 @@ void nes_ppu::step() {
 		}
 #endif
 
-		if (keyDown_fast(nesSettings.keyMap[NES_SAVESTATE])) // F3 in simulator, 'S" on device
+		input_cacheKeys();
+
+		if (nesSettings.CheckCachedKey(NES_SAVESTATE)) // F3 in simulator, 'S" on device
 		{
 			nesCart.SaveState();
 			nesCart.BuildFileBlocks();
 		}
 
-		if (keyDown_fast(nesSettings.keyMap[NES_LOADSTATE])) // F4 in simulator, 'L' on device
+		if (nesSettings.CheckCachedKey(NES_LOADSTATE)) // F4 in simulator, 'L' on device
 		{
 			nesCart.LoadState();
 		}
-
-		input_cacheKeys();
 
 	} else if (scanline == 243) {
 		// frame is over, don't run until scanline 262, so add 18 scanlines worth (2047 extra clocks!)

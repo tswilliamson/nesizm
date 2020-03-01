@@ -152,6 +152,7 @@ void EmulatorSettings::SetDefaults() {
 	keyMap[NES_P1_DOWN] = 37;
 	keyMap[NES_SAVESTATE] = 43;		// 'S'
 	keyMap[NES_LOADSTATE] = 25;		// 'L'
+	keyMap[NES_FASTFORWARD] = 57;	// '^'
 
 	// simulator only defaults
 #if TARGET_WINSIM

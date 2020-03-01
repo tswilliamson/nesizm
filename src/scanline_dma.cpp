@@ -129,7 +129,7 @@ void nes_ppu::resolveScanline(int scrollOffset) {
 
 void nes_ppu::finishFrame(bool bSkippedFrame) {
 	// run frame timing
-	if (nesSettings.GetSetting(ST_Speed) != 4) {
+	if (nesSettings.GetSetting(ST_Speed) != 4 && nesSettings.CheckCachedKey(NES_FASTFORWARD) == false) {
 		// use TMU1 to establish time between frames
 		static unsigned int counterStart = 0x7FFFFFFF;		// max int
 		unsigned int counterRegs = 0x0004;

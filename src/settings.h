@@ -47,6 +47,7 @@ struct EmulatorSettings {
 	static SettingGroup GetSettingGroup(SettingType setting);
 	static bool GetSettingAvailable(SettingType setting);
 
+	static bool CheckCachedKey(NesKeys key);
 private:
 	uint8 values[MAX_SETTINGS];
 };

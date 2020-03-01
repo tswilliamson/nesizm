@@ -598,6 +598,7 @@ MenuOption remapOptions[] =
 	{ "P1 Turbo B", "", false, Option_RemapKey, Option_GetKeyDetails, NES_P1_TURBO_B},
 	{ "Save State", "", false, Option_RemapKey, Option_GetKeyDetails, NES_SAVESTATE},
 	{ "Load State", "", false, Option_RemapKey, Option_GetKeyDetails, NES_LOADSTATE},
+	{ "Fast Fwd", "", false, Option_RemapKey, Option_GetKeyDetails, NES_FASTFORWARD},
 	{ "P2 A", "", false, Option_RemapKey, Option_GetKeyDetails, NES_P2_A},
 	{ "P2 B", "", false, Option_RemapKey, Option_GetKeyDetails, NES_P2_B},
 	{ "P2 Select", "", false, Option_RemapKey, Option_GetKeyDetails, NES_P2_SELECT},

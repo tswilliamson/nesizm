@@ -45,6 +45,10 @@ inline unsigned char readButton(int buttonNo) {
 	return isDown[buttonNo];
 }
 
+bool EmulatorSettings::CheckCachedKey(NesKeys key) {
+	return isDown[(int)key];
+}
+
 void input_writeStrobe(unsigned char value) {
 	value &= 1;
 
