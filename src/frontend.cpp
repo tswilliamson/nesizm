@@ -18,6 +18,7 @@ Menu Layout
 */
 
 #include "calctype/fonts/commodore/commodore.c"		// For Menus
+#include "calctype/fonts/arial_small/arial_small.h"
 
 const bool bRebuildGfx = false;
 
@@ -194,6 +195,24 @@ static bool Options_Selected(MenuOption* forOption, int key) {
 }
 
 static bool About_Selected(MenuOption* forOption, int key) {
+	if (isSelectKey(key)) {
+		PrizmImage::Draw_GradientRect(70, 73, 244, 69, 0b0000000011100000, COLOR_BLACK);
+		PrizmImage::Draw_BorderRect(71, 74, 242, 67, 2, COLOR_AQUAMARINE);
+		const char* text1 = "By @TSWilliamson";
+		const char* text2 = "Contact via my Github account";
+		const char* text3 = "Source at github.com/TSWilliamson/nesizm";
+		int32 w1 = CalcType_Width(&arial_small, text1);
+		int32 w2 = CalcType_Width(&arial_small, text2);
+		int32 w3 = CalcType_Width(&arial_small, text3);
+		CalcType_Draw(&arial_small, text1, 192 - w1 / 2, 83, COLOR_WHITE, 0, 0);
+		CalcType_Draw(&arial_small, text2, 192 - w2 / 2, 83 + arial_small.height + 6, COLOR_WHITE, 0, 0);
+		CalcType_Draw(&arial_small, text3, 192 - w3 / 2, 83 + arial_small.height * 2 + 12, COLOR_WHITE, 0, 0);
+		Bdisp_PutDisp_DD_stripe(83, 83 + 49);
+
+		waitKey();
+		return true;
+	}
+
 	return false;
 }
 
@@ -400,8 +419,7 @@ void nes_frontend::RenderMenuBackground(bool bForceRedraw) {
 	bg->Draw_Blit(0, 71);
 	nes->Draw_OverlayMasked(195, 38, 192);
 
-	CalcType_Draw(&commodore, "@TSWilliamson", 255, 5, COLOR_AQUAMARINE, 0, 0);
-	CalcType_Draw(&commodore, "v0.9", 340, 198, 0x302C, 0, 0);
+	CalcType_Draw(&arial_small, "v0.9", 355, 203, COLOR_DARKGRAY, 0, 0);
 
 	MenuBGHash = GetVRAMHash();
 	SaveVRAM_1();
