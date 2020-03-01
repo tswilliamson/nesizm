@@ -96,12 +96,18 @@ static const char* SoundQualityOptions[] = {
 	"High"
 };
 
+static const char* OverclockOptions[] = {
+	"Off",
+	"150%",
+	"200%",
+};
+
 static SettingInfo infos[] = {
 	{ ST_AutoSave,			SG_System,		false,	0,	2,	"Auto Save",		OffOn},
-	{ ST_OverClock,			SG_System,		false,  0,  2,  "Overclock",		OffOn},
+	{ ST_OverClock,			SG_System,		true,   0,  3,  "Overclock",		OverclockOptions},
 	{ ST_FrameSkip,			SG_System,		true,	0,  6,	"Frame Skip",		FrameSkipOptions},
 	{ ST_Speed,				SG_System,		true,	1,	5,	"Speed",			SpeedOptions},
-	{ ST_TwoPlayer,			SG_Controls,	false,	0,	2,	"2 Player Mode",	OffOn},
+	{ ST_TwoPlayer,			SG_Deprecated,	false,	0,	2,	"2 Player Mode",	OffOn},
 	{ ST_TurboSetting,		SG_Controls,	true,	2,	5,	"Turbo Key",		TurboKeyOptions},
 	{ ST_Palette,			SG_Video,		false,	0,	3,	"Palette",			PaletteOptions},
 	{ ST_Background,		SG_Video,		false,	0,	5,	"Background",		BackgroundOptions},
@@ -191,6 +197,12 @@ void EmulatorSettings::Load() {
 				}
 			}
 		}
+	}
+
+	if (getDeviceType() == DT_CG50) {
+		infos[ST_OverClock].available = false;
+	} else {
+		infos[ST_OverClock].available = true;
 	}
 }
 

@@ -2,6 +2,7 @@
 #include "platform.h"
 #include "debug.h"
 #include "nes.h"
+#include "ptune2_simple/Ptune2_direct.h"
 
 #include "frontend.h"
 #include "imageDraw.h"
@@ -207,7 +208,7 @@ static bool About_Selected(MenuOption* forOption, int key) {
 		CalcType_Draw(&arial_small, text1, 192 - w1 / 2, 83, COLOR_WHITE, 0, 0);
 		CalcType_Draw(&arial_small, text2, 192 - w2 / 2, 83 + arial_small.height + 6, COLOR_WHITE, 0, 0);
 		CalcType_Draw(&arial_small, text3, 192 - w3 / 2, 83 + arial_small.height * 2 + 12, COLOR_WHITE, 0, 0);
-		Bdisp_PutDisp_DD_stripe(83, 83 + 49);
+		Bdisp_PutDisp_DD_stripe(73, 73 + 70);
 
 		waitKey();
 		return true;
@@ -529,8 +530,26 @@ void nes_frontend::Run() {
 		}
 
 		if (gotoGame) {
+			if (getDeviceType() == DT_CG20 && nesSettings.GetSetting(ST_OverClock) != 0) {
+				Ptune2_SaveBackup();
+
+				switch (nesSettings.GetSetting(ST_OverClock)) {
+					case 1:
+						Ptune2_LoadSetting(PT2_HALFINC);
+						break;
+					case 2:
+						Ptune2_LoadSetting(PT2_DOUBLE);
+						break;
+				}
+			}
+
 			nesFrontend.RenderGameBackground();
 			RunGameLoop();
+
+			if (getDeviceType() == DT_CG20 && nesSettings.GetSetting(ST_OverClock) != 0) {
+				Ptune2_LoadBackup();
+			}
+
 			gotoGame = false;
 		}
 	} while (true);

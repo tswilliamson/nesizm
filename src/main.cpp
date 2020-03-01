@@ -21,8 +21,6 @@ int main(void) {
 	Bdisp_EnableColor(1);
 	EnableStatusArea(3);
 
-	//Ptune2_LoadSetting(PT2_DOUBLE);
-
 	reset_printf();
 	memset(GetVRAMAddress(), 0, LCD_HEIGHT_PX * LCD_WIDTH_PX * 2);
 	printf("NESizm Initializing...");
@@ -55,8 +53,6 @@ int main(void) {
 
 	nesFrontend.SetMainMenu();
 	nesFrontend.Run();
-
-	//Ptune2_LoadSetting(PT2_DEFAULT);
 
 	ScopeTimer::Shutdown();
 
