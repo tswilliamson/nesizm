@@ -86,7 +86,7 @@ static void FindFiles(const char* path, foundFile* toArray, int& numFound, int m
 	ret = Bfile_FindFirst((const char*)filter, &handle, (char*)found, &info);
 
 	while (ret == 0 && numFound < maxAllowed) {
-		Bfile_NameToStr_ncpy(toArray[numFound++].path, found, 32);
+		Bfile_NameToStr_ncpy(toArray[numFound++].path, found, 48);
 		ret = Bfile_FindNext(handle, (char*)found, (char*)&info);
 	};
 
