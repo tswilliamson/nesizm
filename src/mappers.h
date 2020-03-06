@@ -111,3 +111,25 @@
 #define Mapper11_PRG_SELECT nesCart.registers[0]
 
 #define Mapper11_CHR_SELECT nesCart.registers[1]
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Rambo-1 Mapper 64
+
+#define Mapper64_BANK_SELECT nesCart.registers[0]
+#define Mapper64_R0 nesCart.registers[1]
+#define Mapper64_R1 nesCart.registers[2]
+#define Mapper64_R2 nesCart.registers[3]
+#define Mapper64_R3 nesCart.registers[4]
+#define Mapper64_R4 nesCart.registers[5]
+#define Mapper64_R5 nesCart.registers[6]
+#define Mapper64_R6 nesCart.registers[7]
+#define Mapper64_R7 nesCart.registers[8]
+#define Mapper64_R8 nesCart.registers[9]
+#define Mapper64_R9 nesCart.registers[10]
+#define Mapper64_RF nesCart.registers[11]
+
+#define Mapper64_IRQ_LATCH nesCart.registers[12]
+#define Mapper64_IRQ_MODE nesCart.registers[13]
+#define Mapper64_IRQ_ENABLE nesCart.registers[14]
+#define Mapper64_IRQ_COUNT nesCart.registers[15]
+#define Mapper64_IRQ_CLOCKS nesCart.registers[16]

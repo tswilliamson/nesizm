@@ -163,6 +163,9 @@ struct nes_cart {
 	// unloads ROM if loaded
 	void unload();
 
+	// called for when IRQ clocks are reached for mappers that need to reset counters
+	bool IRQReached();
+
 	// Sets up loaded ROM File with the selected mapper (returns false if unsupported)
 	bool setupMapper();
 
@@ -192,6 +195,10 @@ struct nes_cart {
 	void setupMapper11_ColorDreams();
 
 	void setupMapper71_Camerica();
+
+	void setupMapper64_Rambo1();
+	void Mapper64_Update();
+	static void Mapper64_ScanlineClock();
 
 	void readState_WRAM(uint8* data);
 	uint8* GetWRAM();

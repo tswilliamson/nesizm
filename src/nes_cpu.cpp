@@ -98,8 +98,8 @@ void nes_cpu::reset() {
 }
 
 void cpu6502_IRQ() {
-	// disable IRQ
-	mainCPU.irqClocks = 0;
+	if (nesCart.IRQReached() == false)
+		return;
 
 	// perform interrupt if they are enabled
 	if ((mainCPU.P & ST_INT) == 0) {
