@@ -43,7 +43,7 @@ bool isSelectKey(int key) {
 }
 
 static int32 findKey() {
-	for (int32 i = 31; i <= 79; i++) {
+	for (int32 i = 27; i <= 79; i++) {
 		if (keyDown_fast(i)) {
 			return i;
 		}
