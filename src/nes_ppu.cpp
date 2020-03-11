@@ -442,7 +442,7 @@ void nes_ppu::fastSprite0(bool bValidBackground) {
 		}
 
 		const uint8 LeftMask = (PPUMASK_SHOWLEFTBG | PPUMASK_SHOWLEFTOBJ);
-		if (PPUMASK & LeftMask != LeftMask) {
+		if ((PPUMASK & LeftMask) != LeftMask) {
 			for (int x = spriteX, bit = 1; x < 8; x++, bit <<= 1) {
 				tileMask = tileMask & ~bit;
 			}
