@@ -756,6 +756,8 @@ bool nes_cart::LoadState() {
 
 	Bfile_CloseFile_OS(fileID);
 
+	nesCart.BuildFileBlocks();
+
 	if (!fceuxFile.hasError) {
 		if (mapper == 4) {
 			MMC3_StateLoaded();
@@ -766,7 +768,6 @@ bool nes_cart::LoadState() {
 		}
 	}
 
-	nesCart.BuildFileBlocks();
 	nesCart.FlushCache();	
 	if (nesCart.numCHRBanks) {
 		nesCart.CommitChrBanks();

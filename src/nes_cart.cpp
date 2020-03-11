@@ -1726,6 +1726,10 @@ bool nes_cart::IRQReached() {
 		}
 	}
 
+	if (mapper == 4) {
+		MMC3_IRQ_LATCH = 0;
+	}
+
 	// by default disable IRQ
 	mainCPU.irqClocks = 0;
 	return true;
