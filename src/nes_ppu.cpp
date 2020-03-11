@@ -15,6 +15,16 @@ extern void PPUBreakpoint();
 
 nes_ppu nesPPU ALIGN(256);
 
+static uint16 reverseBytelookup[16] = {
+	0x0, 0x8, 0x4, 0xc, 0x2, 0xa, 0x6, 0xe,
+	0x1, 0x9, 0x5, 0xd, 0x3, 0xb, 0x7, 0xf
+};
+
+uint16 reverseByte(uint16 b) {
+	// Reverse the top and bottom nibble then swap them.
+	return (reverseBytelookup[b & 0xF] << 4) | reverseBytelookup[b >> 4];
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Scanline handling
 
@@ -399,28 +409,58 @@ void nes_ppu::oamDMA(unsigned int addr) {
 	mainCPU.clocks += 513 + (mainCPU.clocks & 1);
 }
 
-void nes_ppu::fastSprite0() {
+void nes_ppu::fastSprite0(bool bValidBackground) {
 	DebugAssert(canSprite0Hit()); // should have already been checked
 
 	// simulate the 8 bits from the write, but a little faster
-	unsigned int yCoord0 = scanline - oam[0] - 2;
+	unsigned int yCoord = scanline - oam[0] - 2;
 	unsigned int spriteSize = ((PPUCTRL & PPUCTRL_SPRSIZE) == 0) ? 8 : 16;
+	if (yCoord >= spriteSize)
+		return;
 
-	if (oam[2] & OAMATTR_VFLIP) yCoord0 = spriteSize - yCoord0;
+	if (oam[2] & OAMATTR_VFLIP) yCoord = (spriteSize - 1) - yCoord;
 
 	unsigned char* patternTable = chrPages[((spriteSize == 8 && (PPUCTRL & PPUCTRL_OAMTABLE)) ? 1 : 0)];
 
 	// determine tile index
 	unsigned char* tile;
 	if (spriteSize == 16) {
-		tile = patternTable + ((((oam[1] & 1) << 8) + (oam[1] & 0xFE)) << 4) + ((yCoord0 & 8) << 1);
-		yCoord0 &= 7;
+		tile = chrPages[oam[1] & 1] + ((oam[1] & 0xFE) << 4) + ((yCoord & 8) << 1) + (yCoord & 7);
 	} else {
-		tile = patternTable + (oam[1] << 4);
+		tile = patternTable + (oam[1] << 4) + yCoord;
 	}
 
-	if (tile[yCoord0] | tile[yCoord0 + 8]) {
-		SetPPUSTATUS(PPUSTATUS | PPUSTAT_SPRITE0);
+	// interleave the bit planes and assign to char buffer (only unmapped pixels)
+	const uint8 tile0 = tile[0];
+	const uint8 tile8 = tile[8];
+	uint16 tileMask = (tile0 | tile8);
+	unsigned int spriteX = oam[3];
+
+	if (tileMask && oam[3] != 255) {
+		if (!(oam[2] & OAMATTR_HFLIP)) {
+			tileMask = reverseByte(tileMask);
+		}
+
+		const uint8 LeftMask = (PPUMASK_SHOWLEFTBG | PPUMASK_SHOWLEFTOBJ);
+		if (PPUMASK & LeftMask != LeftMask) {
+			for (int x = spriteX, bit = 1; x < 8; x++, bit <<= 1) {
+				tileMask = tileMask & ~bit;
+			}
+		}
+
+		if (bValidBackground) {
+			int baseX = SCROLLX & 15;
+			uint8* buffer = scanlineBuffer + baseX;
+			for (int32 x = 0; x < 8; x++, buffer++) {
+				if ((tileMask & 1) && (*buffer)) {
+					SetPPUSTATUS(PPUSTATUS | PPUSTAT_SPRITE0);
+					break;
+				}
+				tileMask >>= 1;
+			}
+		} else if (tileMask) {
+			SetPPUSTATUS(PPUSTATUS | PPUSTAT_SPRITE0);
+		}
 	}
 }
 
@@ -525,7 +565,7 @@ void nes_ppu::step() {
 			if (!skipFrame) {
 				renderScanline(*this);
 			} else {
-				fastSprite0();
+				fastSprite0(false);
 			}
 		}
 
@@ -552,7 +592,7 @@ void nes_ppu::step() {
 
 			resolveScanline(SCROLLX & 15);
 		} else if (canSprite0Hit()) {
-			fastSprite0();
+			fastSprite0(false);
 		}
 
 		if (nesCart.scanlineClock) {
@@ -568,7 +608,7 @@ void nes_ppu::step() {
 			if (!skipFrame) {
 				renderScanline(*this);
 			} else {
-				fastSprite0();
+				fastSprite0(false);
 			}
 		}
 
@@ -768,17 +808,6 @@ void nes_ppu::resolveOAM() {
 	dirtyOAM = false;
 }
 
-static uint16 reverseBytelookup[16] = {
-	0x0, 0x8, 0x4, 0xc, 0x2, 0xa, 0x6, 0xe,
-	0x1, 0x9, 0x5, 0xd, 0x3, 0xb, 0x7, 0xf
-};
-
-uint16 reverseByte(uint16 b) {
-	// Reverse the top and bottom nibble then swap them.
-	return (reverseBytelookup[b & 0xF] << 4) | reverseBytelookup[b >> 4];
-}
-
-
 #define PRIORITY_PIXEL 0x40
 template<bool sprite16,int spriteSize>
 void static renderOAM(nes_ppu& ppu) {
@@ -884,24 +913,6 @@ void static renderOAM(nes_ppu& ppu) {
 				}
 			}
 
-			// sprite 0 hit
-			if ((ppu.PPUSTATUS & PPUSTAT_SPRITE0) == 0) {
-				unsigned int yCoord0 = ppu.scanline - ppu.oam[0] - 2;
-				if (yCoord0 < spriteSize) {
-					unsigned int x = ppu.oam[3];
-
-					for (int p = 0; p < 8; p++, x++) {
-						if ((oamScanlineBuffer[x] & 6) && ppu.scanlineBuffer[baseX+x] && (x != 255)) {
-							// TODO : this is approximate since it is at start of line!
-							// It could be exact by storing actual upcoming clocks here and filling
-							// PPUSTATUS when queried
-
-							ppu.SetPPUSTATUS(ppu.PPUSTATUS | PPUSTAT_SPRITE0);
-						}
-					}
-				}
-			}
-
 			// resolve objects
 			if (maxSpriteMask > 31) maxSpriteMask = 31;
 			unsigned char* targetPixelBase = &ppu.scanlineBuffer[baseX];
@@ -926,6 +937,10 @@ void static renderOAM(nes_ppu& ppu) {
 
 void nes_ppu::doOAMRender() {
 	TIME_SCOPE();
+
+	if (canSprite0Hit()) {
+		fastSprite0(true);
+	}
 
 	if ((PPUCTRL & PPUCTRL_SPRSIZE) == 0) {
 		renderOAM<false, 8>(*this);

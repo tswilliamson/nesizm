@@ -390,20 +390,14 @@ struct nes_ppu {
 
 	// main rendering
 	void initScanlineBuffer();
-	void fastSprite0();
+	void fastSprite0(bool bValidBackground);
 	void doOAMRender();
 	void resolveScanline(int scrollOffset);
 	void finishFrame(bool bSkippedFrame);
 
 	// checks conditions for a sprite hit being possible
 	bool canSprite0Hit() {
-		if ((PPUSTATUS & PPUSTAT_SPRITE0) == 0 && (PPUMASK & (PPUMASK_SHOWOBJ | PPUMASK_SHOWBG))) {
-			unsigned int yCoord0 = scanline - oam[0] - 2;
-			unsigned int spriteSize = ((PPUCTRL & PPUCTRL_SPRSIZE) == 0) ? 8 : 16;
-			return yCoord0 < spriteSize;
-		}
-
-		return false;
+		return (PPUSTATUS & PPUSTAT_SPRITE0) == 0 && (PPUMASK & (PPUMASK_SHOWOBJ | PPUMASK_SHOWBG));
 	}
 
 	static void renderScanline_SingleMirror(nes_ppu& ppu);
