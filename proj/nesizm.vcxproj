@@ -47,7 +47,6 @@
     <ClCompile Include="..\src\nes_input.cpp" />
     <ClCompile Include="..\src\nes_ppu.cpp" />
     <ClCompile Include="..\src\nes_savestate.cpp" />
-    <ClCompile Include="..\src\ptune2_simple\Ptune2_direct.c" />
     <ClCompile Include="..\src\main.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='WindowsSim|x64'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='WindowsSim|Win32'">false</ExcludedFromBuild>
@@ -57,8 +56,6 @@
     <ClCompile Include="..\src\scope_timer\scope_timer.cpp" />
     <ClCompile Include="..\src\settings.cpp" />
     <ClCompile Include="..\src\snd_main.cpp" />
-    <ClCompile Include="..\src\snd_prizm.cpp" />
-    <ClCompile Include="..\src\snd_winsim.cpp" />
     <None Include="..\src\6502_instr_timing.inl" />
     <None Include="..\src\6502_opcodes.inl" />
     <None Include="..\src\asm\RenderScanlineBuffer.S" />
@@ -71,13 +68,10 @@
     <ClInclude Include="..\src\mappers.h" />
     <ClInclude Include="..\src\nes.h" />
     <ClInclude Include="..\src\nes_cpu.h" />
-    <ClInclude Include="..\src\ptune2_simple\Ptune2_direct.h" />
-    <ClInclude Include="..\src\ptune2_simple\SH7305_CPG_BSC.h" />
     <ClInclude Include="..\src\main.h" />
     <ClInclude Include="..\src\platform.h" />
     <ClInclude Include="..\src\scope_timer\scope_timer.h" />
     <ClInclude Include="..\src\settings.h" />
-    <ClInclude Include="..\src\snd.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Makefile" />
@@ -85,7 +79,7 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{0A1E9BF8-05DD-4F73-81D8-18DA73DB5796}</ProjectGuid>
     <Keyword>MakeFileProj</Keyword>
-    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.17134.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DeviceRelease|x64'" Label="Configuration">

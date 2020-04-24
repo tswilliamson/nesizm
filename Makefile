@@ -18,7 +18,7 @@ include $(FXCGSDK)/common/prizm_rules
 #---------------------------------------------------------------------------------
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	$(CONFIG)
-SOURCES		:=	src src/ptune2_simple src/scope_timer src/gfx src/asm
+SOURCES		:=	src src/scope_timer src/gfx src/asm
 DATA		:=	data  
 INCLUDES	:=  src
 
@@ -55,7 +55,8 @@ LDFLAGS	= $(MACHDEP) -O2 -T$(FXCGSDK)/common/prizm.ld -Wl,-static -g
 #---------------------------------------------------------------------------------
 # any extra libraries we wish to link with the project
 #---------------------------------------------------------------------------------
-LIBS	:=	-lfxcg -lm -lc -lgcc -lzx7 -lcalctype
+SYSTEMLIBS :=  -lfxcg -lm -lc -lgcc
+LIBS	:=	-lzx7 -lcalctype -lsnd -lptune2_simple $(SYSTEMLIBS)
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing

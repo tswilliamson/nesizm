@@ -72,12 +72,4 @@ void* operator new[](unsigned int size) {
 void operator delete[](void* addr) {
 	free(addr);
 }
-DeviceType getDeviceType() {
-	return (size_t) GetVRAMAddress() == 0xAC000000 ? DT_CG50 : DT_CG20;
-}
-
-#else
-DeviceType getDeviceType() {
-	return DT_Winsim;
-}
 #endif

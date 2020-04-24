@@ -12,9 +12,6 @@
     <Filter Include="Dependencies">
       <UniqueIdentifier>{f173ffdc-d20a-4353-9134-18f00b441e65}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Dependencies\ptune2_simple">
-      <UniqueIdentifier>{693d36c5-6996-45ff-a69e-a5ad57b2d2a1}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Source Files\nes">
       <UniqueIdentifier>{4cf9d8cc-eabb-4644-96c0-4ab61549d1f5}</UniqueIdentifier>
     </Filter>
@@ -40,9 +37,6 @@
   <ItemGroup>
     <ClCompile Include="..\src\main.cpp">
       <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\src\ptune2_simple\Ptune2_direct.c">
-      <Filter>Dependencies\ptune2_simple</Filter>
     </ClCompile>
     <ClCompile Include="..\src\debug.cpp">
       <Filter>Source Files</Filter>
@@ -70,12 +64,6 @@
     </ClCompile>
     <ClCompile Include="..\src\scope_timer\scope_timer.cpp">
       <Filter>Dependencies\scope_timer</Filter>
-    </ClCompile>
-    <ClCompile Include="..\src\snd_prizm.cpp">
-      <Filter>Source Files\snd</Filter>
-    </ClCompile>
-    <ClCompile Include="..\src\snd_winsim.cpp">
-      <Filter>Source Files\snd</Filter>
     </ClCompile>
     <ClCompile Include="..\src\snd_main.cpp">
       <Filter>Source Files\snd</Filter>
@@ -106,12 +94,6 @@
     <ClInclude Include="..\src\main.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\ptune2_simple\Ptune2_direct.h">
-      <Filter>Dependencies\ptune2_simple</Filter>
-    </ClInclude>
-    <ClInclude Include="..\src\ptune2_simple\SH7305_CPG_BSC.h">
-      <Filter>Dependencies\ptune2_simple</Filter>
-    </ClInclude>
     <ClInclude Include="..\src\platform.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -126,9 +108,6 @@
     </ClInclude>
     <ClInclude Include="..\src\scope_timer\scope_timer.h">
       <Filter>Dependencies\scope_timer</Filter>
-    </ClInclude>
-    <ClInclude Include="..\src\snd.h">
-      <Filter>Source Files\snd</Filter>
     </ClInclude>
     <ClInclude Include="..\src\imageDraw.h">
       <Filter>Header Files</Filter>

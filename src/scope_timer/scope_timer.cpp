@@ -12,7 +12,7 @@
 unsigned int ScopeTimer_FrameCycles = 0;
 LONGLONG ScopeTimer_Start = 0;
 #else
-#include "../ptune2_simple/Ptune2_direct.h"
+#include "ptune2_simple/Ptune2_direct.h"
 #endif
 
 

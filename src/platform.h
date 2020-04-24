@@ -73,14 +73,6 @@ static inline void EndianSwap(unsigned int& i) {
 #define min(a,b)            (((a) < (b)) ? (a) : (b))
 #endif
 
-enum DeviceType {
-	DT_CG20,			// or CG10
-	DT_CG50,
-	DT_Winsim
-};
-
-extern DeviceType getDeviceType();
-
 // #include "ScopeTimer.h"
 
 extern void ScreenPrint(char* buffer);

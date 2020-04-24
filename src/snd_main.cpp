@@ -2,7 +2,7 @@
 #include "platform.h"
 #include "debug.h"
 #include "6502.h"
-#include "snd.h"
+#include "snd/snd.h"
 
 // TODO : move to setting
 bool soundEnabled = true;
