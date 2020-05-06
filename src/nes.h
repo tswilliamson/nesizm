@@ -412,6 +412,75 @@ struct nes_ppu {
 extern nes_ppu nesPPU;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// APU
+
+// pulse wave generator
+struct nes_apu_pulse {
+	void writeReg(unsigned int regNum, uint8 value);
+	void step_quarter();
+	void step_half();
+
+	int mixOffset;
+
+	int rawPeriod;
+	int lengthCounter;
+
+	int dutyCycle;
+	bool enableLengthCounter;
+
+	// volume / envelope
+	int constantVolume;
+	int envelopeVolume;
+	int envelopePeriod;				// in quarter frames
+	int envelopeCounter;
+	bool useConstantVolume;
+
+	// sweep unit
+	bool sweepEnabled;
+	int sweepCounter;
+	int sweepTargetPeriod;			// current target period of the sweep unit (regardless of being enabled)
+	int sweepPeriod;				// in quarter frames	
+	bool sweepNegate;				
+	int sweepBarrelShift;			// sweep calculation shift bits
+	bool sweepTwosComplement;		// set on Pulse 2 but not Pulse 1
+};
+
+// audio processing unit main struct
+struct nes_apu {
+	nes_apu() {
+		init();
+	}
+
+	nes_apu_pulse pulse1;
+	nes_apu_pulse pulse2;
+	
+	int cycle;
+	int mode;	// 0 = 4 step, 1 = 5 step
+	
+	void init();
+	void startup();
+
+	// write to APU registers (address is low byte of range $4000-$19)
+	void writeReg(unsigned int address, uint8 value);
+
+	// apu update step called every at 240 Hz by cpu (nes_cpu.apuClocks)
+	void step();
+
+	// step quarter frame counters of generators
+	void step_quarter();
+
+	// step half frame counters of generators
+	void step_half();
+
+	void mix(int* intoBuffer, int length);
+
+	void shutdown();
+
+};
+
+extern nes_apu nesAPU;
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // INPUT
 
 void input_Initialize();

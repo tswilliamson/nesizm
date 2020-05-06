@@ -21,9 +21,6 @@
     <Filter Include="Dependencies\scope_timer">
       <UniqueIdentifier>{fe587b97-6634-4fa8-bcf9-7321d0135ae4}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\snd">
-      <UniqueIdentifier>{634bff64-5cbd-4a14-a4ef-fc362fa7619b}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Source Files\frontend">
       <UniqueIdentifier>{e65937d6-c204-460d-b348-a78718bc43ca}</UniqueIdentifier>
     </Filter>
@@ -65,9 +62,6 @@
     <ClCompile Include="..\src\scope_timer\scope_timer.cpp">
       <Filter>Dependencies\scope_timer</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\snd_main.cpp">
-      <Filter>Source Files\snd</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\imageDraw.cpp">
       <Filter>Source Files\frontend</Filter>
     </ClCompile>
@@ -87,6 +81,9 @@
       <Filter>Source Files\gfx</Filter>
     </ClCompile>
     <ClCompile Include="..\src\nes_savestate.cpp">
+      <Filter>Source Files\nes</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\nes_apu.cpp">
       <Filter>Source Files\nes</Filter>
     </ClCompile>
   </ItemGroup>

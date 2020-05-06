@@ -8,6 +8,9 @@ struct nes_cpu : public cpu_6502 {
 	// clocks for next PPU update
 	unsigned int ppuClocks;
 
+	// clocks for next APU update
+	unsigned int apuClocks;
+
 	// indicates that an NMI should occur on completion of next cpu instruction
 	bool ppuNMI;
 

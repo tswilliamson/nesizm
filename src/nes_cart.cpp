@@ -237,6 +237,9 @@ bool nes_cart::loadROM(const char* withFile) {
 	// initialize TV settings
 	nesPPU.initTV();
 
+	// initialize APU
+	nesAPU.init();
+
 	// mapper logic
 	handle = file;
 	if (setupMapper()) {

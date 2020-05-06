@@ -544,7 +544,10 @@ void nes_frontend::Run() {
 			}
 
 			nesFrontend.RenderGameBackground();
+
+			nesAPU.startup();
 			RunGameLoop();
+			nesAPU.shutdown();
 
 			if (getDeviceType() == DT_CG20 && nesSettings.GetSetting(ST_OverClock) != 0) {
 				Ptune2_LoadBackup();
@@ -560,6 +563,7 @@ void nes_frontend::RunGameLoop() {
 		cpu6502_Step();
 		if (mainCPU.clocks >= mainCPU.ppuClocks) nesPPU.step();
 		if (mainCPU.irqClocks && mainCPU.clocks >= mainCPU.irqClocks) cpu6502_IRQ();
+		if (mainCPU.clocks >= mainCPU.apuClocks) nesAPU.step();
 	}
 
 	nesCart.OnPause();
@@ -580,7 +584,7 @@ MenuOption optionTree[] =
 	{ "System", "System clock and main options", false, OptionMenu, nullptr, (int) SG_System },
 	{ "Controls", "Controls options and keymappings", false, OptionMenu, nullptr, (int) SG_Controls },
 	{ "Display", "Misc video options", false, OptionMenu, nullptr, (int) SG_Video },
-	{ "Sound", "Sound options", true, OptionMenu, nullptr, (int) SG_Sound },
+	{ "Sound", "Sound options", false, OptionMenu, nullptr, (int) SG_Sound },
 	{ "Back", "Return to main menu", false, LeaveOptions, nullptr, 0 }
 };
 

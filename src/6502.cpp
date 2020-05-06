@@ -888,6 +888,9 @@ void cpu6502_Step() {
 	if (mainCPU.irqClocks && mainCPU.irqClocks < mainCPU.ppuClocks) {
 		mainCPU.nextClocks = mainCPU.irqClocks;
 	}
+	if (mainCPU.apuClocks < mainCPU.nextClocks) {
+		mainCPU.nextClocks = mainCPU.apuClocks;
+	}
 	if (mainCPU.ppuNMI) {
 		mainCPU.nextClocks = mainCPU.clocks + 7;
 	}

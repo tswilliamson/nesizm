@@ -6,6 +6,7 @@
 #include "nes.h"	
 #include "settings.h"
 
+#include "snd/snd.h"
 #include "scope_timer/scope_timer.h"
 
 #if TRACE_DEBUG
@@ -688,6 +689,8 @@ void nes_ppu::step() {
 	}
 
 	scanline++;
+
+	condSoundUpdate();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

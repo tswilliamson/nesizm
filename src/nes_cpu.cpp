@@ -32,11 +32,9 @@ void nes_cpu::writeSpecial(unsigned int addr, unsigned char value) {
 			case 0x16:
 				input_writeStrobe(value);
 				break;
-			case 0x17:
-				// APU interrupt not yet supported, check for it:
-				//if ((value & 0xC0)
 			default:
-				// UNMAPPED! WILL DO NOTHING
+				// other wise this is an APU register
+				nesAPU.writeReg(addr - 0x4000, value);
 				break;
 		}
 	} else if (addr < 0x10000) {
@@ -92,6 +90,9 @@ void nes_cpu::reset() {
 
 	// comparing to FCEUX we appear to be just slightly ahead on clocks
 	ppuClocks = 2510;
+
+	// start with apuClocks in one frame
+	apuClocks = 7458;
 
 	// trigger reset interrupt
 	cpu6502_SoftwareInterrupt(0xFFFC);

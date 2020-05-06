@@ -42,6 +42,7 @@
     <ClCompile Include="..\src\gfx\logo.cpp" />
     <ClCompile Include="..\src\gfx\nes_gfx.cpp" />
     <ClCompile Include="..\src\imageDraw.cpp" />
+    <ClCompile Include="..\src\nes_apu.cpp" />
     <ClCompile Include="..\src\nes_cart.cpp" />
     <ClCompile Include="..\src\nes_cpu.cpp" />
     <ClCompile Include="..\src\nes_input.cpp" />
@@ -55,7 +56,6 @@
     <ClCompile Include="..\src\scanline_vram.cpp" />
     <ClCompile Include="..\src\scope_timer\scope_timer.cpp" />
     <ClCompile Include="..\src\settings.cpp" />
-    <ClCompile Include="..\src\snd_main.cpp" />
     <None Include="..\src\6502_instr_timing.inl" />
     <None Include="..\src\6502_opcodes.inl" />
     <None Include="..\src\asm\RenderScanlineBuffer.S" />
