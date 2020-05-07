@@ -445,6 +445,7 @@ struct nes_apu_pulse {
 	bool sweepTwosComplement;		// set on Pulse 2 but not Pulse 1
 };
 
+// triangle wave generator
 struct nes_apu_triangle {
 	void writeReg(unsigned int regNum, uint8 value);
 	void step_quarter();
@@ -461,6 +462,29 @@ struct nes_apu_triangle {
 	bool reloadLinearCounter;
 };
 
+// noise generator
+struct nes_apu_noise {
+	void writeReg(unsigned int regNum, uint8 value);
+	void step_quarter();
+	void step_half();
+
+	int shiftRegister;
+
+	int clocks;
+	int samplesPerPeriod;
+	int noiseMode;
+
+	int lengthCounter;
+	bool enableLengthCounter;
+
+	// volume / envelope
+	int constantVolume;
+	int envelopeVolume;
+	int envelopePeriod;				// in quarter frames
+	int envelopeCounter;
+	bool useConstantVolume;
+};
+
 // audio processing unit main struct
 struct nes_apu {
 	nes_apu() {
@@ -470,6 +494,7 @@ struct nes_apu {
 	nes_apu_pulse pulse1;
 	nes_apu_pulse pulse2;
 	nes_apu_triangle triangle;
+	nes_apu_noise noise;
 	
 	int cycle;
 	int mode;	// 0 = 4 step, 1 = 5 step

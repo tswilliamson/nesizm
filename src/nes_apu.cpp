@@ -26,6 +26,11 @@ int duty_delta(int t) {
 	}
 }
 
+static uint8 length_counter_table[32] = {
+	10,254, 20,  2, 40,  4, 80,  6, 160,  8, 60, 10, 14, 12, 26, 14,
+	12, 16, 24, 18, 48, 20, 96, 22, 192, 24, 72, 26, 16, 28, 32, 30
+};
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // APU PULSE
 
@@ -47,11 +52,6 @@ inline int sweep_target(nes_apu_pulse* forPulse) {
 	}
 	return ret + shift;
 }
-
-static uint8 length_counter_table[32] = {
-	10,254, 20,  2, 40,  4, 80,  6, 160,  8, 60, 10, 14, 12, 26, 14,
-	12, 16, 24, 18, 48, 20, 96, 22, 192, 24, 72, 26, 16, 28, 32, 30
-};
 
 void nes_apu_pulse::writeReg(unsigned int regNum, uint8 value) {
 	union regHelper {
@@ -213,6 +213,109 @@ void nes_apu_triangle::step_half() {
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// APU NOISE
+
+// number of samples between noise shift register switches (x16, clamped at 16)
+inline int noise_samples(int noisePeriod) {
+	int samples = (noisePeriod * 2 * SOUND_RATE / 111861);
+	static int mult = 1;
+	static int div = 1;
+	samples *= mult;
+	samples /= div;
+	if (samples < 16) return 16;
+	return samples;
+}
+
+static const int noise_period_ntsc[16] = {
+	4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068
+};
+
+static const int noise_period_pal[16] = {
+	4, 8, 14, 30, 60, 88, 118, 148, 188, 236, 354, 472, 708,  944, 1890, 3778
+};
+
+void nes_apu_noise::writeReg(unsigned int regNum, uint8 value) {
+	union regHelper {
+		struct {
+			uint8 volume : 4;
+			uint8 constant_volume : 1;
+			uint8 loop_or_halt : 1;
+			uint8 _unused0 : 2;
+		};
+		struct {
+			uint8 noise_period : 4;
+			uint8 _unused2 : 3;
+			uint8 noise_mode : 1;
+		};
+		struct {
+			uint8 _unused3 : 3;
+			uint8 length_load : 5;
+		};
+		uint8 value;
+	};
+	regHelper helper;
+	helper.value = value;
+
+	int noisePeriod;
+	switch (regNum) {
+		case 0:
+			enableLengthCounter = helper.loop_or_halt == 0;
+			if (helper.constant_volume) {
+				useConstantVolume = true;
+				constantVolume = helper.volume; 
+			} else {
+				useConstantVolume = false;
+				envelopePeriod = helper.volume + 1;
+			}
+			break;
+		case 1:
+			break;
+		case 2:
+			if (nesCart.isPAL) {
+				noisePeriod = noise_period_pal[helper.noise_period];
+			} else {
+				noisePeriod = noise_period_ntsc[helper.noise_period];
+			}
+			samplesPerPeriod = noise_samples(noisePeriod);
+			if (clocks > samplesPerPeriod) {
+				clocks = clocks & 0xF;
+			}
+			noiseMode = helper.noise_mode;
+			break;
+		case 3:
+			lengthCounter = length_counter_table[helper.length_load];
+			envelopeVolume = 15;
+			envelopeCounter = 0;
+			break;
+	}
+}
+
+void nes_apu_noise::step_quarter() {
+	// tick envelope if used
+	if (useConstantVolume == false) {
+		envelopeCounter++;
+		if (envelopeCounter >= envelopePeriod) {
+			if (envelopeVolume == 0) {
+				if (enableLengthCounter == false) {
+					// then we have a looping envelope
+					envelopeVolume = 15;
+				}
+			} else {
+				envelopeVolume--;
+			}
+			envelopeCounter = 0;
+		}
+	}
+}
+
+void nes_apu_noise::step_half() {
+	// tick length counter if used
+	if (enableLengthCounter && lengthCounter) {
+		lengthCounter--;
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // APU
 
 void sndFrame(int* buffer, int length) {
@@ -222,6 +325,7 @@ void sndFrame(int* buffer, int length) {
 void nes_apu::init() {
 	memset(this, 0, sizeof(nes_apu));
 	pulse2.sweepTwosComplement = true;
+	noise.shiftRegister = 1;
 }
 
 void nes_apu::startup() {
@@ -239,13 +343,15 @@ void nes_apu::writeReg(unsigned int address, uint8 value) {
 	} else if (address < 0x0C) {
 		triangle.writeReg(address & 0x3, value);
 	} else if (address < 0x10) {
-		// noise
+		noise.writeReg(address & 0x3, value);
 	} else if (address < 0x14) {
 		// DMC
 	} else if (address == 0x15) {
 		// channel flags : DNT21
 		if ((value & 1) == 0) pulse1.lengthCounter = 0;
 		if ((value & 2) == 0) pulse2.lengthCounter = 0;
+		if ((value & 4) == 0) triangle.lengthCounter = 0;
+		if ((value & 8) == 0) noise.lengthCounter = 0;
 	} else if (address == 0x17) {
 		// frame counter
 		if (value & 0x80) {
@@ -302,12 +408,14 @@ void nes_apu::step_quarter() {
 	pulse1.step_quarter();
 	pulse2.step_quarter();
 	triangle.step_quarter();
+	noise.step_quarter();
 }
 
 void nes_apu::step_half() {
 	pulse1.step_half();
 	pulse2.step_half();
 	triangle.step_half();
+	noise.step_half();
 }
 
 void nes_apu::shutdown() {
@@ -365,5 +473,45 @@ void nes_apu::mix(int* intoBuffer, int length) {
 		}
 	} else {
 		triangle.mixOffset = (triangle.mixOffset + duty_delta(triangle.rawPeriod) * length) & 0xFFFF;
+	}
+
+	int noiseVolume = 200 * (noise.useConstantVolume ? noise.constantVolume : noise.envelopeVolume);
+	if (noise.lengthCounter == 0)
+		noiseVolume = 0;
+
+	if (noiseVolume) {
+		int remainingLength = length;
+		int* bufferWrite = intoBuffer;
+
+		while (remainingLength > 0) {
+			int curFeedback = noise.shiftRegister & 1;
+			if (noise.noiseMode)
+				curFeedback = curFeedback ^ ((noise.shiftRegister >> 6) & 1);
+			else
+				curFeedback = curFeedback ^ ((noise.shiftRegister >> 1) & 1);
+			int curFeedbackVolume = curFeedback ? noiseVolume : 0;
+
+			int toMixClocks = noise.samplesPerPeriod - noise.clocks;
+			int toMixSamples = toMixClocks >> 4;
+			if (remainingLength < toMixSamples) {
+				toMixSamples = remainingLength;
+				noise.clocks = (toMixSamples << 4);
+			} else {
+				noise.shiftRegister = (noise.shiftRegister >> 1) | (curFeedback << 14);
+				noise.clocks = (toMixSamples << 4) - toMixClocks;
+			}
+
+			if (curFeedbackVolume) {
+				for (int i = 0; i < toMixSamples; i++) {
+					*(bufferWrite++) += curFeedbackVolume;
+				}
+			} else {
+				bufferWrite += toMixSamples;
+			}
+
+			remainingLength -= toMixSamples;
+		}
+	} else {
+		noise.clocks = 0;
 	}
 }
