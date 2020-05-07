@@ -11,16 +11,8 @@
 nes_apu nesAPU;
 bool bSoundEnabled = false;
 
-static const int pulse_duty[4][16] = {
-	{ 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},   // 12.5% duty
-	{ 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},   // 25% duty
-	{ 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0},   // 50% duty
-	{ 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}    // -25% duty
-};
-
 // how much of a duty cycle sample from above to move through per sample, divided by 256
-int pulse_delta(nes_apu_pulse* forPulse) {
-	int t = forPulse->rawPeriod;
+int duty_delta(int t) {
 	if (nesCart.isPAL) {
 		const int palScalar = int(SOUND_RATE * 0.630682);
 		return palScalar * (t - 1) / 256;
@@ -33,6 +25,16 @@ int pulse_delta(nes_apu_pulse* forPulse) {
 		//return ntscScalar * (t - 1) / 256;
 	}
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// APU PULSE
+
+static const int pulse_duty[4][16] = {
+	{ 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},   // 12.5% duty
+	{ 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},   // 25% duty
+	{ 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0},   // 50% duty
+	{ 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}    // -25% duty
+};
 
 // calculates the target period of the sweep unit
 inline int sweep_target(nes_apu_pulse* forPulse) {
@@ -149,6 +151,70 @@ void nes_apu_pulse::step_half() {
 	}
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// APU TRIANGLE
+
+static const int tri_duty[32] = {
+	0xF, 0xE, 0xD, 0xC, 0xB, 0xA, 0x9, 0x8, 0x7, 0x6, 0x5, 0x4, 0x3, 0x2, 0x1, 0x0,
+	0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF
+};
+
+void nes_apu_triangle::writeReg(unsigned int regNum, uint8 value) {
+	union regHelper {
+		struct {
+			uint8 linear_counter : 7;
+			uint8 enable_counter : 1;
+		};
+		struct {
+			uint8 timer_low : 8;
+		};
+		struct {
+			uint8 timer_hi : 3;
+			uint8 length_load : 5;
+		};
+		uint8 value;
+	};
+	regHelper helper;
+	helper.value = value;
+
+	switch (regNum) {
+		case 0:
+			enableLengthCounter = helper.enable_counter == 0;
+			linearPeriod = helper.linear_counter;
+			break;
+		case 1:
+			break;
+		case 2:
+			rawPeriod = (rawPeriod & 0x700) | helper.timer_low;
+			break;
+		case 3:
+			rawPeriod = (rawPeriod & 0xFF) | (helper.timer_hi << 8);
+			lengthCounter = length_counter_table[helper.length_load];
+			reloadLinearCounter = true;
+			break;
+	}
+}
+
+void nes_apu_triangle::step_quarter() {
+	// tick linear counter
+	if (reloadLinearCounter) {
+		linearCounter = linearPeriod;
+		reloadLinearCounter = enableLengthCounter == false;
+	} else if (linearCounter != 0) {
+		linearCounter--;
+	}
+}
+
+void nes_apu_triangle::step_half() {
+	// tick length counter if used
+	if (enableLengthCounter && lengthCounter) {
+		lengthCounter--;
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// APU
+
 void sndFrame(int* buffer, int length) {
 	nesAPU.mix(buffer, length);
 }
@@ -171,7 +237,7 @@ void nes_apu::writeReg(unsigned int address, uint8 value) {
 	} else if (address < 0x08) {
 		pulse2.writeReg(address & 0x3, value);
 	} else if (address < 0x0C) {
-		// triangle
+		triangle.writeReg(address & 0x3, value);
 	} else if (address < 0x10) {
 		// noise
 	} else if (address < 0x14) {
@@ -235,11 +301,13 @@ void nes_apu::step() {
 void nes_apu::step_quarter() {
 	pulse1.step_quarter();
 	pulse2.step_quarter();
+	triangle.step_quarter();
 }
 
 void nes_apu::step_half() {
 	pulse1.step_half();
 	pulse2.step_half();
+	triangle.step_half();
 }
 
 void nes_apu::shutdown() {
@@ -252,12 +320,12 @@ void nes_apu::shutdown() {
 // MIX
 
 void nes_apu::mix(int* intoBuffer, int length) {
-	int pulse1Volume = 500 * (pulse1.useConstantVolume ? pulse1.constantVolume : pulse1.envelopeVolume);
+	int pulse1Volume = 200 * (pulse1.useConstantVolume ? pulse1.constantVolume : pulse1.envelopeVolume);
 	if (pulse1.sweepTargetPeriod > 0x7FF || pulse1.lengthCounter == 0 || pulse1.rawPeriod < 8)
 		pulse1Volume = 0;
 
 	if (pulse1Volume) {
-		int pulse1_delta = pulse_delta(&pulse1);
+		int pulse1_delta = duty_delta(pulse1.rawPeriod);
 		const int* pulse1_duty = pulse_duty[pulse1.dutyCycle];
 
 		for (int32 i = 0; i < length; i++) {
@@ -270,17 +338,32 @@ void nes_apu::mix(int* intoBuffer, int length) {
 		}
 	}
 	
-	int pulse2Volume = 500 * (pulse2.useConstantVolume ? pulse2.constantVolume : pulse2.envelopeVolume);
+	int pulse2Volume = 200 * (pulse2.useConstantVolume ? pulse2.constantVolume : pulse2.envelopeVolume);
 	if (pulse2.sweepTargetPeriod > 0x7FF || pulse2.lengthCounter == 0 || pulse2.rawPeriod < 8)
 		pulse2Volume = 0;
 
 	if (pulse2Volume) {
-		int pulse2_delta = pulse_delta(&pulse2);
-		const int* pulse2_duty = pulse_duty[pulse2.dutyCycle];
+		int delta = duty_delta(pulse2.rawPeriod);
+		const int* duty = pulse_duty[pulse2.dutyCycle];
 
 		for (int32 i = 0; i < length; i++) {
-			pulse2.mixOffset = (pulse2.mixOffset + pulse2_delta) & 0xFFFF;
-			intoBuffer[i] += pulse2_duty[(pulse2.mixOffset >> 12)] * pulse2Volume;
+			pulse2.mixOffset = (pulse2.mixOffset + delta) & 0xFFFF;
+			intoBuffer[i] += duty[(pulse2.mixOffset >> 12)] * pulse2Volume;
 		}
+	}
+
+	int triVolume = 200;
+	if (triangle.linearCounter == 0 || triangle.lengthCounter == 0 || triangle.rawPeriod < 2)
+		triVolume = 0;
+
+	if (triVolume) {
+		int delta = duty_delta(triangle.rawPeriod * 2);
+
+		for (int32 i = 0; i < length; i++) {
+			triangle.mixOffset = (triangle.mixOffset + delta) & 0xFFFF;
+			intoBuffer[i] += tri_duty[(triangle.mixOffset >> 11)] * triVolume;
+		}
+	} else {
+		triangle.mixOffset = (triangle.mixOffset + duty_delta(triangle.rawPeriod) * length) & 0xFFFF;
 	}
 }

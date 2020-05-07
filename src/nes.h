@@ -445,6 +445,22 @@ struct nes_apu_pulse {
 	bool sweepTwosComplement;		// set on Pulse 2 but not Pulse 1
 };
 
+struct nes_apu_triangle {
+	void writeReg(unsigned int regNum, uint8 value);
+	void step_quarter();
+	void step_half();
+
+	int mixOffset;
+
+	int rawPeriod;
+	int lengthCounter;
+	int linearCounter;
+	int linearPeriod;
+
+	bool enableLengthCounter;
+	bool reloadLinearCounter;
+};
+
 // audio processing unit main struct
 struct nes_apu {
 	nes_apu() {
@@ -453,6 +469,7 @@ struct nes_apu {
 
 	nes_apu_pulse pulse1;
 	nes_apu_pulse pulse2;
+	nes_apu_triangle triangle;
 	
 	int cycle;
 	int mode;	// 0 = 4 step, 1 = 5 step
