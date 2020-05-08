@@ -14,15 +14,11 @@ bool bSoundEnabled = false;
 // how much of a duty cycle sample from above to move through per sample, divided by 256
 int duty_delta(int t) {
 	if (nesCart.isPAL) {
-		const int palScalar = int(SOUND_RATE * 0.630682);
-		return palScalar * (t - 1) / 256;
+		const int soundNumerator = int(4 * SOUND_RATE * 1.662607f);
+		return soundNumerator / (t + 1);
 	} else {
-		static float l = 16.0f, l2 = 1.0f;
-		float f = 1789773.0f / (16 * (t + 1));
-		float lam = SOUND_RATE * 4.0f * f / 1000000.0f;
-		return int(l * lam / l2);
-		//const int ntscScalar = int(SOUND_RATE * 0.585871);
-		//return ntscScalar * (t - 1) / 256;
+		const int soundNumerator = int(4 * SOUND_RATE * 1.789773f);
+		return soundNumerator / (t + 1);
 	}
 }
 
@@ -149,6 +145,20 @@ void nes_apu_pulse::step_half() {
 	if (enableLengthCounter && lengthCounter) {
 		lengthCounter--;
 	}
+
+	if (sweepTwosComplement) {
+		if (lengthCounter) {
+			mainCPU.specialMemory[0x15] |= 0x02;
+		} else {
+			mainCPU.specialMemory[0x15] &= ~0x02;
+		}
+	} else {
+		if (lengthCounter) {
+			mainCPU.specialMemory[0x15] |= 0x01;
+		} else {
+			mainCPU.specialMemory[0x15] &= ~0x01;
+		}
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -210,19 +220,21 @@ void nes_apu_triangle::step_half() {
 	if (enableLengthCounter && lengthCounter) {
 		lengthCounter--;
 	}
+
+	if (lengthCounter) {
+		mainCPU.specialMemory[0x15] |= 0x04;
+	} else {
+		mainCPU.specialMemory[0x15] &= ~0x04;
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // APU NOISE
 
-// number of samples between noise shift register switches (x16, clamped at 16)
+// number of samples between noise shift register switches (x16, clamped at 8)
 inline int noise_samples(int noisePeriod) {
-	int samples = (noisePeriod * 2 * SOUND_RATE / 111861);
-	static int mult = 1;
-	static int div = 1;
-	samples *= mult;
-	samples /= div;
-	if (samples < 16) return 16;
+	int samples = noisePeriod * 2 * SOUND_RATE / 111861;
+	if (samples < 8) return 8;
 	return samples;
 }
 
@@ -313,12 +325,140 @@ void nes_apu_noise::step_half() {
 	if (enableLengthCounter && lengthCounter) {
 		lengthCounter--;
 	}
+
+	if (lengthCounter) {
+		mainCPU.specialMemory[0x15] |= 0x08;
+	} else {
+		mainCPU.specialMemory[0x15] &= ~0x08;
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// APU DMC
+
+const int dmc_pitch_ntsc[16] = {
+	428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106, 84, 72, 54
+};
+
+const int dmc_pitch_pal[16] = {
+	398, 354, 316, 298, 276, 236, 210, 198, 176, 148, 132, 118, 98, 78, 66, 50
+};
+
+void nes_apu_dmc::writeReg(unsigned int regNum, uint8 value) {
+	union regHelper {
+		struct {
+			uint8 frequency : 4;
+			uint8 _unused0 : 2;
+			uint8 loop : 1;
+			uint8 irq : 1;
+		};
+		struct {
+			uint8 level_load : 7;
+			uint8 _unused1 : 1;
+		};
+		uint8 value;
+	};
+	regHelper helper;
+	helper.value = value;
+
+	int dmcPeriod;
+	switch (regNum) {
+		case 0:
+			if (helper.irq) {
+				irqEnabled = true;
+			} else {
+				irqEnabled = false;
+				nesAPU.clearDMCIRQ();
+			}
+			loop = helper.loop != 0;
+
+			if (nesCart.isPAL) {
+				dmcPeriod = dmc_pitch_ntsc[helper.frequency];
+			} else {
+				dmcPeriod = dmc_pitch_pal[helper.frequency];
+			}
+			samplesPerPeriod = noise_samples(dmcPeriod);
+			break;
+		case 1:
+			output = helper.level_load;
+			break;
+		case 2:
+			sampleAddress = 0xC000 | (helper.value << 6);
+			break;
+		case 3:
+			length = (helper.value * 16) + 1;
+			break;
+	}
+}
+
+void nes_apu_dmc::bitClear() {
+	remainingLength = 0;
+	nesAPU.clearDMCIRQ();
+}
+
+void nes_apu_dmc::bitSet() {
+	if (remainingLength < 8) {
+		remainingLength += length;
+		curSampleAddress = sampleAddress;
+	}
+	nesAPU.clearDMCIRQ();
+}
+
+void nes_apu_dmc::step() {
+	if (bitCount == 0) {
+		if (remainingLength) {
+			// read the next sample off the CPU
+			sampleBuffer = mainCPU.readNonIO(curSampleAddress++);
+			if (curSampleAddress == 0x10000) curSampleAddress = 0x8000;
+			mainCPU.clocks += 3;
+
+			remainingLength--;
+
+			if (remainingLength == 0) {
+				if (loop) {
+					remainingLength += length;
+					curSampleAddress = sampleAddress;
+				}
+				if (irqEnabled) {
+					nesAPU.dmcIRQFlag = true;
+					mainCPU.specialMemory[0x15] |= 0x80;
+					mainCPU.irqClocks = mainCPU.clocks + 1;
+				}
+			}
+
+			silentFlag = false;
+		} else {
+			silentFlag = true;
+		}
+
+		if (remainingLength) {
+			mainCPU.specialMemory[0x15] |= 0x10;
+		} else {
+			mainCPU.specialMemory[0x15] &= ~0x10;
+		}
+		
+		bitCount = 8;
+	}
+
+	if (silentFlag == false) {
+		if (sampleBuffer & 1) {
+			if (output <= 125) output += 2;
+		} else {
+			if (output >= 2) output -= 2;
+		}
+
+		sampleBuffer = sampleBuffer >> 1;
+	}
+
+	bitCount--;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // APU
 
 void sndFrame(int* buffer, int length) {
+	TIME_SCOPE();
+
 	nesAPU.mix(buffer, length);
 }
 
@@ -326,6 +466,7 @@ void nes_apu::init() {
 	memset(this, 0, sizeof(nes_apu));
 	pulse2.sweepTwosComplement = true;
 	noise.shiftRegister = 1;
+	mainCPU.specialMemory[0x15] = 0;
 }
 
 void nes_apu::startup() {
@@ -345,13 +486,20 @@ void nes_apu::writeReg(unsigned int address, uint8 value) {
 	} else if (address < 0x10) {
 		noise.writeReg(address & 0x3, value);
 	} else if (address < 0x14) {
-		// DMC
+		dmc.writeReg(address & 0x3, value);
 	} else if (address == 0x15) {
 		// channel flags : DNT21
 		if ((value & 1) == 0) pulse1.lengthCounter = 0;
 		if ((value & 2) == 0) pulse2.lengthCounter = 0;
 		if ((value & 4) == 0) triangle.lengthCounter = 0;
 		if ((value & 8) == 0) noise.lengthCounter = 0;
+
+		// dmc is special
+		if ((value & 16) == 0)
+			dmc.bitClear();
+		else
+			dmc.bitSet();
+
 	} else if (address == 0x17) {
 		// frame counter
 		if (value & 0x80) {
@@ -360,13 +508,33 @@ void nes_apu::writeReg(unsigned int address, uint8 value) {
 			step_half();
 		}
 
+		// irq inhibit
+		inhibitIRQ = (value & 0x40) != 0;
+		if (inhibitIRQ) {
+			clearFrameIRQ();
+		}
+
 		// reset step counter
 		mainCPU.apuClocks = mainCPU.clocks + 7457;
 		cycle = 0;
 	}
 }
 
+void nes_apu::clearFrameIRQ() {
+	irqFlag = false;
+	mainCPU.specialMemory[0x15] &= ~0x40;
+}
+
+void nes_apu::clearDMCIRQ() {
+	dmcIRQFlag = false;
+	mainCPU.specialMemory[0x15] &= ~0x80;
+}
+
 void nes_apu::step() {
+	if ((irqFlag || dmcIRQFlag) && mainCPU.irqClocks == 0) {
+		mainCPU.irqClocks = mainCPU.apuClocks;
+	}
+
 	switch (cycle) {
 		case 0:
 			step_quarter();
@@ -389,6 +557,14 @@ void nes_apu::step() {
 				step_quarter();
 				step_half();
 				cycle = 0;
+
+				// do an irq?
+				if (inhibitIRQ == false) {
+					irqFlag = true;
+					mainCPU.specialMemory[0x15] |= 0x40;
+					mainCPU.irqClocks = mainCPU.apuClocks;
+				}
+
 				mainCPU.apuClocks += 7457;
 			} else {
 				cycle = 4;
@@ -513,5 +689,36 @@ void nes_apu::mix(int* intoBuffer, int length) {
 		}
 	} else {
 		noise.clocks = 0;
+	}
+
+	// dmc
+	if (dmc.samplesPerPeriod)
+	{
+		int remainingLength = length;
+		int* bufferWrite = intoBuffer;
+
+		while (remainingLength > 0) {
+			int curFeedbackVolume = dmc.output * 24;
+
+			int toMixClocks = dmc.samplesPerPeriod - dmc.clocks;
+			int toMixSamples = toMixClocks >> 4;
+			if (remainingLength < toMixSamples) {
+				toMixSamples = remainingLength;
+				dmc.clocks = (toMixSamples << 4);
+			} else {
+				dmc.step();
+				dmc.clocks = (toMixSamples << 4) - toMixClocks;
+			}
+
+			if (curFeedbackVolume) {
+				for (int i = 0; i < toMixSamples; i++) {
+					*(bufferWrite++) += curFeedbackVolume;
+				}
+			} else {
+				bufferWrite += toMixSamples;
+			}
+
+			remainingLength -= toMixSamples;
+		}
 	}
 }

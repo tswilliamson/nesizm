@@ -485,6 +485,33 @@ struct nes_apu_noise {
 	bool useConstantVolume;
 };
 
+// delta modulated channel generator
+struct nes_apu_dmc {
+	void writeReg(unsigned int regNum, uint8 value);
+	void bitClear();
+	void bitSet();
+
+	void step();
+
+	// current state
+	int output;
+	int clocks;
+	int sampleBuffer;
+	int bitCount;
+	bool silentFlag;
+	unsigned int curSampleAddress;
+	unsigned int remainingLength;
+
+	// sample data
+	int samplesPerPeriod;
+	unsigned int sampleAddress;
+	int length;
+
+	// flags
+	bool irqEnabled;
+	bool loop;
+};
+
 // audio processing unit main struct
 struct nes_apu {
 	nes_apu() {
@@ -495,15 +522,26 @@ struct nes_apu {
 	nes_apu_pulse pulse2;
 	nes_apu_triangle triangle;
 	nes_apu_noise noise;
+	nes_apu_dmc dmc;
 	
 	int cycle;
 	int mode;	// 0 = 4 step, 1 = 5 step
+
+	// frame counter IRQ
+	bool inhibitIRQ;
+	bool irqFlag;
+	bool dmcIRQFlag;
 	
 	void init();
 	void startup();
 
 	// write to APU registers (address is low byte of range $4000-$19)
 	void writeReg(unsigned int address, uint8 value);
+
+	// latched the status value (4015)
+	void clearFrameIRQ();
+
+	void clearDMCIRQ();
 
 	// apu update step called every at 240 Hz by cpu (nes_cpu.apuClocks)
 	void step();

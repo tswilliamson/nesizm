@@ -8,7 +8,9 @@
 nes_cpu mainCPU ALIGN(256);
 
 void nes_cpu::latchedSpecial(unsigned int addr) {
-	if (addr == 0x4016) {
+	if (addr == 0x4015) {
+		nesAPU.clearFrameIRQ();
+	} else if (addr == 0x4016) {
 		input_readController1();
 	} else if (addr == 0x4017) {
 		input_readController2();
