@@ -13,6 +13,15 @@ bool bSoundEnabled = false;
 
 // how much of a duty cycle sample from above to move through per sample, divided by 256
 int duty_delta(int t) {
+#if TARGET_PRIZM
+	if (nesCart.isPAL) {
+		const int soundNumerator = int(16 * SOUND_RATE * 1.662607f);
+		return soundNumerator / (t + 1);
+	} else {
+		const int soundNumerator = int(16 * SOUND_RATE * 1.789773f);
+		return soundNumerator / (t + 1);
+	}
+#else
 	if (nesCart.isPAL) {
 		const int soundNumerator = int(4 * SOUND_RATE * 1.662607f);
 		return soundNumerator / (t + 1);
@@ -20,6 +29,7 @@ int duty_delta(int t) {
 		const int soundNumerator = int(4 * SOUND_RATE * 1.789773f);
 		return soundNumerator / (t + 1);
 	}
+#endif
 }
 
 static uint8 length_counter_table[32] = {
@@ -52,23 +62,42 @@ inline int sweep_target(nes_apu_pulse* forPulse) {
 void nes_apu_pulse::writeReg(unsigned int regNum, uint8 value) {
 	union regHelper {
 		struct {
+#if TARGET_PRIZM
+			uint8 duty : 2;
+			uint8 loop_or_halt : 1;
+			uint8 constant_volume : 1;
+			uint8 volume : 4;
+#else
 			uint8 volume : 4;
 			uint8 constant_volume : 1;
 			uint8 loop_or_halt : 1;
 			uint8 duty : 2;
+#endif
 		};
 		struct {
+#if TARGET_PRIZM
+			uint8 sweep_enable : 1;
+			uint8 sweep_period : 3;
+			uint8 sweep_negate : 1;
+			uint8 sweep_shift : 3;
+#else
 			uint8 sweep_shift : 3;
 			uint8 sweep_negate : 1;
 			uint8 sweep_period : 3;
 			uint8 sweep_enable : 1;
+#endif
 		};
 		struct {
 			uint8 timer_low : 8;
 		};
 		struct {
+#if TARGET_PRIZM
+			uint8 length_load : 5;
+			uint8 timer_hi : 3;
+#else
 			uint8 timer_hi : 3;
 			uint8 length_load : 5;
+#endif
 		};
 		uint8 value;
 	};
@@ -172,15 +201,25 @@ static const int tri_duty[32] = {
 void nes_apu_triangle::writeReg(unsigned int regNum, uint8 value) {
 	union regHelper {
 		struct {
+#if TARGET_PRIZM
+			uint8 enable_counter : 1;
+			uint8 linear_counter : 7;
+#else
 			uint8 linear_counter : 7;
 			uint8 enable_counter : 1;
+#endif
 		};
 		struct {
 			uint8 timer_low : 8;
 		};
 		struct {
+#if TARGET_PRIZM
+			uint8 length_load : 5;
+			uint8 timer_hi : 3;
+#else
 			uint8 timer_hi : 3;
 			uint8 length_load : 5;
+#endif
 		};
 		uint8 value;
 	};
@@ -233,7 +272,12 @@ void nes_apu_triangle::step_half() {
 
 // number of samples between noise shift register switches (x16, clamped at 8)
 inline int noise_samples(int noisePeriod) {
-	int samples = noisePeriod * 2 * SOUND_RATE / 111861;
+#if TARGET_PRIZM
+	int samples = noisePeriod * (SOUND_RATE / 2) / 111861;
+#else
+	int samples = noisePeriod * (SOUND_RATE * 2) / 111861;
+#endif
+
 	if (samples < 8) return 8;
 	return samples;
 }
@@ -249,19 +293,37 @@ static const int noise_period_pal[16] = {
 void nes_apu_noise::writeReg(unsigned int regNum, uint8 value) {
 	union regHelper {
 		struct {
+#if TARGET_PRIZM
+			uint8 _unused0 : 2;
+			uint8 loop_or_halt : 1;
+			uint8 constant_volume : 1;
+			uint8 volume : 4;
+#else
 			uint8 volume : 4;
 			uint8 constant_volume : 1;
 			uint8 loop_or_halt : 1;
 			uint8 _unused0 : 2;
+#endif
 		};
 		struct {
+#if TARGET_PRIZM
+			uint8 noise_mode : 1;
+			uint8 _unused2 : 3;
+			uint8 noise_period : 4;
+#else
 			uint8 noise_period : 4;
 			uint8 _unused2 : 3;
 			uint8 noise_mode : 1;
+#endif
 		};
 		struct {
+#if TARGET_PRIZM
+			uint8 length_load : 5;
+			uint8 _unused3 : 3;
+#else
 			uint8 _unused3 : 3;
 			uint8 length_load : 5;
+#endif
 		};
 		uint8 value;
 	};
@@ -347,14 +409,26 @@ const int dmc_pitch_pal[16] = {
 void nes_apu_dmc::writeReg(unsigned int regNum, uint8 value) {
 	union regHelper {
 		struct {
+#if TARGET_PRIZM
+			uint8 irq : 1;
+			uint8 loop : 1;
+			uint8 _unused0 : 2;
+			uint8 frequency : 4;
+#else
 			uint8 frequency : 4;
 			uint8 _unused0 : 2;
 			uint8 loop : 1;
 			uint8 irq : 1;
+#endif
 		};
 		struct {
+#if TARGET_PRIZM
+			uint8 _unused1 : 1;
+			uint8 level_load : 7;
+#else
 			uint8 level_load : 7;
 			uint8 _unused1 : 1;
+#endif
 		};
 		uint8 value;
 	};
@@ -410,7 +484,7 @@ void nes_apu_dmc::step() {
 			// read the next sample off the CPU
 			sampleBuffer = mainCPU.readNonIO(curSampleAddress++);
 			if (curSampleAddress == 0x10000) curSampleAddress = 0x8000;
-			mainCPU.clocks += 3;
+			// mainCPU.clocks += 3;
 
 			remainingLength--;
 
@@ -698,7 +772,7 @@ void nes_apu::mix(int* intoBuffer, int length) {
 		int* bufferWrite = intoBuffer;
 
 		while (remainingLength > 0) {
-			int curFeedbackVolume = dmc.output * 24;
+			int curFeedbackVolume = dmc.output * 32;
 
 			int toMixClocks = dmc.samplesPerPeriod - dmc.clocks;
 			int toMixSamples = toMixClocks >> 4;
