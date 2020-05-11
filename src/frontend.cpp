@@ -603,6 +603,8 @@ MenuOption remapOptions[] =
 	{ "Save State", "", false, Option_RemapKey, Option_GetKeyDetails, NES_SAVESTATE},
 	{ "Load State", "", false, Option_RemapKey, Option_GetKeyDetails, NES_LOADSTATE},
 	{ "Fast Fwd", "", false, Option_RemapKey, Option_GetKeyDetails, NES_FASTFORWARD},
+	{ "Volume Up", "", false, Option_RemapKey, Option_GetKeyDetails, NES_VOL_UP},
+	{ "Volume Down", "", false, Option_RemapKey, Option_GetKeyDetails, NES_VOL_DOWN},
 	{ "P2 A", "", false, Option_RemapKey, Option_GetKeyDetails, NES_P2_A},
 	{ "P2 B", "", false, Option_RemapKey, Option_GetKeyDetails, NES_P2_B},
 	{ "P2 Select", "", false, Option_RemapKey, Option_GetKeyDetails, NES_P2_SELECT},

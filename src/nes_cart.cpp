@@ -6,6 +6,7 @@
 #include "nes.h"
 #include "mappers.h"
 #include "scope_timer/scope_timer.h"
+#include "snd/snd.h"
 
 nes_cart nesCart;
 
@@ -402,9 +403,12 @@ void nes_cart::BlockRead(unsigned char* intoMem, int size, int offset) {
 		if (toRead > size) toRead = size;
 
 		memcpy(intoMem, blocks[blockNum] + offsetInBlock, toRead);
+
 		intoMem += toRead;
 		size -= toRead;
 		offset += toRead;
+
+		condSoundUpdate();
 	}
 }
 

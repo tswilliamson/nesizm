@@ -41,10 +41,10 @@ static uint8 length_counter_table[32] = {
 // APU PULSE
 
 static const int pulse_duty[4][16] = {
-	{ 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},   // 12.5% duty
-	{ 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},   // 25% duty
-	{ 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0},   // 50% duty
-	{ 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}    // -25% duty
+	{ 0, 1, 4, 4, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},   // 12.5% duty
+	{ 0, 1, 4, 4, 4, 4, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0},   // 25% duty
+	{ 0, 1, 4, 4, 4, 4, 4, 4, 4, 4, 1, 0, 0, 0, 0, 0},   // 50% duty
+	{ 4, 4, 1, 0, 0, 1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4}    // -25% duty
 };
 
 // calculates the target period of the sweep unit
@@ -678,7 +678,7 @@ void nes_apu::shutdown() {
 // MIX
 
 void nes_apu::mix(int* intoBuffer, int length) {
-	int pulse1Volume = 200 * (pulse1.useConstantVolume ? pulse1.constantVolume : pulse1.envelopeVolume);
+	int pulse1Volume = 225 * (pulse1.useConstantVolume ? pulse1.constantVolume : pulse1.envelopeVolume) / 4;
 	if (pulse1.sweepTargetPeriod > 0x7FF || pulse1.lengthCounter == 0 || pulse1.rawPeriod < 8)
 		pulse1Volume = 0;
 
@@ -696,7 +696,7 @@ void nes_apu::mix(int* intoBuffer, int length) {
 		}
 	}
 	
-	int pulse2Volume = 200 * (pulse2.useConstantVolume ? pulse2.constantVolume : pulse2.envelopeVolume);
+	int pulse2Volume = 225 * (pulse2.useConstantVolume ? pulse2.constantVolume : pulse2.envelopeVolume) / 4;
 	if (pulse2.sweepTargetPeriod > 0x7FF || pulse2.lengthCounter == 0 || pulse2.rawPeriod < 8)
 		pulse2Volume = 0;
 
@@ -710,7 +710,7 @@ void nes_apu::mix(int* intoBuffer, int length) {
 		}
 	}
 
-	int triVolume = 200;
+	int triVolume = 225;
 	if (triangle.linearCounter == 0 || triangle.lengthCounter == 0 || triangle.rawPeriod < 2)
 		triVolume = 0;
 
@@ -725,10 +725,10 @@ void nes_apu::mix(int* intoBuffer, int length) {
 		triangle.mixOffset = (triangle.mixOffset + duty_delta(triangle.rawPeriod) * length) & 0xFFFF;
 	}
 
-	int noiseVolume = 200 * (noise.useConstantVolume ? noise.constantVolume : noise.envelopeVolume);
+	int noiseVolume = 100 * (noise.useConstantVolume ? noise.constantVolume : noise.envelopeVolume);
 	if (noise.lengthCounter == 0)
 		noiseVolume = 0;
-
+	
 	if (noiseVolume) {
 		int remainingLength = length;
 		int* bufferWrite = intoBuffer;
@@ -766,8 +766,7 @@ void nes_apu::mix(int* intoBuffer, int length) {
 	}
 
 	// dmc
-	if (dmc.samplesPerPeriod)
-	{
+	if (dmc.samplesPerPeriod) {
 		int remainingLength = length;
 		int* bufferWrite = intoBuffer;
 

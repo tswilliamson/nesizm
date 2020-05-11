@@ -547,6 +547,26 @@ void nes_ppu::step() {
 			skipFrame = (frameCounter & 7) != 0;
 		}
 
+		static bool bWasVolumeUp = false;
+		if (nesSettings.CheckCachedKey(NES_VOL_UP)) {
+			if (!bWasVolumeUp) {
+				sndVolumeUp();
+			}
+			bWasVolumeUp = true;
+		} else {
+			bWasVolumeUp = false;
+		}
+
+		static bool bWasVolumeDown = false;
+		if (nesSettings.CheckCachedKey(NES_VOL_DOWN)) {
+			if (!bWasVolumeDown) {
+				sndVolumeDown();
+			}
+			bWasVolumeDown = true;
+		} else {
+			bWasVolumeDown = false;
+		}
+
 		// clear vblank and sprite 0 flag
 		SetPPUSTATUS(PPUSTATUS & ~(PPUSTAT_NMI | PPUSTAT_SPRITE0));		
 

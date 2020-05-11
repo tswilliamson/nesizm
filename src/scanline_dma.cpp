@@ -8,6 +8,7 @@
 #include "settings.h"
 #include "scope_timer/scope_timer.h"
 #include "ptune2_simple/Ptune2_direct.h"
+#include "snd/snd.h"
 
 #define LCD_GRAM	0x202
 #define LCD_BASE	0xB4000000
@@ -43,8 +44,6 @@ void DmaWaitNext(void) {
 			break;
 		if ((*DMA0_CHCR_0) & 2)//Transfer is done
 			break;
-
-		//condSoundUpdate();
 	}
 
 	SYNCO();
@@ -191,11 +190,11 @@ void nes_ppu::finishFrame(bool bSkippedFrame) {
 				int rtcBackup = RTC_GetTicks();
 				int maxIter = 1000;
 				while (tmu1Clocks < accumulatedSimTime && RTC_GetTicks() - rtcBackup < 10 && maxIter--) {
-					// condSoundUpdate();
-
 					// sleep .1 milliseconds at a time til we are ready for the frame
 					CMT_Delay_micros(100);
 					tmu1Clocks = counterStart - REG_TMU_TCNT_1;
+
+					condSoundUpdate();
 				}
 
 				accumulatedSimTime = 0;
