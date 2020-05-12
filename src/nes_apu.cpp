@@ -225,7 +225,7 @@ void nes_apu_triangle::writeReg(unsigned int regNum, uint8 value) {
 	};
 	regHelper helper;
 	helper.value = value;
-
+	
 	switch (regNum) {
 		case 0:
 			enableLengthCounter = helper.enable_counter == 0;
@@ -487,7 +487,7 @@ void nes_apu_dmc::step() {
 			// mainCPU.clocks += 3;
 
 			remainingLength--;
-
+			
 			if (remainingLength == 0) {
 				if (loop) {
 					remainingLength += length;
@@ -513,7 +513,7 @@ void nes_apu_dmc::step() {
 		
 		bitCount = 8;
 	}
-
+	
 	if (silentFlag == false) {
 		if (sampleBuffer & 1) {
 			if (output <= 125) output += 2;
@@ -647,7 +647,7 @@ void nes_apu::step() {
 			break;
 		case 4:
 			step_quarter();
-			step_half();
+			step_half(); 
 			cycle = 0;
 			mainCPU.apuClocks += 7457;
 			break;
@@ -678,7 +678,7 @@ void nes_apu::shutdown() {
 // MIX
 
 void nes_apu::mix(int* intoBuffer, int length) {
-	int pulse1Volume = 225 * (pulse1.useConstantVolume ? pulse1.constantVolume : pulse1.envelopeVolume) / 4;
+	int pulse1Volume = 210 * (pulse1.useConstantVolume ? pulse1.constantVolume : pulse1.envelopeVolume) / 4;
 	if (pulse1.sweepTargetPeriod > 0x7FF || pulse1.lengthCounter == 0 || pulse1.rawPeriod < 8)
 		pulse1Volume = 0;
 
@@ -696,7 +696,7 @@ void nes_apu::mix(int* intoBuffer, int length) {
 		}
 	}
 	
-	int pulse2Volume = 225 * (pulse2.useConstantVolume ? pulse2.constantVolume : pulse2.envelopeVolume) / 4;
+	int pulse2Volume = 210 * (pulse2.useConstantVolume ? pulse2.constantVolume : pulse2.envelopeVolume) / 4;
 	if (pulse2.sweepTargetPeriod > 0x7FF || pulse2.lengthCounter == 0 || pulse2.rawPeriod < 8)
 		pulse2Volume = 0;
 
@@ -710,7 +710,7 @@ void nes_apu::mix(int* intoBuffer, int length) {
 		}
 	}
 
-	int triVolume = 225;
+	int triVolume = 237;
 	if (triangle.linearCounter == 0 || triangle.lengthCounter == 0 || triangle.rawPeriod < 2)
 		triVolume = 0;
 
@@ -725,7 +725,7 @@ void nes_apu::mix(int* intoBuffer, int length) {
 		triangle.mixOffset = (triangle.mixOffset + duty_delta(triangle.rawPeriod) * length) & 0xFFFF;
 	}
 
-	int noiseVolume = 100 * (noise.useConstantVolume ? noise.constantVolume : noise.envelopeVolume);
+	int noiseVolume = 138 * (noise.useConstantVolume ? noise.constantVolume : noise.envelopeVolume);
 	if (noise.lengthCounter == 0)
 		noiseVolume = 0;
 	
@@ -753,7 +753,8 @@ void nes_apu::mix(int* intoBuffer, int length) {
 
 			if (curFeedbackVolume) {
 				for (int i = 0; i < toMixSamples; i++) {
-					*(bufferWrite++) += curFeedbackVolume;
+					*bufferWrite += curFeedbackVolume;
+					++bufferWrite;
 				}
 			} else {
 				bufferWrite += toMixSamples;
@@ -771,7 +772,7 @@ void nes_apu::mix(int* intoBuffer, int length) {
 		int* bufferWrite = intoBuffer;
 
 		while (remainingLength > 0) {
-			int curFeedbackVolume = dmc.output * 32;
+			int curFeedbackVolume = dmc.output * 96;
 
 			int toMixClocks = dmc.samplesPerPeriod - dmc.clocks;
 			int toMixSamples = toMixClocks >> 4;
@@ -785,7 +786,10 @@ void nes_apu::mix(int* intoBuffer, int length) {
 
 			if (curFeedbackVolume) {
 				for (int i = 0; i < toMixSamples; i++) {
-					*(bufferWrite++) += curFeedbackVolume;
+					*bufferWrite += curFeedbackVolume;
+					// if DMC is being applied, then it's possible the total volume will clip, so keep it from wrapping
+					if (*bufferWrite > 16383) *bufferWrite = 16383;
+					++bufferWrite;
 				}
 			} else {
 				bufferWrite += toMixSamples;
