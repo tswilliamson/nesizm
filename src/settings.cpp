@@ -91,11 +91,6 @@ static const char* BackgroundOptions[] = {
 	"Custom",
 };
 
-static const char* SoundQualityOptions[] = {
-	"Low",
-	"High"
-};
-
 static const char* OverclockOptions[] = {
 	"Off",
 	"150%",
@@ -111,8 +106,8 @@ static SettingInfo infos[] = {
 	{ ST_TurboSetting,		SG_Controls,	true,	2,	5,	"Turbo Key",		TurboKeyOptions},
 	{ ST_Palette,			SG_Video,		false,	0,	3,	"Palette",			PaletteOptions},
 	{ ST_Background,		SG_Video,		false,	0,	5,	"Background",		BackgroundOptions},
-	{ ST_SoundEnabled,		SG_Sound,		true,	0,	2,	"Enable Sound",		OffOn},
-	{ ST_SoundRate,			SG_Sound,		false,	0,  2,  "Quality",			SoundQualityOptions},
+	{ ST_SoundEnabled,		SG_Sound,		true,	0,	2,	"Sound",			OffOn},
+	{ ST_SoundQuality,		SG_Sound,		true,	0,  2,  "Extra FX",			OffOn},
 	{ ST_DimScreen,			SG_Video,		true,	0,  2,  "Dim Screen",		OffOn }
 };
 

@@ -13,7 +13,7 @@ enum SettingType {
 	ST_Palette,
 	ST_Background,
 	ST_SoundEnabled,
-	ST_SoundRate,
+	ST_SoundQuality,
 	ST_DimScreen,
 
 	MAX_SETTINGS

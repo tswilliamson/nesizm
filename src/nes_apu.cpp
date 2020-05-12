@@ -678,37 +678,7 @@ void nes_apu::shutdown() {
 // MIX
 
 void nes_apu::mix(int* intoBuffer, int length) {
-	int pulse1Volume = 210 * (pulse1.useConstantVolume ? pulse1.constantVolume : pulse1.envelopeVolume) / 4;
-	if (pulse1.sweepTargetPeriod > 0x7FF || pulse1.lengthCounter == 0 || pulse1.rawPeriod < 8)
-		pulse1Volume = 0;
-
-	if (pulse1Volume) {
-		int pulse1_delta = duty_delta(pulse1.rawPeriod);
-		const int* pulse1_duty = pulse_duty[pulse1.dutyCycle];
-
-		for (int32 i = 0; i < length; i++) {
-			pulse1.mixOffset = (pulse1.mixOffset + pulse1_delta) & 0xFFFF;
-			intoBuffer[i] = pulse1_duty[(pulse1.mixOffset >> 12)] * pulse1Volume;
-		}
-	} else {
-		for (int32 i = 0; i < length; i++) {
-			intoBuffer[i] = 0;
-		}
-	}
-	
-	int pulse2Volume = 210 * (pulse2.useConstantVolume ? pulse2.constantVolume : pulse2.envelopeVolume) / 4;
-	if (pulse2.sweepTargetPeriod > 0x7FF || pulse2.lengthCounter == 0 || pulse2.rawPeriod < 8)
-		pulse2Volume = 0;
-
-	if (pulse2Volume) {
-		int delta = duty_delta(pulse2.rawPeriod);
-		const int* duty = pulse_duty[pulse2.dutyCycle];
-
-		for (int32 i = 0; i < length; i++) {
-			pulse2.mixOffset = (pulse2.mixOffset + delta) & 0xFFFF;
-			intoBuffer[i] += duty[(pulse2.mixOffset >> 12)] * pulse2Volume;
-		}
-	}
+	bool bHighQuality = nesSettings.GetSetting(ST_SoundQuality) != 0;
 
 	int triVolume = 237;
 	if (triangle.linearCounter == 0 || triangle.lengthCounter == 0 || triangle.rawPeriod < 2)
@@ -722,6 +692,10 @@ void nes_apu::mix(int* intoBuffer, int length) {
 			intoBuffer[i] += tri_duty[(triangle.mixOffset >> 11)] * triVolume;
 		}
 	} else {
+		for (int32 i = 0; i < length; i++) {
+			intoBuffer[i] = 0;
+		}
+
 		triangle.mixOffset = (triangle.mixOffset + duty_delta(triangle.rawPeriod) * length) & 0xFFFF;
 	}
 
@@ -785,17 +759,78 @@ void nes_apu::mix(int* intoBuffer, int length) {
 			}
 
 			if (curFeedbackVolume) {
-				for (int i = 0; i < toMixSamples; i++) {
-					*bufferWrite += curFeedbackVolume;
-					// if DMC is being applied, then it's possible the total volume will clip, so keep it from wrapping
-					if (*bufferWrite > 16383) *bufferWrite = 16383;
-					++bufferWrite;
+				if (bHighQuality) {
+					int dampenFactor = 256 - dmc.output * 160 / 256;
+					for (int i = 0; i < toMixSamples; i++) {
+						*bufferWrite = *bufferWrite * dampenFactor / 256 + curFeedbackVolume;
+						// if DMC is being applied, then it's possible the total volume will clip, so keep it from wrapping
+						if (*bufferWrite > 16383) *bufferWrite = 16383;
+						++bufferWrite;
+					}
+				} else {
+					for (int i = 0; i < toMixSamples; i++) {
+						*bufferWrite += curFeedbackVolume;
+						// if DMC is being applied, then it's possible the total volume will clip, so keep it from wrapping
+						if (*bufferWrite > 16383) *bufferWrite = 16383;
+						++bufferWrite;
+					}
 				}
 			} else {
 				bufferWrite += toMixSamples;
 			}
 
 			remainingLength -= toMixSamples;
+		}
+	}
+	
+	int pulse1Volume = 210 * (pulse1.useConstantVolume ? pulse1.constantVolume : pulse1.envelopeVolume) / 4;
+	if (pulse1.sweepTargetPeriod > 0x7FF || pulse1.lengthCounter == 0 || pulse1.rawPeriod < 8)
+		pulse1Volume = 0;
+
+	if (pulse1Volume) {
+		int pulse1_delta = duty_delta(pulse1.rawPeriod);
+		const int* pulse1_duty = pulse_duty[pulse1.dutyCycle];
+
+		for (int32 i = 0; i < length; i++) {
+			pulse1.mixOffset = (pulse1.mixOffset + pulse1_delta) & 0xFFFF;
+			intoBuffer[i] = pulse1_duty[(pulse1.mixOffset >> 12)] * pulse1Volume;
+		}
+	}
+	
+	int pulse2Volume = 210 * (pulse2.useConstantVolume ? pulse2.constantVolume : pulse2.envelopeVolume) / 4;
+	if (pulse2.sweepTargetPeriod > 0x7FF || pulse2.lengthCounter == 0 || pulse2.rawPeriod < 8)
+		pulse2Volume = 0;
+
+	if (pulse2Volume) {
+		int delta = duty_delta(pulse2.rawPeriod);
+		const int* duty = pulse_duty[pulse2.dutyCycle];
+
+		for (int32 i = 0; i < length; i++) {
+			pulse2.mixOffset = (pulse2.mixOffset + delta) & 0xFFFF;
+			intoBuffer[i] += duty[(pulse2.mixOffset >> 12)] * pulse2Volume;
+		}
+	}
+
+
+	if (bHighQuality) {
+		// remove anu sudden spikes/dips
+		int32 maxSpike = 8192;
+		for (int32 i = 1; i < length - 1; i++) {
+			if (intoBuffer[i] - intoBuffer[i - 1] > maxSpike &&
+				intoBuffer[i] - intoBuffer[i + 1] > maxSpike) {
+				intoBuffer[i] = (intoBuffer[i - 1] + intoBuffer[i + 1]) / 2;
+			} 
+			else if (intoBuffer[i-1] - intoBuffer[i] > maxSpike &&
+				intoBuffer[i+1] - intoBuffer[i] > maxSpike) {
+				intoBuffer[i] = (intoBuffer[i - 1] + intoBuffer[i + 1]) / 2;
+			}
+		}
+		
+		// low pass filter
+		int lastSample = intoBuffer[0];
+		for (int32 i = 1; i < length; i++) {
+			intoBuffer[i] = lastSample * 16 / 128 + intoBuffer[i] * 112 / 128;
+			lastSample = intoBuffer[i];
 		}
 	}
 }
