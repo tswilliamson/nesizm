@@ -15,10 +15,10 @@ bool bSoundEnabled = false;
 int duty_delta(int t) {
 #if TARGET_PRIZM
 	if (nesCart.isPAL) {
-		const int soundNumerator = int(16 * SOUND_RATE * 1.662607f);
+		const int soundNumerator = int(8 * SOUND_RATE * 1.662607f);
 		return soundNumerator / (t + 1);
 	} else {
-		const int soundNumerator = int(16 * SOUND_RATE * 1.789773f);
+		const int soundNumerator = int(8 * SOUND_RATE * 1.789773f);
 		return soundNumerator / (t + 1);
 	}
 #else
@@ -273,7 +273,7 @@ void nes_apu_triangle::step_half() {
 // number of samples between noise shift register switches (x16, clamped at 8)
 inline int noise_samples(int noisePeriod) {
 #if TARGET_PRIZM
-	int samples = noisePeriod * (SOUND_RATE / 2) / 111861;
+	int samples = noisePeriod * (SOUND_RATE) / 111861;
 #else
 	int samples = noisePeriod * (SOUND_RATE * 2) / 111861;
 #endif
@@ -532,7 +532,7 @@ void nes_apu_dmc::step() {
 
 void sndFrame(int* buffer, int length) {
 	TIME_SCOPE();
-
+	
 	nesAPU.mix(buffer, length);
 }
 
