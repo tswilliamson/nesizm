@@ -451,7 +451,7 @@ void nes_ppu::fastSprite0(bool bValidBackground) {
 
 		if (bValidBackground) {
 			int baseX = SCROLLX & 15;
-			uint8* buffer = scanlineBuffer + baseX;
+			uint8* buffer = scanlineBuffer + baseX + spriteX;
 			for (int32 x = 0; x < 8; x++, buffer++) {
 				if ((tileMask & 1) && (*buffer)) {
 					SetPPUSTATUS(PPUSTATUS | PPUSTAT_SPRITE0);
