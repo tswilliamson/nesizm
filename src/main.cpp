@@ -34,23 +34,6 @@ int main(void) {
 	unsigned char stackBanks[STATIC_CACHED_ROM_BANKS * 8192] ALIGN(256);
 	nesCart.allocateBanks(stackBanks);
 
-#if TARGET_WINSIM
-	// Dumps the palette overlay table to the log
-	const int bitShift = 0;
-	OutputLog("uint8 PatternTable[8 * 256] = {\n");
-	for (uint32 i = 0; i < 256; i++) {
-		uint8 bytes[8];
-		for (int32 b = 7; b >= 0; b--) {
-			uint32 bit = (i & (1 << b)) ? 1 << bitShift : 0;
-			bytes[7-b] = bit;
-		}
-		if (i % 8 == 0) OutputLog("\t");
-		OutputLog("%d,%d,%d,%d,%d,%d,%d,%d,", bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7]);
-		if (i % 8 == 7) OutputLog("\n");
-	}
-	OutputLog("};\n\n");
-#endif
-
 	nesFrontend.SetMainMenu();
 	nesFrontend.Run();
 

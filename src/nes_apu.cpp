@@ -11,22 +11,34 @@
 nes_apu nesAPU;
 bool bSoundEnabled = false;
 
+#if DEBUG
+// debug muting of various mixers
+static bool bEnabled_pulse1 = true;
+static bool bEnabled_pulse2 = true;
+static bool bEnabled_tri = true;
+static bool bEnabled_noise = true;
+static bool bEnabled_dmc = true;
+#define CHECK_ENABLED(mixer) if (bEnabled_##mixer == false) mixer##Volume = 0;
+#else
+#define CHECK_ENABLED(mixer) 
+#endif
+
 // how much of a duty cycle sample from above to move through per sample, divided by 256
 int duty_delta(int t) {
 #if TARGET_PRIZM
 	if (nesCart.isPAL) {
-		const int soundNumerator = int(8 * SOUND_RATE * 1.662607f);
+		const int soundNumerator = int(8192.0f / SOUND_RATE * 1662607);
 		return soundNumerator / (t + 1);
 	} else {
-		const int soundNumerator = int(8 * SOUND_RATE * 1.789773f);
+		const int soundNumerator = int(8192.0f / SOUND_RATE * 1789773);
 		return soundNumerator / (t + 1);
 	}
 #else
 	if (nesCart.isPAL) {
-		const int soundNumerator = int(4 * SOUND_RATE * 1.662607f);
+		const int soundNumerator = int(4096.0f / SOUND_RATE * 1662607);
 		return soundNumerator / (t + 1);
 	} else {
-		const int soundNumerator = int(4 * SOUND_RATE * 1.789773f);
+		const int soundNumerator = int(4096.0f / SOUND_RATE * 1789773);
 		return soundNumerator / (t + 1);
 	}
 #endif
@@ -681,6 +693,7 @@ void nes_apu::mix(int* intoBuffer, int length) {
 	bool bHighQuality = nesSettings.GetSetting(ST_SoundQuality) != 0;
 
 	int triVolume = 237;
+	CHECK_ENABLED(tri);
 	if (triangle.linearCounter == 0 || triangle.lengthCounter == 0 || triangle.rawPeriod < 2)
 		triVolume = 0;
 
@@ -689,7 +702,7 @@ void nes_apu::mix(int* intoBuffer, int length) {
 
 		for (int32 i = 0; i < length; i++) {
 			triangle.mixOffset = (triangle.mixOffset + delta) & 0xFFFF;
-			intoBuffer[i] += tri_duty[(triangle.mixOffset >> 11)] * triVolume;
+			intoBuffer[i] = tri_duty[(triangle.mixOffset >> 11)] * triVolume;
 		}
 	} else {
 		for (int32 i = 0; i < length; i++) {
@@ -702,7 +715,8 @@ void nes_apu::mix(int* intoBuffer, int length) {
 	int noiseVolume = 138 * (noise.useConstantVolume ? noise.constantVolume : noise.envelopeVolume);
 	if (noise.lengthCounter == 0)
 		noiseVolume = 0;
-	
+
+	CHECK_ENABLED(noise);
 	if (noiseVolume) {
 		int remainingLength = length;
 		int* bufferWrite = intoBuffer;
@@ -746,7 +760,8 @@ void nes_apu::mix(int* intoBuffer, int length) {
 		int* bufferWrite = intoBuffer;
 
 		while (remainingLength > 0) {
-			int curFeedbackVolume = dmc.output * 96;
+			int dmcVolume = dmc.output * 96;
+			CHECK_ENABLED(dmc);
 
 			int toMixClocks = dmc.samplesPerPeriod - dmc.clocks;
 			int toMixSamples = toMixClocks >> 4;
@@ -758,18 +773,18 @@ void nes_apu::mix(int* intoBuffer, int length) {
 				dmc.clocks = (toMixSamples << 4) - toMixClocks;
 			}
 
-			if (curFeedbackVolume) {
+			if (dmcVolume) {
 				if (bHighQuality) {
 					int dampenFactor = 256 - dmc.output * 160 / 256;
 					for (int i = 0; i < toMixSamples; i++) {
-						*bufferWrite = *bufferWrite * dampenFactor / 256 + curFeedbackVolume;
+						*bufferWrite = *bufferWrite * dampenFactor / 256 + dmcVolume;
 						// if DMC is being applied, then it's possible the total volume will clip, so keep it from wrapping
 						if (*bufferWrite > 16383) *bufferWrite = 16383;
 						++bufferWrite;
 					}
 				} else {
 					for (int i = 0; i < toMixSamples; i++) {
-						*bufferWrite += curFeedbackVolume;
+						*bufferWrite += dmcVolume;
 						// if DMC is being applied, then it's possible the total volume will clip, so keep it from wrapping
 						if (*bufferWrite > 16383) *bufferWrite = 16383;
 						++bufferWrite;
@@ -784,6 +799,8 @@ void nes_apu::mix(int* intoBuffer, int length) {
 	}
 	
 	int pulse1Volume = 210 * (pulse1.useConstantVolume ? pulse1.constantVolume : pulse1.envelopeVolume) / 4;
+	CHECK_ENABLED(pulse1);
+
 	if (pulse1.sweepTargetPeriod > 0x7FF || pulse1.lengthCounter == 0 || pulse1.rawPeriod < 8)
 		pulse1Volume = 0;
 
@@ -793,11 +810,13 @@ void nes_apu::mix(int* intoBuffer, int length) {
 
 		for (int32 i = 0; i < length; i++) {
 			pulse1.mixOffset = (pulse1.mixOffset + pulse1_delta) & 0xFFFF;
-			intoBuffer[i] = pulse1_duty[(pulse1.mixOffset >> 12)] * pulse1Volume;
+			intoBuffer[i] += pulse1_duty[(pulse1.mixOffset >> 12)] * pulse1Volume;
 		}
 	}
 	
 	int pulse2Volume = 210 * (pulse2.useConstantVolume ? pulse2.constantVolume : pulse2.envelopeVolume) / 4;
+	CHECK_ENABLED(pulse2);
+
 	if (pulse2.sweepTargetPeriod > 0x7FF || pulse2.lengthCounter == 0 || pulse2.rawPeriod < 8)
 		pulse2Volume = 0;
 
