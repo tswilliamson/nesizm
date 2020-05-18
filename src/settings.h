@@ -41,6 +41,9 @@ struct EmulatorSettings {
 
 	void IncSetting(SettingType type);
 
+	const char* GetContinueFile();
+	void SetContinueFile(const char* romFile);
+
 	static const char* GetSettingName(SettingType setting);
 	static const char* GetSettingValueName(SettingType setting, uint8 value);
 	static int GetNumValues(SettingType setting);
@@ -50,6 +53,7 @@ struct EmulatorSettings {
 	static bool CheckCachedKey(NesKeys key);
 private:
 	uint8 values[MAX_SETTINGS];
+	char continueFile[48];
 };
 
 extern EmulatorSettings nesSettings;

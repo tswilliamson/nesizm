@@ -121,8 +121,18 @@ static bool ROMFile_Selected(MenuOption* forOption, int key) {
 		nesPPU.init();
 
 		char romFile[128];
-		sprintf(romFile, "\\\\fls0\\%s", forOption->name);
+		if (forOption->extraData) {
+			// use continue file
+			sprintf(romFile, "\\\\fls0\\%s", nesSettings.GetContinueFile());
+		} else {
+			sprintf(romFile, "\\\\fls0\\%s", forOption->name);
+		}
 		if (nesCart.loadROM(romFile)) {
+			if (forOption->extraData == 0 && (!nesSettings.GetContinueFile() || strcmp(forOption->name, nesSettings.GetContinueFile()))) {
+				nesSettings.SetContinueFile(forOption->name);
+				nesSettings.Save();
+			}
+
 			mainCPU.reset();
 
 			nesFrontend.gotoGame = true;
@@ -132,7 +142,10 @@ static bool ROMFile_Selected(MenuOption* forOption, int key) {
 			GetKey(&key);
 		}
 
-		free((void*)nesFrontend.currentOptions);
+		if (forOption->extraData == 0) {
+			free((void*)nesFrontend.currentOptions);
+		}
+
 		nesFrontend.SetMainMenu();
 
 		return true;
@@ -163,6 +176,7 @@ static bool LoadROM_Selected(MenuOption* forOption, int key) {
 			for (int i = 0; i < numFiles; i++) {
 				fileOptions[i].name = files[i].path;
 				fileOptions[i].OnKey = ROMFile_Selected;
+				fileOptions[i].extraData = 0;
 			}
 			fileOptions[numFiles].name = "Back";
 			fileOptions[numFiles].OnKey = FileBack_Selected;
@@ -454,13 +468,26 @@ void nes_frontend::Render() {
 void nes_frontend::SetMainMenu() {
 	currentOptions = mainOptions;
 	numOptions = 5;
+	selectedOption = 0;
+
 	if (nesCart.romFile[0] == 0) {
-		// no ROM loaded
-		mainOptions[0].disabled = true;
-		selectedOption = 1;
+		// no ROM loaded, check for continue in settings
+		if (nesSettings.GetContinueFile()) {
+			mainOptions[0].disabled = false;
+			mainOptions[0].OnKey = ROMFile_Selected;
+			mainOptions[0].extraData = 1; // denotes continue file
+
+			static char continueText[64];
+			sprintf(continueText, "Load %s", nesSettings.GetContinueFile());
+			mainOptions[0].name = continueText;
+		} else {
+			mainOptions[0].disabled = true;
+			selectedOption = 1;
+		}
 	} else {
 		mainOptions[0].disabled = false;
-		selectedOption = 0; 
+		mainOptions[0].OnKey = Continue_Selected;
+		mainOptions[0].name = "Continue";
 	}
 	selectOffset = 0;
 }

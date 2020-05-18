@@ -194,6 +194,27 @@ void EmulatorSettings::Load() {
 					keyMap[i] = contents[cur++];
 				}
 			}
+
+			// if a contine file is specified, validate that it still exists
+			if (cur <= len - 48) {
+				memcpy(continueFile, &contents[cur], 48);
+				cur += 48;
+
+				// check to see that the rom still exists
+				char romFile[128];
+				sprintf(romFile, "\\\\fls0\\%s", continueFile);
+
+				unsigned short romName[256];
+				Bfile_StrToName_ncpy(romName, romFile, 255);
+
+				// try to load file
+				int file = Bfile_OpenFile_OS(romName, READ, 0);
+				if (file < 0) {
+					continueFile[0] = 0;
+				} else {
+					Bfile_CloseFile_OS(file);
+				}
+			}
 		}
 	}
 
@@ -201,6 +222,22 @@ void EmulatorSettings::Load() {
 		infos[ST_OverClock].available = false;
 	} else {
 		infos[ST_OverClock].available = true;
+	}
+}
+
+const char* EmulatorSettings::GetContinueFile() {
+	if (continueFile[0]) {
+		return continueFile;
+	} else {
+		return 0;
+	}
+}
+
+void EmulatorSettings::SetContinueFile(const char* romFile) {
+	if (romFile && strlen(romFile) < 48) {
+		strcpy(continueFile, romFile);
+	} else {
+		continueFile[0] = 0;
 	}
 }
 
@@ -220,7 +257,13 @@ void EmulatorSettings::Save() {
 		contents[size++] = keyMap[i];
 	}
 
+	if (continueFile[0]) {
+		memcpy(&contents[size], continueFile, 48);
+		size += 48;
+	}
+
 	while (size % 4 != 0) size++;
+	DebugAssert(size < 256);
 
 	MCS_CreateDirectory((unsigned char*)settingsDir);
 	MCS_WriteItem((unsigned char*)settingsDir, (unsigned char*)settingsFile, 0, size, (int)(&contents[0]));
