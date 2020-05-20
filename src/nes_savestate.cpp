@@ -360,7 +360,7 @@ struct FCEUX_File {
 				// DRegs 1 and 2 for each character selection in 4KB
 				nesCart.MapCharacterBanks(0, data[1] * 4, 4);
 				nesCart.MapCharacterBanks(4, data[2] * 4, 4);
-			} else {
+			} else if (nesCart.numCHRBanks) {
 				// 8 KB mode
 				nesCart.MapCharacterBanks(0, data[1] * 4, 8);
 			}
