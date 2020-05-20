@@ -201,6 +201,7 @@ struct nes_cart {
 	void setupMapper64_Rambo1();
 	void Mapper64_Update();
 	static void Mapper64_ScanlineClock();
+	void Mapper64_StateLoaded();
 
 	void readState_WRAM(uint8* data);
 	uint8* GetWRAM();

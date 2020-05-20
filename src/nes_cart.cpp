@@ -1528,6 +1528,23 @@ void nes_cart::Mapper64_Update() {
 	bDirtyChrBanks = true;
 }
 
+void nes_cart::Mapper64_StateLoaded() {
+	Mapper64_Update();
+
+	if (Mapper64_IRQ_MODE == 1) {
+		// set next IRQ breakpoint
+		Mapper64_IRQ_CLOCKS = mainCPU.clocks + Mapper64_IRQ_COUNT * 4;
+		if (Mapper64_IRQ_ENABLE) {
+			mainCPU.irqClocks = Mapper64_IRQ_CLOCKS;
+		}
+		nesCart.scanlineClock = nullptr;
+	} else {
+		Mapper64_IRQ_COUNT = 0;
+		Mapper64_IRQ_CLOCKS = 0;
+		nesCart.scanlineClock = nes_cart::Mapper64_ScanlineClock;
+	}
+}
+
 void Mapper64_writeSpecial(unsigned int address, unsigned char value) {
 	if (address >= 0x6000) {
 		if (address < 0x8000) {

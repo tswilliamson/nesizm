@@ -1,6 +1,6 @@
 
 # void RenderToScanline(unsigned char*patternTable, int chr, int palette, uint8* buffer);
-# Using C code for blitting method.. currently crashes on device, not sure why 
+
 # r4 = uint8* patternTable;
 # r5 = int chr; (spriteIndex * !6)
 # r6 = int palette;

@@ -162,14 +162,21 @@ struct FCEUX_File {
 				HandleSubsection(ST_EXTRA, BFRS, 1);
 				// AOROM / UNROM / CNROM
 				HandleSubsection(ST_EXTRA, LATC, 1);
-				// MMC3
-				HandleSubsection(ST_EXTRA, REGS, 8);
+				// MMC3 / RAMBO-1
+				if (nesCart.mapper == 64) {
+					HandleSubsection(ST_EXTRA, REGS, 11);
+				} else {
+					HandleSubsection(ST_EXTRA, REGS, 8);
+				}
 				HandleSubsection(ST_EXTRA, CMD, 1);
+				HandleSubsection(ST_EXTRA, CMDR, 1);
 				HandleSubsection(ST_EXTRA, A000, 1);
 				HandleSubsection(ST_EXTRA, IRQR, 1);
 				HandleSubsection(ST_EXTRA, IRQC, 1);
 				HandleSubsection(ST_EXTRA, IRQL, 1);
 				HandleSubsection(ST_EXTRA, IRQA, 1);
+				HandleSubsection(ST_EXTRA, RMOD, 1);
+				HandleSubsection(ST_EXTRA, IRQM, 1);
 				// MMC2
 				HandleSubsection(ST_EXTRA, CREG, 4);
 				HandleSubsection(ST_EXTRA, PREG, 1);
@@ -416,12 +423,26 @@ struct FCEUX_File {
 				MMC3_BANK_REG[r] = data[r];
 			}
 		}
+		// RAMBO-1
+		else if (nesCart.mapper == 64) {
+			// internal Rambo-1 registers:
+			for (int32 r = 1; r <= 11; r++) {
+				nesCart.registers[r] = data[r-1];
+			}
+		}
 	}
 
 	void Read_ST_EXTRA_CMD(uint8* data, uint32 size) {
 		// MMC3
 		if (nesCart.mapper == 4) {
 			MMC3_BANK_SELECT = data[0];
+		}
+	}
+
+	void Read_ST_EXTRA_CMDR(uint8* data, uint32 size) {
+		// RAMBO-1
+		if (nesCart.mapper == 64) {
+			Mapper64_BANK_SELECT = data[0];
 		}
 	}
 
@@ -451,6 +472,10 @@ struct FCEUX_File {
 		if (nesCart.mapper == 4) {
 			MMC3_IRQ_COUNTER = data[0];
 		}
+		// RAMBO-1
+		else if (nesCart.mapper == 64) {
+			Mapper64_IRQ_COUNT = data[0];
+		}
 	}
 
 	void Read_ST_EXTRA_IRQL(uint8* data, uint32 size) {
@@ -458,12 +483,27 @@ struct FCEUX_File {
 		if (nesCart.mapper == 4) {
 			MMC3_IRQ_LATCH = data[0];
 		}
+		// RAMBO-1
+		else if (nesCart.mapper == 64) {
+			Mapper64_IRQ_LATCH = data[0];
+		}
 	}
 
 	void Read_ST_EXTRA_IRQA(uint8* data, uint32 size) {
 		// MMC3
 		if (nesCart.mapper == 4) {
 			MMC3_IRQ_ENABLE = data[0];
+		}
+		// RAMBO-1
+		else if (nesCart.mapper == 64) {
+			Mapper64_IRQ_ENABLE = data[0];
+		}
+	}
+
+	void Read_ST_EXTRA_IRQM(uint8* data, uint32 size) {
+		// RAMBO-1
+		if (nesCart.mapper == 64) {
+			Mapper64_IRQ_MODE = data[0];
 		}
 	}
 
@@ -498,11 +538,19 @@ struct FCEUX_File {
 			}
 		}
 		// Camerica
-		if (nesCart.mapper == 71) {
+		else if (nesCart.mapper == 71) {
 			if (data[0] == 2) {
 				nesPPU.setMirrorType(nes_mirror_type::MT_SINGLE);
 			} else if (data[0] == 3) {
 				nesPPU.setMirrorType(nes_mirror_type::MT_SINGLE_UPPER);
+			}
+		}
+		// RAMBO-1
+		else if (nesCart.mapper == 64) {
+			if (data[0]) { // 1
+				nesPPU.setMirrorType(nes_mirror_type::MT_HORIZONTAL);
+			} else { // 0
+				nesPPU.setMirrorType(nes_mirror_type::MT_VERTICAL);
 			}
 		}
 	}
@@ -520,7 +568,13 @@ struct FCEUX_File {
 			MMC2_HILATCH = data[0];
 		}
 	}
-
+	
+	void Read_ST_EXTRA_RMOD(uint8* data, uint32 size) {
+		// RAMBO-1
+		if (nesCart.mapper == 64) {
+			// unused
+		}
+	}
 
 	// write state support
 	void StartWrite() {
@@ -656,6 +710,20 @@ struct FCEUX_File {
 				}
 				WriteChunk("MIRR", 1, mirrorByte);
 			}
+			// Rambo-1 Mapper
+			else if (nesCart.mapper == 64) {
+				uint8 regs[11];
+				for (int32 r = 1; r <= 11; r++) {
+					regs[r-1] = nesCart.registers[r];
+				}
+				WriteChunk_Data("REGS", 11, regs);
+				WriteChunk("CMDR", 1, uint8(Mapper64_BANK_SELECT));
+				WriteChunk("MIRR", 1, nesPPU.mirror == nes_mirror_type::MT_HORIZONTAL ? 1 : 0);
+				WriteChunk("IRQM", 1, uint8(Mapper64_IRQ_MODE));
+				WriteChunk("IRQC", 1, uint8(Mapper64_IRQ_COUNT));
+				WriteChunk("IRQA", 1, uint8(Mapper64_IRQ_ENABLE));
+				WriteChunk("IRQL", 1, uint8(Mapper64_IRQ_LATCH));
+			}
 
 			// chr ram expected if there are no chr banks in the ROM
 			if (nesCart.numCHRBanks == 0) {
@@ -765,6 +833,8 @@ bool nes_cart::LoadState() {
 			AOROM_StateLoaded();
 		} else if (mapper == 9) {
 			MMC2_StateLoaded();
+		} else if (mapper == 64) {
+			Mapper64_StateLoaded();
 		}
 	}
 
