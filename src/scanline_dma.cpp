@@ -97,6 +97,7 @@ void FillBlackBorder() {
 }
 
 
+#if 0
 inline void RenderScanlineBufferWide1(unsigned char* scanlineSrc, unsigned int* scanlineDest) {
 	for (int i = 0; i < 60; i++, scanlineSrc += 4) {
 		*(scanlineDest++) = (ppu_workingPalette[scanlineSrc[0] >> 1] << 16) | ppu_workingPalette[scanlineSrc[1] >> 1];
@@ -113,7 +114,6 @@ inline void RenderScanlineBufferWide2(unsigned char* scanlineSrc, unsigned int* 
 	}
 }
 
-#if 0
 inline void RenderScanlineBuffer(unsigned char* scanlineSrc, unsigned int* scanlineDest) {
 	for (int i = 0; i < 120; i++, scanlineSrc += 2) {
 		*(scanlineDest++) = (ppu_workingPalette[scanlineSrc[0] >> 1] << 16) | ppu_workingPalette[scanlineSrc[1] >> 1];
@@ -122,16 +122,20 @@ inline void RenderScanlineBuffer(unsigned char* scanlineSrc, unsigned int* scanl
 #else
 extern "C" {
 	void RenderScanlineBuffer_ASM(unsigned char* scanlineSrc, unsigned int* scanlineDest);
+	void RenderScanlineBufferWide1_ASM(unsigned char* scanlineSrc, unsigned int* scanlineDest);
+	void RenderScanlineBufferWide2_ASM(unsigned char* scanlineSrc, unsigned int* scanlineDest);
 };
 #define RenderScanlineBuffer RenderScanlineBuffer_ASM
+#define RenderScanlineBufferWide1 RenderScanlineBufferWide1_ASM
+#define RenderScanlineBufferWide2 RenderScanlineBufferWide2_ASM
 #endif
 
 void nes_ppu::resolveScanline(int scrollOffset) {
 	TIME_SCOPE();
 
 	if (nesSettings.GetSetting(ST_StretchScreen) == 1) {
-		const int bufferLines = 8;	// 720 bytes * 8 lines = 5760
-		const int scanBufferSize = bufferLines * 360 * 2;
+		const unsigned int bufferLines = 8;	// 720 bytes * 8 lines = 5760
+		const unsigned int scanBufferSize = bufferLines * 360 * 2;
 
 		// resolve le line
 		unsigned char* scanlineSrc = &nesPPU.scanlineBuffer[8 + scrollOffset];	// with clipping
@@ -148,8 +152,8 @@ void nes_ppu::resolveScanline(int scrollOffset) {
 			flushScanBuffer(18, 377, nesPPU.scanline - 9 - bufferLines + 1, nesPPU.scanline - 9, scanBufferSize);
 		}
 	} else {
-		const int bufferLines = 14;	// 480 bytes * 14 lines = 6720
-		const int scanBufferSize = bufferLines * 240 * 2;
+		const unsigned int bufferLines = 14;	// 480 bytes * 14 lines = 6720
+		const unsigned int scanBufferSize = bufferLines * 240 * 2;
 
 		// resolve le line
 		unsigned char* scanlineSrc = &nesPPU.scanlineBuffer[8 + scrollOffset];	// with clipping
