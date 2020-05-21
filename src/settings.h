@@ -15,6 +15,7 @@ enum SettingType {
 	ST_SoundEnabled,
 	ST_SoundQuality,
 	ST_DimScreen,
+	ST_StretchScreen,
 
 	MAX_SETTINGS
 };

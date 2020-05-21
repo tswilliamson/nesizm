@@ -36,7 +36,8 @@ void nes_ppu::initScanlineBuffer() {
 	scanlineBuffer = scanlineBufferPtr;
 }
 
-static int curScan = 0;
+static unsigned int curScan = 0;
+static unsigned int dmaFrame = 0;
 
 void DmaWaitNext(void) {
 	while (1) {
@@ -95,6 +96,23 @@ void FillBlackBorder() {
 	DmaWaitNext();
 }
 
+
+inline void RenderScanlineBufferWide1(unsigned char* scanlineSrc, unsigned int* scanlineDest) {
+	for (int i = 0; i < 60; i++, scanlineSrc += 4) {
+		*(scanlineDest++) = (ppu_workingPalette[scanlineSrc[0] >> 1] << 16) | ppu_workingPalette[scanlineSrc[1] >> 1];
+		*(scanlineDest++) = (ppu_workingPalette[scanlineSrc[1] >> 1] << 16) | ppu_workingPalette[scanlineSrc[2] >> 1];
+		*(scanlineDest++) = (ppu_workingPalette[scanlineSrc[2] >> 1] << 16) | ppu_workingPalette[scanlineSrc[3] >> 1];
+	}
+}
+
+inline void RenderScanlineBufferWide2(unsigned char* scanlineSrc, unsigned int* scanlineDest) {
+	for (int i = 0; i < 60; i++, scanlineSrc += 4) {
+		*(scanlineDest++) = (ppu_workingPalette[scanlineSrc[0] >> 1] << 16) | ppu_workingPalette[scanlineSrc[0] >> 1];
+		*(scanlineDest++) = (ppu_workingPalette[scanlineSrc[1] >> 1] << 16) | ppu_workingPalette[scanlineSrc[2] >> 1];
+		*(scanlineDest++) = (ppu_workingPalette[scanlineSrc[3] >> 1] << 16) | ppu_workingPalette[scanlineSrc[3] >> 1];
+	}
+}
+
 #if 0
 inline void RenderScanlineBuffer(unsigned char* scanlineSrc, unsigned int* scanlineDest) {
 	for (int i = 0; i < 120; i++, scanlineSrc += 2) {
@@ -111,18 +129,38 @@ extern "C" {
 void nes_ppu::resolveScanline(int scrollOffset) {
 	TIME_SCOPE();
 
-	const int bufferLines = 14;	// 480 bytes * 14 lines = 6720
-	const int scanBufferSize = bufferLines * 240 * 2;
+	if (nesSettings.GetSetting(ST_StretchScreen) == 1) {
+		const int bufferLines = 8;	// 720 bytes * 8 lines = 5760
+		const int scanBufferSize = bufferLines * 360 * 2;
 
-	// resolve le line
-	unsigned char* scanlineSrc = &nesPPU.scanlineBuffer[8 + scrollOffset];	// with clipping
-	unsigned int* scanlineDest = (unsigned int*) (scanGroup[curDMABuffer] + 240 * curScan);
-	RenderScanlineBuffer(scanlineSrc, scanlineDest);
+		// resolve le line
+		unsigned char* scanlineSrc = &nesPPU.scanlineBuffer[8 + scrollOffset];	// with clipping
+		unsigned int* scanlineDest = (unsigned int*)(scanGroup[curDMABuffer] + 360 * curScan);
+		if ((dmaFrame + nesPPU.scanline) & 1) {
+			RenderScanlineBufferWide1(scanlineSrc, scanlineDest);
+		} else {
+			RenderScanlineBufferWide2(scanlineSrc, scanlineDest);
+		}
 
-	curScan++;
-	if (curScan == bufferLines) {
-		// send DMA
-		flushScanBuffer(72, 311, nesPPU.scanline - 9 - bufferLines + 1, nesPPU.scanline - 9, scanBufferSize);
+		curScan++;
+		if (curScan == bufferLines) {
+			// send DMA
+			flushScanBuffer(18, 377, nesPPU.scanline - 9 - bufferLines + 1, nesPPU.scanline - 9, scanBufferSize);
+		}
+	} else {
+		const int bufferLines = 14;	// 480 bytes * 14 lines = 6720
+		const int scanBufferSize = bufferLines * 240 * 2;
+
+		// resolve le line
+		unsigned char* scanlineSrc = &nesPPU.scanlineBuffer[8 + scrollOffset];	// with clipping
+		unsigned int* scanlineDest = (unsigned int*)(scanGroup[curDMABuffer] + 240 * curScan);
+		RenderScanlineBuffer(scanlineSrc, scanlineDest);
+
+		curScan++;
+		if (curScan == bufferLines) {
+			// send DMA
+			flushScanBuffer(78, 317, nesPPU.scanline - 9 - bufferLines + 1, nesPPU.scanline - 9, scanBufferSize);
+		}
 	}
 }
 
@@ -208,6 +246,7 @@ void nes_ppu::finishFrame(bool bSkippedFrame) {
 		DmaWaitNext();
 		*((volatile unsigned*)MSTPCR0) &= ~(1 << 21);//Clear bit 21
 		curScan = 0;
+		dmaFrame++;
 	}
 }
 
