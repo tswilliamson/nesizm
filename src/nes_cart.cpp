@@ -1161,6 +1161,12 @@ void nes_cart::MMC3_ScanlineClock() {
 			if (MMC3_IRQ_RELOAD || MMC3_IRQ_COUNTER == 0) {
 				// reload counter value
 				MMC3_IRQ_COUNTER = MMC3_IRQ_SET;
+
+				// if not reloading but set with 0, then latch at the end of this scanline
+				if (MMC3_IRQ_RELOAD == 0 && MMC3_IRQ_COUNTER == 0 && MMC3_IRQ_ENABLE) {
+					MMC3_IRQ_LATCH = 1;
+				}
+
 				MMC3_IRQ_RELOAD = 0;
 				MMC3_IRQ_LASTSET = mainCPU.ppuClocks - (341 / 3); // beginning of the scanline
 			} else {
