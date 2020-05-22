@@ -717,7 +717,7 @@ void nes_apu::mix(int* intoBuffer, int length) {
 		noiseVolume = 0;
 
 	CHECK_ENABLED(noise);
-	if (noiseVolume) {
+	if (noiseVolume && noise.samplesPerPeriod) {
 		int remainingLength = length;
 		int* bufferWrite = intoBuffer;
 
