@@ -827,7 +827,9 @@ bool nes_cart::LoadState() {
 	nesCart.BuildFileBlocks();
 
 	if (!fceuxFile.hasError) {
-		if (mapper == 4) {
+		if (mapper == 1) {
+			MMC1_StateLoaded();
+		} else if (mapper == 4) {
 			MMC3_StateLoaded();
 		} else if (mapper == 7) {
 			AOROM_StateLoaded();

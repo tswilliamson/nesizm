@@ -19,6 +19,7 @@ static bool bHitPPUBreakpoint = false;
 #define NUM_TRACED 500
 static cpu_instr_history traceHistory[NUM_TRACED] = { 0 };
 static unsigned int traceNum;
+static unsigned int traceCount = 0;
 static unsigned int cpuInstructionCount = 0;
 void HitBreakpoint();
 void IllegalInstruction();
@@ -851,6 +852,7 @@ SkipLatching:
 	hist.effByte = effByte;
 
 	traceHistory[traceNum++] = hist;
+	traceCount++;
 	if (traceNum == NUM_TRACED) traceNum = 0;
 
 	if (traceLineRemaining) {
@@ -1000,12 +1002,15 @@ void cpu_instr_history::output() {
 #if TRACE_DEBUG
 void HitBreakpoint() {
 	OutputLog("CPU Instruction Trace:\n");
-	for (int i = NUM_TRACED - 1; i > 0; i--) {
+	unsigned int totalTraced = min(traceCount, NUM_TRACED - 1);
+	for (int i = totalTraced; i > 0; i--) {
 		int curLine = (traceNum - i + NUM_TRACED) % NUM_TRACED;
 		if (!traceHistory[curLine].isEmpty()) {
 			traceHistory[curLine].output();
 		}
 	}
+	traceCount = 1;
+
 	OutputLog("Hit breakpoint at %04x!\n", cpuBreakpoint);
 
 	DebugBreak();
@@ -1013,9 +1018,11 @@ void HitBreakpoint() {
 
 void IllegalInstruction() {
 	OutputLog("CPU Instruction Trace:\n");
-	for (int i = NUM_TRACED - 1; i > 0; i--) {
+	unsigned int totalTraced = min(traceCount, NUM_TRACED - 1);
+	for (int i = totalTraced; i > 0; i--) {
 		traceHistory[(traceNum - i + NUM_TRACED) % NUM_TRACED].output();
 	}
+	traceCount = 1;
 	OutputLog("Encountered illegal instruction at %04x (0x%02x)!\n", mainCPU.PC, mainCPU.read(mainCPU.PC));
 
 	DebugBreak();
@@ -1027,9 +1034,11 @@ void PPUBreakpoint() {
 
 void Do_PPUBreakpoint() {
 	OutputLog("CPU Instruction Trace:\n");
-	for (int i = NUM_TRACED - 1; i > 0; i--) {
+	unsigned int totalTraced = min(traceCount, NUM_TRACED - 1);
+	for (int i = totalTraced; i > 0; i--) {
 		traceHistory[(traceNum - i + NUM_TRACED) % NUM_TRACED].output();
 	}
+	traceCount = 1;
 	OutputLog("PPU Breakpoint!");
 
 	DebugBreak();
