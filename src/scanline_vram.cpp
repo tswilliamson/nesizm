@@ -22,6 +22,23 @@ void nes_ppu::resolveScanline(int scrollOffset) {
 
 	if (nesPPU.scanline >= 13 && nesPPU.scanline <= 228) {
 		if (nesSettings.GetSetting(ST_StretchScreen) == 1) {
+			unsigned short* scanlineDest = ((unsigned short*)GetVRAMAddress()) + (nesPPU.scanline - 13) * 384 + 42;
+			unsigned char* scanlineSrc = &nesPPU.scanlineBuffer[8 + scrollOffset];	// with clipping
+			const int interlacePixel = (nesPPU.frameCounter + nesPPU.scanline) & 3;
+			for (int i = 0; i < 60; i++) {
+				const uint16 pixels[4] = {
+					workingPalette[(*scanlineSrc++) >> 1],
+					workingPalette[(*scanlineSrc++) >> 1],
+					workingPalette[(*scanlineSrc++) >> 1],
+					workingPalette[(*scanlineSrc++) >> 1]
+				};
+				const uint16* pixel = pixels;
+				for (int j = 0; j < 5; j++) {
+					*(scanlineDest++) = *pixel;
+					if (j != interlacePixel) pixel++;
+				}
+			}
+		} else if (nesSettings.GetSetting(ST_StretchScreen) == 2) {
 			unsigned short* scanlineDest = ((unsigned short*)GetVRAMAddress()) + (nesPPU.scanline - 13) * 384 + 12;
 			unsigned char* scanlineSrc = &nesPPU.scanlineBuffer[8 + scrollOffset];	// with clipping
 			const bool bInterlace = (nesPPU.frameCounter + nesPPU.scanline) & 1;

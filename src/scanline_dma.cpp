@@ -124,27 +124,54 @@ extern "C" {
 	void RenderScanlineBuffer_ASM(unsigned char* scanlineSrc, unsigned int* scanlineDest);
 	void RenderScanlineBufferWide1_ASM(unsigned char* scanlineSrc, unsigned int* scanlineDest);
 	void RenderScanlineBufferWide2_ASM(unsigned char* scanlineSrc, unsigned int* scanlineDest);
+	void RenderScanlineBuffer_43_0_ASM(unsigned char* scanlineSrc, unsigned int* scanlineDest);
+	void RenderScanlineBuffer_43_1_ASM(unsigned char* scanlineSrc, unsigned int* scanlineDest);
+	void RenderScanlineBuffer_43_2_ASM(unsigned char* scanlineSrc, unsigned int* scanlineDest);
+	void RenderScanlineBuffer_43_3_ASM(unsigned char* scanlineSrc, unsigned int* scanlineDest);
 };
 #define RenderScanlineBuffer RenderScanlineBuffer_ASM
 #define RenderScanlineBufferWide1 RenderScanlineBufferWide1_ASM
 #define RenderScanlineBufferWide2 RenderScanlineBufferWide2_ASM
+
+typedef void(*func_renderScanline)(unsigned char*, unsigned int*);
+func_renderScanline interlacedWideFuncs[2] = {
+	RenderScanlineBufferWide1_ASM,
+	RenderScanlineBufferWide2_ASM
+};
+func_renderScanline interlaced43Funcs[4] = {
+	RenderScanlineBuffer_43_0_ASM,
+	RenderScanlineBuffer_43_1_ASM,
+	RenderScanlineBuffer_43_2_ASM,
+	RenderScanlineBuffer_43_3_ASM
+};
+
 #endif
 
 void nes_ppu::resolveScanline(int scrollOffset) {
 	TIME_SCOPE();
 
 	if (nesSettings.GetSetting(ST_StretchScreen) == 1) {
+		const unsigned int bufferLines = 12;	// 600 bytes * 12 lines = 7200
+		const unsigned int scanBufferSize = bufferLines * 300 * 2;
+
+		// resolve le line
+		unsigned char* scanlineSrc = &nesPPU.scanlineBuffer[8 + scrollOffset];	// with clipping
+		unsigned int* scanlineDest = (unsigned int*)(scanGroup[curDMABuffer] + 300 * curScan);
+		interlaced43Funcs[(dmaFrame + nesPPU.scanline) & 1](scanlineSrc, scanlineDest);
+
+		curScan++;
+		if (curScan == bufferLines) {
+			// send DMA
+			flushScanBuffer(48, 347, nesPPU.scanline - 9 - bufferLines + 1, nesPPU.scanline - 9, scanBufferSize);
+		}
+	} else if (nesSettings.GetSetting(ST_StretchScreen) == 2) {
 		const unsigned int bufferLines = 8;	// 720 bytes * 8 lines = 5760
 		const unsigned int scanBufferSize = bufferLines * 360 * 2;
 
 		// resolve le line
 		unsigned char* scanlineSrc = &nesPPU.scanlineBuffer[8 + scrollOffset];	// with clipping
 		unsigned int* scanlineDest = (unsigned int*)(scanGroup[curDMABuffer] + 360 * curScan);
-		if ((dmaFrame + nesPPU.scanline) & 1) {
-			RenderScanlineBufferWide1(scanlineSrc, scanlineDest);
-		} else {
-			RenderScanlineBufferWide2(scanlineSrc, scanlineDest);
-		}
+		interlacedWideFuncs[(dmaFrame + nesPPU.scanline) & 1](scanlineSrc, scanlineDest);
 
 		curScan++;
 		if (curScan == bufferLines) {

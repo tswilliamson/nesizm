@@ -133,5 +133,8 @@
     <None Include="..\src\6502_instr_timing.inl">
       <Filter>Source Files\6502</Filter>
     </None>
+    <None Include="..\src\asm\RenderScanlineBuffer_43.S">
+      <Filter>Source Files\asm</Filter>
+    </None>
   </ItemGroup>
 </Project>

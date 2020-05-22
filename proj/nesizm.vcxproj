@@ -59,6 +59,7 @@
     <None Include="..\src\6502_instr_timing.inl" />
     <None Include="..\src\6502_opcodes.inl" />
     <None Include="..\src\asm\RenderScanlineBuffer.S" />
+    <None Include="..\src\asm\RenderScanlineBuffer_43.S" />
     <None Include="..\src\asm\RenderToScanline.S" />
   </ItemGroup>
   <ItemGroup>

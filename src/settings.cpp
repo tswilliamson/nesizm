@@ -97,6 +97,12 @@ static const char* OverclockOptions[] = {
 	"200%",
 };
 
+static const char* StretchOptions[] = {
+	"Off",
+	"4:3",
+	"Wide",
+};
+
 static SettingInfo infos[] = {
 	{ ST_AutoSave,			SG_System,		false,	0,	2,	"Auto Save",		OffOn},
 	{ ST_OverClock,			SG_System,		true,   0,  3,  "Overclock",		OverclockOptions},
@@ -109,7 +115,7 @@ static SettingInfo infos[] = {
 	{ ST_SoundEnabled,		SG_Sound,		true,	0,	2,	"Sound",			OffOn},
 	{ ST_SoundQuality,		SG_Sound,		true,	0,  2,  "Extra FX",			OffOn},
 	{ ST_DimScreen,			SG_Video,		true,	0,  2,  "Dim Screen",		OffOn},
-	{ ST_StretchScreen,		SG_Video,		true,	0,  2,  "Widescreen",		OffOn}
+	{ ST_StretchScreen,		SG_Video,		true,	0,  3,  "Stretch",			StretchOptions}
 };
 
 const char* EmulatorSettings::GetSettingName(SettingType setting) {
