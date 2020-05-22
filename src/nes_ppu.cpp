@@ -339,18 +339,20 @@ void nes_ppu::writeReg(unsigned int regNum, unsigned char value) {
 
 			if (writeToggle == 1) {
 				// effects coarse scrollX, and scrollY, and applies write to Y scroll mid frame if need be
-				SCROLLX = (SCROLLX & 0x07) | ((value & 0x1F) << 3);
-				SCROLLY = (SCROLLY & 0xC7) | ((value & 0xE0) >> 2);
-				copyYScrollRegs();
 				if (scanline > 1 && scanline < 241) {
+					SCROLLX = (SCROLLX & 0x07) | ((value & 0x1F) << 3);
+					SCROLLY = (SCROLLY & 0xC7) | ((value & 0xE0) >> 2);
+					copyYScrollRegs();
 					midFrameScrollUpdate();
 				}
 				ADDRLO = value;
 			} else {
 				// nametable bits in first write
 				PPUCTRL = (PPUCTRL & 0xFC) | ((value & 0x0C) >> 2);
-				// also scroll Y a bit weirdly
-				SCROLLY = (SCROLLY & 0x38) | ((value & 0x03) << 6) | ((value & 0x30) >> 4);
+				if (scanline > 1 && scanline < 241) {
+					// also scroll Y a bit weirdly
+					SCROLLY = (SCROLLY & 0x38) | ((value & 0x03) << 6) | ((value & 0x30) >> 4);
+				}
 				ADDRHI = value;
 			}
 
