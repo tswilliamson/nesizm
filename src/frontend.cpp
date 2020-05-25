@@ -434,7 +434,7 @@ void nes_frontend::RenderMenuBackground(bool bForceRedraw) {
 	bg->Draw_Blit(0, 71);
 	nes->Draw_OverlayMasked(195, 38, 192);
 
-	CalcType_Draw(&arial_small, "v0.9", 355, 203, COLOR_DARKGRAY, 0, 0);
+	CalcType_Draw(&arial_small, "v0.95", 352, 203, COLOR_DARKGRAY, 0, 0);
 
 	MenuBGHash = GetVRAMHash();
 	SaveVRAM_1();

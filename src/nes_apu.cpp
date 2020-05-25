@@ -6,6 +6,7 @@
 #include "nes.h"	
 #include "settings.h"
 
+#include "scope_timer/scope_timer.h"
 #include "snd/snd.h"
 
 nes_apu nesAPU;
