@@ -133,3 +133,15 @@
 #define Mapper64_IRQ_ENABLE nesCart.registers[14]
 #define Mapper64_IRQ_COUNT nesCart.registers[15]
 #define Mapper64_IRQ_CLOCKS nesCart.registers[16]
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Nanjing Mapper 163
+
+// register 0-7 holds the 8 registers (following FCEUX model). I do use REG[4] to indicate copy protection paging
+#define Mapper163_REG nesCart.registers
+
+// strobe register for write protection
+#define Mapper163_STROBE nesCart.registers[8]
+
+// trigger register for write protection
+#define Mapper163_TRIGGER nesCart.registers[9]

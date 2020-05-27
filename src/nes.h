@@ -203,6 +203,10 @@ struct nes_cart {
 	static void Mapper64_ScanlineClock();
 	void Mapper64_StateLoaded();
 
+	void setupMapper163_Nanjing();
+	void Mapper163_Update();
+	static void Mapper163_ScanlineClock();
+
 	void readState_WRAM(uint8* data);
 	uint8* GetWRAM();
 };

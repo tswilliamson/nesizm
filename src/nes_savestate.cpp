@@ -183,6 +183,10 @@ struct FCEUX_File {
 				HandleSubsection(ST_EXTRA, MIRR, 1);
 				HandleSubsection(ST_EXTRA, LAT0, 1);
 				HandleSubsection(ST_EXTRA, LAT1, 1);
+				// Nanjing
+				HandleSubsection(ST_EXTRA, STB, 1);
+				HandleSubsection(ST_EXTRA, TRG, 1);
+
 				break;
 			}
 		}
@@ -430,6 +434,13 @@ struct FCEUX_File {
 				nesCart.registers[r] = data[r-1];
 			}
 		}
+		// Nanjing
+		else if (nesCart.mapper == 163) {
+			// internal Mapper 163 registers
+			for (int32 r = 0; r < 8; r++) {
+				Mapper163_REG[r] = data[r];
+			}
+		}
 	}
 
 	void Read_ST_EXTRA_CMD(uint8* data, uint32 size) {
@@ -573,6 +584,20 @@ struct FCEUX_File {
 		// RAMBO-1
 		if (nesCart.mapper == 64) {
 			// unused
+		}
+	}
+
+	void Read_ST_EXTRA_STB(uint8* data, uint32 size) {
+		// Nanjing
+		if (nesCart.mapper == 163) {
+			Mapper163_STROBE = data[0];
+		}
+	}
+
+	void Read_ST_EXTRA_TRG(uint8* data, uint32 size) {
+		// Nanjing
+		if (nesCart.mapper == 163) {
+			Mapper163_TRIGGER = data[1];
 		}
 	}
 
@@ -724,6 +749,16 @@ struct FCEUX_File {
 				WriteChunk("IRQA", 1, uint8(Mapper64_IRQ_ENABLE));
 				WriteChunk("IRQL", 1, uint8(Mapper64_IRQ_LATCH));
 			}
+			// Nanjing Mapper
+			else if (nesCart.mapper == 163) {
+				uint8 regs[8];
+				for (int32 r = 0; r < 8; r++) {
+					regs[r] = Mapper163_REG[r];
+				}
+				WriteChunk_Data("REGS", 8, regs);
+				WriteChunk("STB", 1, uint8(Mapper163_STROBE));
+				WriteChunk("TRG", 1, uint8(Mapper163_TRIGGER));
+			}
 
 			// chr ram expected if there are no chr banks in the ROM
 			if (nesCart.numCHRBanks == 0) {
@@ -837,6 +872,8 @@ bool nes_cart::LoadState() {
 			MMC2_StateLoaded();
 		} else if (mapper == 64) {
 			Mapper64_StateLoaded();
+		} else if (mapper == 163) {
+			Mapper163_Update();
 		}
 	}
 
