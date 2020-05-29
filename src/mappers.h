@@ -203,6 +203,41 @@ inline void mapPPU(unsigned int startAddrHigh, unsigned int numKB, unsigned char
 #define Mapper64_IRQ_CLOCKS nesCart.registers[16]
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Sunsoft Mapper 69
+
+#define Mapper69_CHAR0 nesCart.registers[0]
+#define Mapper69_CHAR1 nesCart.registers[1]
+#define Mapper69_CHAR2 nesCart.registers[2]
+#define Mapper69_CHAR3 nesCart.registers[3]
+#define Mapper69_CHAR4 nesCart.registers[4]
+#define Mapper69_CHAR5 nesCart.registers[5]
+#define Mapper69_CHAR6 nesCart.registers[6]
+#define Mapper69_CHAR7 nesCart.registers[7]
+
+#define Mapper69_PRG0 nesCart.registers[8]
+#define Mapper69_PRG1 nesCart.registers[9]
+#define Mapper69_PRG2 nesCart.registers[10]
+#define Mapper69_PRG3 nesCart.registers[11]
+
+#define Mapper69_NT nesCart.registers[12]
+#define Mapper69_IRQCONTROL nesCart.registers[13]
+#define Mapper69_COUNTERLO nesCart.registers[14]
+#define Mapper69_COUNTERHI nesCart.registers[15]
+
+#define Mapper69_COMMAND nesCart.registers[16]
+#define Mapper69_PARAM nesCart.registers[17]
+
+// next IRQ in cpu clocks
+#define Mapper69_IRQ nesCart.registers[18]
+
+// counter value at last set
+#define Mapper69_LASTCOUNTER nesCart.registers[19]
+
+// last clks used for counter value
+#define Mapper69_LASTCOUNTERCLK nesCart.registers[20]
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Nanjing Mapper 163
 
 // register 0-7 holds the 8 registers (following FCEUX model). I do use REG[4] to indicate copy protection paging

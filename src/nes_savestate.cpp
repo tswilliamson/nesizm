@@ -162,9 +162,11 @@ struct FCEUX_File {
 				HandleSubsection(ST_EXTRA, BFRS, 1);
 				// AOROM / UNROM / CNROM
 				HandleSubsection(ST_EXTRA, LATC, 1);
-				// MMC3 / RAMBO-1
+				// MMC3 / RAMBO-1 / SUNSOFT-5
 				if (nesCart.mapper == 64) {
 					HandleSubsection(ST_EXTRA, REGS, 11);
+				} else if (nesCart.mapper == 69) {
+					HandleSubsection(ST_EXTRA, REGS, 84);
 				} else {
 					HandleSubsection(ST_EXTRA, REGS, 8);
 				}
@@ -439,6 +441,15 @@ struct FCEUX_File {
 			// internal Mapper 163 registers
 			for (int32 r = 0; r < 8; r++) {
 				Mapper163_REG[r] = data[r];
+			}
+		}
+		// Sunsoft-5
+		else if (nesCart.mapper == 69) {
+			uint32 regs[21];
+			memcpy(regs, data, 84);
+			for (int32 r = 0; r <= 21; r++) {
+				EndianSwap_Big(regs[r]);
+				nesCart.registers[r] = regs[r];
 			}
 		}
 	}
@@ -749,6 +760,15 @@ struct FCEUX_File {
 				WriteChunk("IRQA", 1, uint8(Mapper64_IRQ_ENABLE));
 				WriteChunk("IRQL", 1, uint8(Mapper64_IRQ_LATCH));
 			}
+			// Sunsoft-5 Mapper
+			else if (nesCart.mapper == 69) {
+				uint32 regs[21];
+				for (int32 r = 0; r < 21; r++) {
+					regs[r] = nesCart.registers[r];
+					EndianSwap_Big(regs[r]);
+				}
+				WriteChunk_Data("REGS", 84, regs);
+			}
 			// Nanjing Mapper
 			else if (nesCart.mapper == 163) {
 				uint8 regs[8];
@@ -872,7 +892,9 @@ bool nes_cart::LoadState() {
 			MMC2_StateLoaded();
 		} else if (mapper == 64) {
 			Mapper64_StateLoaded();
-		} else if (mapper == 163) {
+		} else if (mapper == 69) {
+			Mapper69_RunCommand(true);
+		}  else if (mapper == 163) {
 			Mapper163_Update();
 		}
 	}
@@ -890,7 +912,7 @@ void nes_cart::FlushCache() {
 		cache[i].clear();
 	}
 
-	for (int32 i = 0; i < 4; i++) {
+	for (int32 i = 0; i < 4 + isLowPRGROM; i++) {
 		int curBank = programBanks[i];
 		programBanks[i] = -1;
 		MapProgramBanks(i, curBank, 1);

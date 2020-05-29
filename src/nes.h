@@ -74,12 +74,13 @@ struct nes_cart {
 
 	int isBatteryBacked;			// 0 if no battery backup
 	int isPAL;						// 1 if PAL, 0 if NTSC
+	int isLowPRGROM;				// 1 if low prg rom at 0x6000 is available
 
 	// up to 32 internal registers
 	unsigned int registers[32];
 
-	// bank index storage for program memory (which 8 KB from cart at 0x8000, 0xA000, 0xC000, amd 0xE000)
-	int32 programBanks[4];
+	// bank index storage for program memory (which 8 KB from cart at 0x8000, 0xA000, 0xC000, amd 0xE000). Index 5 is for mappers that map to 0x6000 (only used if isLowPRGROM is true)
+	int32 programBanks[5];
 
 	// chr rom index map (which 1 KB from cart at 0x0000 - 0x1FFF in ppu memory)
 	int16 chrBanks[8];
@@ -202,6 +203,9 @@ struct nes_cart {
 	void Mapper64_Update();
 	static void Mapper64_ScanlineClock();
 	void Mapper64_StateLoaded();
+
+	void setupMapper69_Sunsoft();
+	void Mapper69_RunCommand(bool bIsForceUpdate);
 
 	void setupMapper163_Nanjing();
 	void Mapper163_Update();

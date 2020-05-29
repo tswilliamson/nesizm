@@ -105,6 +105,7 @@ bool nes_cart::loadROM(const char* withFile) {
 		nesPPU.setMirrorType(nes_mirror_type::MT_HORIZONTAL);
 	}
 	isBatteryBacked = header[6] & (1 << 1);
+	isLowPRGROM = 0;
 
 	bool hasTrainer = (header[6] & (1 << 2)) != 0;
 	if (hasTrainer) {
@@ -326,6 +327,9 @@ bool nes_cart::setupMapper() {
 		case 64:
 			setupMapper64_Rambo1();
 			return true;
+		case 69:
+			setupMapper69_Sunsoft();
+			return true;
 		case 71:
 			setupMapper71_Camerica();
 			return true;
@@ -388,7 +392,7 @@ bool nes_cart::isBankUsed(int index) {
 	if (ptr == nesPPU.chrPages[0] || ptr == nesPPU.chrPages[1] || ptr + 0x1000 == nesPPU.chrPages[0] || ptr + 0x1000 == nesPPU.chrPages[1])
 		return true;
 
-	for (int i = 0; i < 4; i++) {
+	for (int i = 0; i < 4 + isLowPRGROM; i++) {
 		if (programBanks[i] == cache[index].prgIndex) {
 			return true;
 		}
@@ -481,13 +485,15 @@ unsigned char* nes_cart::cacheCHRBank(int16* indices) {
 }
 
 void nes_cart::MapProgramBanks(int32 toBank, int32 cartBank, int32 numBanks) {
-	DebugAssert(toBank + numBanks <= 4);
+	DebugAssert(toBank + numBanks <= 4 + isLowPRGROM);
+
+	const unsigned int addrTarget[5] = {0x80, 0xA0, 0xC0, 0xE0, 0x60};
 
 	for (int32 i = 0; i < numBanks; i++) {
 		const int32 destBank = i + toBank;
 		if (programBanks[destBank] != cartBank + i) {
 			programBanks[destBank] = cartBank + i;
-			mapCPU(0x80 + 0x20 * (destBank), 8, cachePRGBank(cartBank + i));
+			mapCPU(addrTarget[destBank], 8, cachePRGBank(cartBank + i));
 		}
 	}
 }
@@ -537,6 +543,15 @@ bool nes_cart::IRQReached() {
 
 	if (mapper == 4) {
 		MMC3_IRQ_LATCH = 0;
+	}
+
+	if (mapper == 69) {
+		if (mainCPU.irqClocks == Mapper69_IRQ) {
+			if ((Mapper69_IRQCONTROL & 0x1) == 0) {
+				mainCPU.irqClocks = 0;
+				return false;
+			}
+		}
 	}
 
 	// by default disable IRQ
