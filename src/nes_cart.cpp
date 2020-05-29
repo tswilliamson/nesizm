@@ -1846,7 +1846,7 @@ void nes_cart::Mapper163_Update() {
 	}
 
 	// update protect page values
-	unsigned char val5100 = Mapper163_REG[2] | Mapper163_REG[0] | Mapper163_REG[1] | Mapper163_REG[3] ^ 0xff;
+	unsigned char val5100 = (Mapper163_REG[2] | Mapper163_REG[0] | Mapper163_REG[1] | Mapper163_REG[3]) ^ 0xff;
 	unsigned char val5500 = Mapper163_TRIGGER ? Mapper163_REG[2] | Mapper163_REG[1] : 0;
 	const int protectPage = cachedBankCount;
 	cache[protectPage].ptr[0x100] = val5100;

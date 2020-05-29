@@ -304,7 +304,14 @@ void nes_ppu::writeReg(unsigned int regNum, unsigned char value) {
 			PPUCTRL = value;
 			break;
 		case 0x01:	// PPUMASK
-			PPUMASK = value;
+			if (value != PPUMASK) {
+				if ((value ^ PPUMASK) & (PPUMASK_EMPHRED | PPUMASK_EMPHGREEN | PPUMASK_EMPHBLUE)) {
+					// emphasis bits changed, invalidate the palette
+					dirtyPalette = true;
+				}
+
+				PPUMASK = value;
+			}
 			break;
 		case 0x02:  
 			SetPPUSTATUS(value);
