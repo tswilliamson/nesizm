@@ -30,6 +30,9 @@
     <Filter Include="Source Files\asm">
       <UniqueIdentifier>{1e0e9ac7-943c-498e-a59e-71423fc99c4c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\mappers">
+      <UniqueIdentifier>{aa665c72-6bff-4eef-921a-3b0c7b84fb3e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\main.cpp">
@@ -85,6 +88,39 @@
     </ClCompile>
     <ClCompile Include="..\src\nes_apu.cpp">
       <Filter>Source Files\nes</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\mappers\mapper163_nanjing.cpp">
+      <Filter>Source Files\mappers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\mappers\mapper64_rambo.cpp">
+      <Filter>Source Files\mappers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\mappers\mapper71_camerica.cpp">
+      <Filter>Source Files\mappers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\mappers\mapper11_colourdreams.cpp">
+      <Filter>Source Files\mappers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\mappers\mapper9_mmc2.cpp">
+      <Filter>Source Files\mappers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\mappers\mapper7_aorom.cpp">
+      <Filter>Source Files\mappers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\mappers\mapper4_mmc3.cpp">
+      <Filter>Source Files\mappers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\mappers\mapper3_cnrom.cpp">
+      <Filter>Source Files\mappers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\mappers\mapper2_unrom.cpp">
+      <Filter>Source Files\mappers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\mappers\mapper1_mmc1.cpp">
+      <Filter>Source Files\mappers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\mappers\mapper0_nrom.cpp">
+      <Filter>Source Files\mappers</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

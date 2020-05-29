@@ -42,6 +42,17 @@
     <ClCompile Include="..\src\gfx\logo.cpp" />
     <ClCompile Include="..\src\gfx\nes_gfx.cpp" />
     <ClCompile Include="..\src\imageDraw.cpp" />
+    <ClCompile Include="..\src\mappers\mapper0_nrom.cpp" />
+    <ClCompile Include="..\src\mappers\mapper11_colourdreams.cpp" />
+    <ClCompile Include="..\src\mappers\mapper163_nanjing.cpp" />
+    <ClCompile Include="..\src\mappers\mapper1_mmc1.cpp" />
+    <ClCompile Include="..\src\mappers\mapper2_unrom.cpp" />
+    <ClCompile Include="..\src\mappers\mapper3_cnrom.cpp" />
+    <ClCompile Include="..\src\mappers\mapper4_mmc3.cpp" />
+    <ClCompile Include="..\src\mappers\mapper64_rambo.cpp" />
+    <ClCompile Include="..\src\mappers\mapper71_camerica.cpp" />
+    <ClCompile Include="..\src\mappers\mapper7_aorom.cpp" />
+    <ClCompile Include="..\src\mappers\mapper9_mmc2.cpp" />
     <ClCompile Include="..\src\nes_apu.cpp" />
     <ClCompile Include="..\src\nes_cart.cpp" />
     <ClCompile Include="..\src\nes_cpu.cpp" />

@@ -18,7 +18,7 @@ include $(FXCGSDK)/common/prizm_rules
 #---------------------------------------------------------------------------------
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	$(CONFIG)
-SOURCES		:=	src src/scope_timer src/gfx src/asm
+SOURCES		:=	src src/scope_timer src/gfx src/asm src/mappers
 DATA		:=	data  
 INCLUDES	:=  src
 
@@ -28,7 +28,7 @@ INCLUDES	:=  src
 
 MKG3AFLAGS := -n basic:NESizm
 
-CBASEFLAGS	= -O2 \
+CBASEFLAGS	= -O3 \
 		  -Wall \
 		  -funroll-loops \
 		  -fno-trapping-math \

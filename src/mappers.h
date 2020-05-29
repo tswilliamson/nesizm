@@ -2,7 +2,75 @@
 
 // NES mapper specifics
 
+#include "platform.h"
+#include "debug.h"
 #include "nes.h"
+
+extern unsigned char openBus[256];
+
+FORCE_INLINE void memcpy_fast32(void* dest, const void* src, unsigned int size) {
+#if TARGET_WINSIM
+	DebugAssert((((uint32)dest) & 3) == 0);
+	DebugAssert((((uint32)src) & 3) == 0);
+	DebugAssert((((uint32)size) & 31) == 0);
+	memcpy(dest, src, size);
+#elif TARGET_PRIZM
+	asm(
+		// line 1
+		"mov %[dest],r1							\n\t"
+		"add %[size],r1							\n\t"  // r1 = size + dest ( loop point end)
+		"mov.l @%[src]+,r0						\n\t"
+		"1:\n"	// local label
+		"mov.l r0,@(0,%[dest])					\n\t" // copy 32 bytes accting for branch delay
+		"mov.l @%[src]+,r0						\n\t"
+		"mov.l r0,@(4,%[dest])					\n\t" 
+		"mov.l @%[src]+,r0						\n\t"
+		"mov.l r0,@(8,%[dest])					\n\t" 
+		"mov.l @%[src]+,r0						\n\t"
+		"mov.l r0,@(12,%[dest])					\n\t" 
+		"mov.l @%[src]+,r0						\n\t"
+		"mov.l r0,@(16,%[dest])					\n\t" 
+		"mov.l @%[src]+,r0						\n\t"
+		"mov.l r0,@(20,%[dest])					\n\t" 
+		"mov.l @%[src]+,r0						\n\t"
+		"mov.l r0,@(24,%[dest])					\n\t" 
+		"mov.l @%[src]+,r0						\n\t"
+		"mov.l r0,@(28,%[dest])					\n\t" 
+		"add #32,%[dest]						\n\t"			
+		"cmp/eq %[dest],r1						\n\t" // if dest == dest + size (end point), T = 1
+		"bf/s 1b								\n\t" // if T == 0 go back to last local label 1: after delay instruction
+		"mov.l @%[src]+,r0						\n\t" // delayed branch instruction
+		// outputs
+		: 
+		// inputs
+		: [dest] "r" (dest), [src] "r" (src), [size] "r" (size)
+		// clobbers
+		: "r0", "r1"
+	);
+#else
+#pragma Unknown Target!
+#endif
+}
+
+// inline mapping helpers
+inline void mapCPU(unsigned int startAddrHigh, unsigned int numKB, unsigned char* ptr) {
+	// 256 byte increments
+	numKB *= 4;
+
+	for (unsigned int i = 0; i < numKB; i++) {
+		mainCPU.map[i + startAddrHigh] = &ptr[i * 0x100];
+	}
+}
+
+inline void mapPPU(unsigned int startAddrHigh, unsigned int numKB, unsigned char* ptr) {
+	// just copy to CHR ROM
+	DebugAssert(startAddrHigh * 0x100 + numKB * 1024 <= 0x2000);
+	DebugAssert(numKB <= 4);
+
+	int page = (startAddrHigh & 0x10) >> 4;
+	startAddrHigh &= 0x0F;
+	memcpy_fast32(nesPPU.chrPages[page] + startAddrHigh * 0x100, ptr, numKB * 1024);
+}
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // MMC1
