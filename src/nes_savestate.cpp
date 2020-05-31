@@ -542,8 +542,8 @@ struct FCEUX_File {
 	}
 
 	void Read_ST_EXTRA_CREG(uint8* data, uint32 size) {
-		// MMC2
-		if (nesCart.mapper == 9) {
+		// MMC2 / MMC4
+		if (nesCart.mapper == 9 || nesCart.mapper == 10) {
 			MMC2_CHR_LOW_FD = data[0];
 			MMC2_CHR_LOW_FE = data[1];
 			MMC2_CHR_HIGH_FD = data[2];
@@ -556,8 +556,8 @@ struct FCEUX_File {
 	}
 
 	void Read_ST_EXTRA_PREG(uint8* data, uint32 size) {
-		// MMC2
-		if (nesCart.mapper == 9) {
+		// MMC2 / MMC4
+		if (nesCart.mapper == 9 || nesCart.mapper == 10) {
 			MMC2_PRG_SELECT = data[0];
 		}
 		// Camerica
@@ -571,8 +571,8 @@ struct FCEUX_File {
 	}
 
 	void Read_ST_EXTRA_MIRR(uint8* data, uint32 size) {
-		// MMC2
-		if (nesCart.mapper == 9) {
+		// MMC2 / MMC4
+		if (nesCart.mapper == 9 || nesCart.mapper == 10) {
 			if (data[0] & 1) {
 				nesPPU.setMirrorType(nes_mirror_type::MT_HORIZONTAL);
 			} else {
@@ -598,15 +598,15 @@ struct FCEUX_File {
 	}
 
 	void Read_ST_EXTRA_LAT0(uint8* data, uint32 size) {
-		// MMC2
-		if (nesCart.mapper == 9) {
+		// MMC2 / MMC4
+		if (nesCart.mapper == 9 || nesCart.mapper == 10) {
 			MMC2_LOLATCH = data[0];
 		}
 	}
 
 	void Read_ST_EXTRA_LAT1(uint8* data, uint32 size) {
-		// MMC2
-		if (nesCart.mapper == 9) {
+		// MMC2 / MMC4
+		if (nesCart.mapper == 9 || nesCart.mapper == 10) {
 			MMC2_HILATCH = data[0];
 		}
 	}
@@ -743,8 +743,8 @@ struct FCEUX_File {
 				uint8 prgBank = nesCart.programBanks[0] / 4;
 				WriteChunk("LATC", 1, (nameTable << 4) | prgBank);
 			}
-			// MMC2 Mapper
-			else if (nesCart.mapper == 9) {
+			// MMC2 / MMC4 Mapper
+			else if (nesCart.mapper == 9 || nesCart.mapper == 10) {
 				WriteChunk("CREG", 4, uint8(MMC2_CHR_LOW_FD), uint8(MMC2_CHR_LOW_FE), uint8(MMC2_CHR_HIGH_FD), uint8(MMC2_CHR_HIGH_FE));
 				WriteChunk("PREG", 1, uint8(MMC2_PRG_SELECT));
 				WriteChunk("MIRR", 1, uint8(nesPPU.mirror == nes_mirror_type::MT_HORIZONTAL ? 1 : 0));
@@ -917,7 +917,7 @@ bool nes_cart::LoadState() {
 			MMC3_StateLoaded();
 		} else if (mapper == 7) {
 			AOROM_StateLoaded();
-		} else if (mapper == 9) {
+		} else if (mapper == 9 || mapper == 10) {
 			MMC2_StateLoaded();
 		} else if (mapper == 64) {
 			Mapper64_StateLoaded();

@@ -322,6 +322,7 @@ bool nes_cart::setupMapper() {
 			setupMapper7_AOROM();
 			return true;
 		case 9:
+		case 10:
 			setupMapper9_MMC2();
 			return true;
 		case 11:

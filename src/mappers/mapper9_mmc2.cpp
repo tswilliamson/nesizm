@@ -2,7 +2,7 @@
 #include "mappers.h"
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// MMC2 (Punch Out mapper)
+// MMC2 (Punch Out mapper) / MMC4 (Fire Emblem)
 
 inline void MMC2_selectCHRMap() {
 	if (MMC2_LOLATCH) {
@@ -71,7 +71,11 @@ void MMC2_writeSpecial(unsigned int address, unsigned char value) {
 				// PRG ROM select
 				value &= 0xF;
 				MMC2_PRG_SELECT = value;
-				nesCart.MapProgramBanks(0, MMC2_PRG_SELECT, 1);
+				if (nesCart.mapper == 9) {
+					nesCart.MapProgramBanks(0, MMC2_PRG_SELECT, 1);
+				} else if (nesCart.mapper == 10) {
+					nesCart.MapProgramBanks(0, MMC2_PRG_SELECT * 2, 2);
+				}
 			}
 			else if (address < 0xC000) {
 				// low CHR / FD select
@@ -133,8 +137,13 @@ void nes_cart::setupMapper9_MMC2() {
 	MMC2_CHR_HIGH_FE = 0;
 
 	// map memory to read-in ROM
-	MapProgramBanks(0, 0, 1);
-	MapProgramBanks(1, numPRGBanks * 2 - 3, 3);
+	if (mapper == 9) {
+		MapProgramBanks(0, 0, 1);
+		MapProgramBanks(1, numPRGBanks * 2 - 3, 3);
+	} else if (mapper == 10) {
+		MapProgramBanks(0, 0, 2);
+		MapProgramBanks(2, numPRGBanks * 2 - 2, 2);
+	}
 
 	MMC2_selectCHRMap();
 
