@@ -424,7 +424,7 @@ struct FCEUX_File {
 			Mapper11_CHR_SELECT = chr;
 		}
 		// GXROM
-		else if (nesCart.mapper == 66) {
+		else if (nesCart.mapper == 66 || nesCart.mapper == 140) {
 			int prg = (((data[0] & 0x30) >> 4) * 4) & (nesCart.numPRGBanks * 2 - 1);
 			int chr = (data[0] & 3) * 8;
 
@@ -781,7 +781,7 @@ struct FCEUX_File {
 				WriteChunk("IRQL", 1, uint8(Mapper64_IRQ_LATCH));
 			}
 			// GXROM Mapper
-			else if (nesCart.mapper == 66) {
+			else if (nesCart.mapper == 66 || nesCart.mapper == 140) {
 				WriteChunk("LATC", 1, (nesCart.chrBanks[0] / 8) | ((nesCart.programBanks[0] * 4) << 4));
 			}
 			// Sunsoft-5 Mapper

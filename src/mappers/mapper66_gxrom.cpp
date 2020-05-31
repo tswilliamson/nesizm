@@ -1,16 +1,16 @@
 #include "mappers.h"
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// UNROM
+// Mapper 66 GXROM (also Mapper 140)
 
 void GXROM_writeSpecial(unsigned int address, unsigned char value) {
 	if (address >= 0x6000) {
-		if (address < 0x8000) {
+		if (address < 0x8000 && nesCart.mapper != 140) {
 			if (nesCart.numRAMBanks) {
 				// RAM
 				mainCPU.map[address >> 8][address & 0xFF] = value;
 			}
-		} else {
+		} else if (nesCart.mapper == 66 || address < 0x8000) {
 			// bank select
 			int prg = (((value & 0x30) >> 4) * 4) & (nesCart.numPRGBanks * 2 - 1);
 			int chr = (value & 3) * 8;
