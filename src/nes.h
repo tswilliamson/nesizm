@@ -207,6 +207,9 @@ struct nes_cart {
 	void setupMapper69_Sunsoft();
 	void Mapper69_RunCommand(bool bIsForceUpdate);
 
+	void setupMapper79_AVE();
+	void Mapper79_Update();
+
 	void setupMapper163_Nanjing();
 	void Mapper163_Update();
 	static void Mapper163_ScanlineClock();

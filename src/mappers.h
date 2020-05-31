@@ -236,6 +236,11 @@ inline void mapPPU(unsigned int startAddrHigh, unsigned int numKB, unsigned char
 // last clks used for counter value
 #define Mapper69_LASTCOUNTERCLK nesCart.registers[20]
 
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Mapper79 (American Video Entertainment)
+
+#define Mapper79_CONTROL_PRG nesCart.registers[0]
+#define Mapper79_CONTROL_CHAR nesCart.registers[1]
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Nanjing Mapper 163

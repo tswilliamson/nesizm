@@ -333,6 +333,9 @@ bool nes_cart::setupMapper() {
 		case 71:
 			setupMapper71_Camerica();
 			return true;
+		case 79:
+			setupMapper79_AVE();
+			return true;
 		case 163:
 			setupMapper163_Nanjing();
 			return true;

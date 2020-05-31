@@ -179,8 +179,12 @@ struct FCEUX_File {
 				HandleSubsection(ST_EXTRA, IRQA, 1);
 				HandleSubsection(ST_EXTRA, RMOD, 1);
 				HandleSubsection(ST_EXTRA, IRQM, 1);
-				// MMC2
-				HandleSubsection(ST_EXTRA, CREG, 4);
+				// MMC2 / AVE
+				if (nesCart.mapper == 79) {
+					HandleSubsection(ST_EXTRA, CREG, 1);
+				} else {
+					HandleSubsection(ST_EXTRA, CREG, 4);
+				}
 				HandleSubsection(ST_EXTRA, PREG, 1);
 				HandleSubsection(ST_EXTRA, MIRR, 1);
 				HandleSubsection(ST_EXTRA, LAT0, 1);
@@ -537,6 +541,10 @@ struct FCEUX_File {
 			MMC2_CHR_HIGH_FD = data[2];
 			MMC2_CHR_HIGH_FE = data[3];
 		}
+		// AVE
+		else if (nesCart.mapper == 79) {
+			Mapper79_CONTROL_CHAR = data[0];
+		}
 	}
 
 	void Read_ST_EXTRA_PREG(uint8* data, uint32 size) {
@@ -547,6 +555,10 @@ struct FCEUX_File {
 		// Camerica
 		if (nesCart.mapper == 71) {
 			nesCart.MapProgramBanks(0, data[0] * 2, 2);
+		}
+		// AVE
+		else if (nesCart.mapper == 79) {
+			Mapper79_CONTROL_PRG = data[0];
 		}
 	}
 
@@ -769,6 +781,11 @@ struct FCEUX_File {
 				}
 				WriteChunk_Data("REGS", 84, regs);
 			}
+			// AVE Mapper
+			else if (nesCart.mapper == 79) {
+				WriteChunk("PREG", 1, uint8(Mapper79_CONTROL_PRG));
+				WriteChunk("CREG", 1, uint8(Mapper79_CONTROL_CHAR));
+			}
 			// Nanjing Mapper
 			else if (nesCart.mapper == 163) {
 				uint8 regs[8];
@@ -894,6 +911,8 @@ bool nes_cart::LoadState() {
 			Mapper64_StateLoaded();
 		} else if (mapper == 69) {
 			Mapper69_RunCommand(true);
+		} else if (mapper == 79) {
+			Mapper79_Update();
 		}  else if (mapper == 163) {
 			Mapper163_Update();
 		}
