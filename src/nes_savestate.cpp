@@ -160,7 +160,7 @@ struct FCEUX_File {
 				HandleSubsection(ST_EXTRA, DREG, 4);
 				HandleSubsection(ST_EXTRA, BFFR, 1);
 				HandleSubsection(ST_EXTRA, BFRS, 1);
-				// AOROM / UNROM / CNROM
+				// AOROM / UNROM / CNROM / GXROM
 				HandleSubsection(ST_EXTRA, LATC, 1);
 				// MMC3 / RAMBO-1 / SUNSOFT-5
 				if (nesCart.mapper == 64) {
@@ -422,6 +422,14 @@ struct FCEUX_File {
 			Mapper11_PRG_SELECT = prg;
 			nesCart.MapCharacterBanks(0, chr * 8, 8);
 			Mapper11_CHR_SELECT = chr;
+		}
+		// GXROM
+		else if (nesCart.mapper == 66) {
+			int prg = (((data[0] & 0x30) >> 4) * 4) & (nesCart.numPRGBanks * 2 - 1);
+			int chr = (data[0] & 3) * 8;
+
+			nesCart.MapProgramBanks(0, prg, 4);
+			nesCart.MapCharacterBanks(0, chr, 8);
 		}
 	}
 
@@ -771,6 +779,10 @@ struct FCEUX_File {
 				WriteChunk("IRQC", 1, uint8(Mapper64_IRQ_COUNT));
 				WriteChunk("IRQA", 1, uint8(Mapper64_IRQ_ENABLE));
 				WriteChunk("IRQL", 1, uint8(Mapper64_IRQ_LATCH));
+			}
+			// GXROM Mapper
+			else if (nesCart.mapper == 66) {
+				WriteChunk("LATC", 1, (nesCart.chrBanks[0] / 8) | ((nesCart.programBanks[0] * 4) << 4));
 			}
 			// Sunsoft-5 Mapper
 			else if (nesCart.mapper == 69) {

@@ -204,6 +204,8 @@ struct nes_cart {
 	static void Mapper64_ScanlineClock();
 	void Mapper64_StateLoaded();
 
+	void setupMapper66_GXROM();
+
 	void setupMapper69_Sunsoft();
 	void Mapper69_RunCommand(bool bIsForceUpdate);
 

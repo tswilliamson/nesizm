@@ -128,6 +128,9 @@
     <ClCompile Include="..\src\mappers\mapper79_ave.cpp">
       <Filter>Source Files\mappers</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\mappers\mapper66_gxrom.cpp">
+      <Filter>Source Files\mappers</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\main.h">

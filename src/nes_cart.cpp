@@ -330,6 +330,9 @@ bool nes_cart::setupMapper() {
 		case 64:
 			setupMapper64_Rambo1();
 			return true;
+		case 66:
+			setupMapper66_GXROM();
+			return true;
 		case 69:
 			setupMapper69_Sunsoft();
 			return true;
