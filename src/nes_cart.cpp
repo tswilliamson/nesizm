@@ -299,6 +299,9 @@ bool nes_cart::setupMapper() {
 		return false;
 	}
 
+	// by default map 0x6000 - 0x7FFF to open bus to start
+	mapOpenBus(0x60, 8);
+
 	switch (mapper) {
 		case 0:
 			setupMapper0_NROM();

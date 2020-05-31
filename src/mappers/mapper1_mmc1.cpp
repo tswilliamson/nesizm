@@ -159,9 +159,7 @@ void nes_cart::MMC1_SetRAMBank(int value) {
 	if (!value) {
 		mapCPU(0x60, 8, cache[MMC1_RAM_BANK].ptr);
 	} else {
-		for (int i = 0x60; i < 0x80; i++) {
-			mainCPU.map[i] = openBus;
-		}
+		mapOpenBus(0x60, 8);
 	}
 }
 

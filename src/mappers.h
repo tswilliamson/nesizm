@@ -62,6 +62,14 @@ inline void mapCPU(unsigned int startAddrHigh, unsigned int numKB, unsigned char
 	}
 }
 
+inline void mapOpenBus(unsigned int startAddrHigh, unsigned int numKB) {
+	numKB *= 4;
+
+	for (unsigned int i = 0; i < numKB; i++) {
+		mainCPU.map[i + startAddrHigh] = openBus;
+	}
+}
+
 inline void mapPPU(unsigned int startAddrHigh, unsigned int numKB, unsigned char* ptr) {
 	// just copy to CHR ROM
 	DebugAssert(startAddrHigh * 0x100 + numKB * 1024 <= 0x2000);
