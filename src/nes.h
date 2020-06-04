@@ -68,6 +68,7 @@ struct nes_cart {
 	char savFile[128];				// cached .sav file name for writing to .SAV on exit
 
 	int mapper;						// mapper ID used with ROM
+	int subMapper;					// subMapper (iNES 2.0 only, -1 if unused)
 	int numPRGBanks;				// num 16 kb Program ROM banks
 	int numCHRBanks;				// num 8 kb CHR ROM banks (0 means CHR RAM)
 	int numRAMBanks;				// num 8 kb RAM banks

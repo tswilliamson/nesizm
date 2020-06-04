@@ -15,7 +15,7 @@ void Mapper79_writeSpecial(unsigned int address, unsigned char value) {
 }
 
 void nes_cart::Mapper79_Update() {
-	unsigned int prgBank = (Mapper79_CONTROL_PRG * 4) & (numPRGBanks * 2 - 1);
+ 	unsigned int prgBank = (Mapper79_CONTROL_PRG * 4) & (numPRGBanks * 2 - 1);
 	MapProgramBanks(0, prgBank, 4);
 
 	unsigned int chrBank = (Mapper79_CONTROL_CHAR & (numCHRBanks - 1)) * 8;

@@ -70,7 +70,8 @@ bool nes_cart::loadROM(const char* withFile) {
 
 	// ensure there is enough room for header and read it in
 	unsigned char header[16];
-	if (Bfile_GetFileSize_OS(file) < 16 || Bfile_ReadFile_OS(file, header, 16, 0) != 16) {
+	int fileSize = Bfile_GetFileSize_OS(file);
+	if (fileSize < 16 || Bfile_ReadFile_OS(file, header, 16, 0) != 16) {
 		printf("Could not read header in file");
 		Bfile_CloseFile_OS(file);
 		return false;
@@ -88,11 +89,24 @@ bool nes_cart::loadROM(const char* withFile) {
 
 	// byte 4: num PRG ROM banks in 16 KB units
 	numPRGBanks = header[4];
-	expectedSize += numPRGBanks * 16 * 1024;
 
 	// byte 5: num CHR ROM banks in 8 KB units
 	numCHRBanks = header[5];
 	expectedSize += numCHRBanks * 8 * 1024;
+
+	// determine iNES type now that we may need to account for more ROM banks
+	int format = 0; // default to "archaic iNES"
+	if ((header[7] & 0x0C) == 0 && header[12] == 0 && header[13] == 0 && header[14] == 0 && header[15] == 0) {
+		format = 1; // standard iNES
+	} else if ((header[7] & 0x0C) == 0x08) {
+		int proposedPRGBanks = (header[9] << 8) + numPRGBanks;
+		int newMinSize = expectedSize + proposedPRGBanks * 16 * 1024;
+		if (fileSize <= newMinSize) {
+			format = 2; // iNES 2.0!
+			numPRGBanks = proposedPRGBanks;
+		}
+	}
+	expectedSize += numPRGBanks * 16 * 1024;
 
 	printf("%d PRG banks, %d CHR banks", numPRGBanks, numCHRBanks);
 
@@ -114,21 +128,20 @@ bool nes_cart::loadROM(const char* withFile) {
 		return false;
 	}
 
-	uint8 TVSystem = header[10] & 3;
-	isPAL = TVSystem == 2 ? 1 : 0;
+	// TV system on different bytes based on format
+	if (format == 1) {
+		isPAL = header[9] & 1;
+	} else if (format == 2) {
+		isPAL = (header[12] & 3) == 1 ? 1 : 0;
+	} else {
+		isPAL = 0;
+	}
 	if (strstr(withFile, "PAL") || strstr(withFile, "(E)")) { // force PAL hack
  		isPAL = 1;
 	}
 
-	bool isNES2 = (header[7] & 0x0C) == 0x08;
-	if (isNES2) {
-		printf("NES 2.0 ROM (not yet supported).");
-		Bfile_CloseFile_OS(file);
-		return false;
-	}
-
-	// Check for legacy ROM File with 0 filled bytes 12 - 15
-	if (header[12] == 0 && header[13] == 0 && header[14] == 0 && header[15] == 0) {
+	// check for unsupported system types
+	if (format != 0) {
 		// byte 7: play choice, vs unisystem (none are supported)
 		if (header[7] & (1 << 0)) {
 			printf("VS Unisystem ROM (not supported).");
@@ -140,21 +153,41 @@ bool nes_cart::loadROM(const char* withFile) {
 			Bfile_CloseFile_OS(file);
 			return false;
 		}
+	}
 
-		// byte 8: num RAM banks in 8 KB allotments
+	if (format == 1) {
+		// byte 8: num RAM banks in 8 KB allotments, or byte 10 if NES 2.0
 		numRAMBanks = header[8];
-		if (numRAMBanks == 0)
-			numRAMBanks = 1;
-		if (numRAMBanks > 1 && isBatteryBacked) {
-			printf("More than 1 RAM bank (%d) unsupported", numRAMBanks);
-			Bfile_CloseFile_OS(file);
-			return false;
+
+		// mapper 
+		mapper = (header[7] & 0xF0) | (header[6] >> 4);
+		subMapper = -1;
+	}
+
+	if (format == 2) {
+		if (header[10]) {
+			int ramSize = 64 << (header[10]);
+			numRAMBanks = (ramSize + 8191) / 8192;
+		} else {
+			numRAMBanks = 0;
 		}
 
-		mapper = (header[7] & 0xF0) | (header[6] >> 4);
-	} else {
+		mapper = ((header[8] & 0x0F) << 8) | (header[7] & 0xF0) | (header[6] >> 4);
+		subMapper = (header[8] & 0xF0) >> 4;
+	}
+
+	if (format == 0) {
 		numRAMBanks = 1;
 		mapper = (header[6] >> 4);
+		subMapper = -1;
+	}
+
+	if (numRAMBanks == 0)
+		numRAMBanks = 1; // always allocate 1 just in case for bad ROMS
+	if (numRAMBanks > 1 && isBatteryBacked) {
+		printf("More than 1 RAM bank (%d) unsupported", numRAMBanks);
+		Bfile_CloseFile_OS(file);
+		return false;
 	}
 
 	printf("%s, %d RAM banks", isPAL ? "PAL" : "NTSC", numRAMBanks);
