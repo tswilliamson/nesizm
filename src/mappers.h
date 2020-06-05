@@ -189,6 +189,13 @@ inline void mapPPU(unsigned int startAddrHigh, unsigned int numKB, unsigned char
 #define Mapper11_CHR_SELECT nesCart.registers[1]
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// BNROM/NINA-1 Mapper 34
+
+#define Mapper34_PRG_BANK nesCart.registers[0]
+#define Mapper34_CHR1 nesCart.registers[1]
+#define Mapper34_CHR2 nesCart.registers[2]
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Rambo-1 Mapper 64
 
 #define Mapper64_BANK_SELECT nesCart.registers[0]

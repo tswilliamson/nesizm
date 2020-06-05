@@ -198,6 +198,9 @@ struct nes_cart {
 
 	void setupMapper11_ColorDreams();
 
+	void setupMapper34_BNROM();
+	void Mapper34_Sync();
+
 	void setupMapper71_Camerica();
 
 	void setupMapper64_Rambo1();

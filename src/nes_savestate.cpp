@@ -162,11 +162,13 @@ struct FCEUX_File {
 				HandleSubsection(ST_EXTRA, BFRS, 1);
 				// AOROM / UNROM / CNROM / GXROM
 				HandleSubsection(ST_EXTRA, LATC, 1);
-				// MMC3 / RAMBO-1 / SUNSOFT-5
+				// MMC3 / RAMBO-1 / SUNSOFT-5 / BNROM
 				if (nesCart.mapper == 64) {
 					HandleSubsection(ST_EXTRA, REGS, 11);
 				} else if (nesCart.mapper == 69) {
 					HandleSubsection(ST_EXTRA, REGS, 84);
+				} else if (nesCart.mapper == 34) {
+					HandleSubsection(ST_EXTRA, REGS, 3);
 				} else {
 					HandleSubsection(ST_EXTRA, REGS, 8);
 				}
@@ -464,6 +466,12 @@ struct FCEUX_File {
 				nesCart.registers[r] = regs[r];
 			}
 		}
+		// BNROM
+		else if (nesCart.mapper == 34) {
+			Mapper34_PRG_BANK = data[0];
+			Mapper34_CHR1 = data[1];
+			Mapper34_CHR2 = data[2];
+		}
 	}
 
 	void Read_ST_EXTRA_CMD(uint8* data, uint32 size) {
@@ -755,6 +763,10 @@ struct FCEUX_File {
 			else if (nesCart.mapper == 11) {
 				WriteChunk("LATC", 1, uint8(Mapper11_PRG_SELECT / 4) | uint8(Mapper11_CHR_SELECT << 4));
 			}
+			// BNROM / Nina-1
+			else if (nesCart.mapper == 34) {
+				WriteChunk("REGS", 3, uint8(Mapper34_PRG_BANK), uint8(Mapper34_CHR1), uint8(Mapper34_CHR2));
+			}
 			// Camerica Mapper
 			else if (nesCart.mapper == 71) {
 				WriteChunk("PREG", 1, nesCart.programBanks[0] / 2);
@@ -919,15 +931,17 @@ bool nes_cart::LoadState() {
 			AOROM_StateLoaded();
 		} else if (mapper == 9 || mapper == 10) {
 			MMC2_StateLoaded();
+		} else if (mapper == 34) {
+			Mapper34_Sync();
 		} else if (mapper == 64) {
 			Mapper64_StateLoaded();
 		} else if (mapper == 69) {
 			Mapper69_RunCommand(true);
 		} else if (mapper == 79) {
 			Mapper79_Update();
-		}  else if (mapper == 163) {
+		} else if (mapper == 163) {
 			Mapper163_Update();
-		}
+		} 
 	}
 
 	nesCart.FlushCache();	

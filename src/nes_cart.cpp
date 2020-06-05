@@ -332,8 +332,8 @@ bool nes_cart::setupMapper() {
 		return false;
 	}
 
-	// by default map 0x6000 - 0x7FFF to open bus to start
-	mapOpenBus(0x60, 8);
+	// by default map 0x5000 - 0x7FFF to open bus to start
+	mapOpenBus(0x50, 12);
 
 	switch (mapper) {
 		case 0:
@@ -360,6 +360,9 @@ bool nes_cart::setupMapper() {
 			return true;
 		case 11:
 			setupMapper11_ColorDreams();
+			return true;
+		case 34:
+			setupMapper34_BNROM();
 			return true;
 		case 64:
 			setupMapper64_Rambo1();

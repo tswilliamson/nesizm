@@ -843,7 +843,7 @@ SkipLatching:
 	// sanity checks
 	DebugAssert(mainCPU.carryResult == 0 || mainCPU.carryResult == 1);
 #if TRACE_DEBUG
-	if (instr == 0x60) {
+	if (instr == 0x60 && mainCPU.PC > 1) {
 		// RTS special case:
 		effAddr = (mainCPU.readNonIO(mainCPU.PC - 1) << 8) + mainCPU.readNonIO(mainCPU.PC - 2);
 	}

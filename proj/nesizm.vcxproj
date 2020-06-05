@@ -47,6 +47,7 @@
     <ClCompile Include="..\src\mappers\mapper163_nanjing.cpp" />
     <ClCompile Include="..\src\mappers\mapper1_mmc1.cpp" />
     <ClCompile Include="..\src\mappers\mapper2_unrom.cpp" />
+    <ClCompile Include="..\src\mappers\mapper34_bnrom.cpp" />
     <ClCompile Include="..\src\mappers\mapper3_cnrom.cpp" />
     <ClCompile Include="..\src\mappers\mapper4_mmc3.cpp" />
     <ClCompile Include="..\src\mappers\mapper64_rambo.cpp" />
