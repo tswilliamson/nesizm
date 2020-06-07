@@ -70,4 +70,7 @@ struct nes_cpu : public cpu_6502 {
 
 	// reset the CPU (assumes memory mapping is set up properly for this)
 	void reset();
+
+	// synchronizes the various clock counters down to avoid 32 bit wraparound
+	void syncClocks();
 };

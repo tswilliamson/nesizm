@@ -173,6 +173,9 @@ struct nes_cart {
 	// Sets up loaded ROM File with the selected mapper (returns false if unsupported)
 	bool setupMapper();
 
+	// rollback the clock counts in any mapper used registers by the given amt
+	void rollbackClocks(unsigned int clockCount);
+
 	// various mapper setups and functions
 	void setupMapper0_NROM();
 

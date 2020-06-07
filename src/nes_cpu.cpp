@@ -120,3 +120,20 @@ void cpu6502_IRQ(int irqBit) {
 		cpu6502_SoftwareInterrupt(0xFFFE);
 	}
 }
+
+void nes_cpu::syncClocks() {
+	// at a billion cycles, reduve by 500m cycles
+	const unsigned int highThresh =  1000000000;
+	const unsigned int reduction = 500000000;
+	if (clocks > highThresh) {
+		clocks -= reduction;
+		nextClocks -= reduction;
+		ppuClocks -= reduction;
+		apuClocks -= reduction;
+		if (irqClock[0]) irqClock[0] -= reduction;
+		if (irqClock[1]) irqClock[0] -= reduction;
+		if (irqClock[2]) irqClock[0] -= reduction;
+
+		nesCart.rollbackClocks(reduction);
+	}
+}

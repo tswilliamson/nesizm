@@ -694,6 +694,9 @@ void nes_ppu::step() {
 			nesCart.LoadState();
 		}
 
+		// good time to synchronize cpu clock if we are getting too high (to avoid wraparound at 30 min of play)
+		mainCPU.syncClocks();
+
 	} else if (scanline == 243) {
 		// frame is over, don't run until scanline 262, so add 18 scanlines worth (2047 extra clocks!)
 		if (nesCart.isPAL == 0) {

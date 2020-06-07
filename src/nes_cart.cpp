@@ -606,3 +606,16 @@ bool nes_cart::IRQReached() {
 	return true;
 }
 
+void nes_cart::rollbackClocks(unsigned int clockCount) {
+	if (mapper == 4) {
+		MMC3_IRQ_LASTSET -= clockCount;
+	} else if (mapper == 64) {
+		if (Mapper64_IRQ_CLOCKS) {
+			Mapper64_IRQ_CLOCKS -= clockCount;
+		}
+	} else if (mapper == 69) {
+		if (Mapper69_LASTCOUNTERCLK) {
+			Mapper69_LASTCOUNTERCLK -= clockCount;
+		}
+	}
+}
