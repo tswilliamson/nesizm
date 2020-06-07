@@ -38,8 +38,24 @@ struct cpu_6502 {
 	// next time instructions check for interrupts, PPU step, etc
 	unsigned int nextClocks;
 
-	// clocks for next IRQ, 0 if disabled
-	unsigned int irqClocks;
+	// represents a low IRQ latch if any are non 0 and our CPU clocks are past a given counter (for speed), up to 4 supported
+	unsigned int irqMask;
+	unsigned int irqClock[4];
+
+	// set the irq for the given irq number (clocks = 0 to immediately trigger)
+	void setIRQ(int irqNum, unsigned int clocks) {
+		// don't set clocks forward if already acknowledged
+		if ((irqMask & (1 << irqNum)) && clocks > irqClock[irqNum])
+			clocks = irqClock[irqNum];
+
+		irqMask |= (1 << irqNum);
+		irqClock[irqNum] = clocks;
+	}
+
+	// acknowledge the given irq number
+	void ackIRQ(int irqNum) {
+		irqMask &= ~(1 << irqNum);
+	}
 
 	// resolve the cached results to P
 	void resolveToP();
@@ -86,7 +102,7 @@ void cpu6502_Init();
 void cpu6502_Step();
 
 // performs IRQ interrupt
-void cpu6502_IRQ();
+void cpu6502_IRQ(int irqBit);
 
 // runs device interrupt routine at the given vector address (if interrupt disable flag is 0)
 void cpu6502_DeviceInterrupt(unsigned int vectorAddress, bool masked);

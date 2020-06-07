@@ -262,7 +262,7 @@ void nes_cart::MMC3_ScanlineClock() {
 
 			if (MMC3_IRQ_LATCH) {
 				// trigger an IRQ
-				mainCPU.irqClocks = mainCPU.ppuClocks - (341 / 3) + flipCycles;
+				mainCPU.setIRQ(0, mainCPU.ppuClocks - (341 / 3) + flipCycles);
 			}
 		}
 	}

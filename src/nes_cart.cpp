@@ -577,13 +577,13 @@ bool nes_cart::IRQReached() {
 	if (mapper == 64) {
 		if (Mapper64_IRQ_MODE == 1) {
 			// set next IRQ breakpoint
-			Mapper64_IRQ_CLOCKS = mainCPU.irqClocks + Mapper64_IRQ_COUNT + 4;
+			Mapper64_IRQ_CLOCKS = mainCPU.irqClock[0] + Mapper64_IRQ_COUNT + 4;
 			if (Mapper64_IRQ_ENABLE) {
-				mainCPU.irqClocks = Mapper64_IRQ_CLOCKS;
+				mainCPU.setIRQ(0, Mapper64_IRQ_CLOCKS);
 				return true;
 			}
 
-			mainCPU.irqClocks = 0;
+			mainCPU.ackIRQ(0);
 			return false;
 		}
 	}
@@ -593,16 +593,15 @@ bool nes_cart::IRQReached() {
 	}
 
 	if (mapper == 69) {
-		if (mainCPU.irqClocks == Mapper69_IRQ) {
-			if ((Mapper69_IRQCONTROL & 0x1) == 0) {
-				mainCPU.irqClocks = 0;
-				return false;
-			}
+		if ((Mapper69_IRQCONTROL & 0x1) == 0) {
+			mainCPU.ackIRQ(0);
+			return false;
 		}
 	}
 
 	// by default disable IRQ
-	mainCPU.irqClocks = 0;
+	mainCPU.ackIRQ(0);
+
 	return true;
 }
 

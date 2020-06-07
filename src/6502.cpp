@@ -887,13 +887,18 @@ void cpu6502_Step() {
 
 	// stop at next PPU or IRQ
 	mainCPU.nextClocks = mainCPU.ppuClocks;
-	if (mainCPU.irqClocks && mainCPU.irqClocks < mainCPU.ppuClocks) {
-		mainCPU.nextClocks = mainCPU.irqClocks;
+
+	// only consider IRQ if the cpu is enabling interrupts
+	if (mainCPU.irqMask && (mainCPU.P & ST_INT) == 0) {
+		if ((mainCPU.irqMask & 0x01) && mainCPU.irqClock[0] < mainCPU.nextClocks) mainCPU.nextClocks = mainCPU.irqClock[0];
+		if ((mainCPU.irqMask & 0x02) && mainCPU.irqClock[1] < mainCPU.nextClocks) mainCPU.nextClocks = mainCPU.irqClock[1];
+		if ((mainCPU.irqMask & 0x04) && mainCPU.irqClock[2] < mainCPU.nextClocks) mainCPU.nextClocks = mainCPU.irqClock[2];
+		if ((mainCPU.irqMask & 0x08) && mainCPU.irqClock[3] < mainCPU.nextClocks) mainCPU.nextClocks = mainCPU.irqClock[3];
 	}
 	if (mainCPU.apuClocks < mainCPU.nextClocks) {
 		mainCPU.nextClocks = mainCPU.apuClocks;
 	}
-	if (mainCPU.ppuNMI) {
+	if (mainCPU.ppuNMI && mainCPU.nextClocks > mainCPU.clocks + 7) {
 		mainCPU.nextClocks = mainCPU.clocks + 7;
 	}
 

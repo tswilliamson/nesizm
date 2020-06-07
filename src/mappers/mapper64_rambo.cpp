@@ -43,7 +43,7 @@ void nes_cart::Mapper64_StateLoaded() {
 		// set next IRQ breakpoint
 		Mapper64_IRQ_CLOCKS = mainCPU.clocks + Mapper64_IRQ_COUNT * 4;
 		if (Mapper64_IRQ_ENABLE) {
-			mainCPU.irqClocks = Mapper64_IRQ_CLOCKS;
+			mainCPU.setIRQ(0, Mapper64_IRQ_CLOCKS);
 		}
 		nesCart.scanlineClock = nullptr;
 	} else {
@@ -96,7 +96,7 @@ void Mapper64_writeSpecial(unsigned int address, unsigned char value) {
 					// set next IRQ breakpoint
 					Mapper64_IRQ_CLOCKS = mainCPU.clocks + Mapper64_IRQ_COUNT * 4;
 					if (Mapper64_IRQ_ENABLE) {
-						mainCPU.irqClocks = Mapper64_IRQ_CLOCKS;
+						mainCPU.setIRQ(0, Mapper64_IRQ_CLOCKS);
 					}
 					nesCart.scanlineClock = nullptr;
 				} else {
@@ -113,14 +113,14 @@ void Mapper64_writeSpecial(unsigned int address, unsigned char value) {
 				// irq enable
 				Mapper64_IRQ_ENABLE = 1;
 				if (mainCPU.clocks < Mapper64_IRQ_CLOCKS) {
-					mainCPU.irqClocks = Mapper64_IRQ_CLOCKS;
+					mainCPU.setIRQ(0, Mapper64_IRQ_CLOCKS);
 				}
 			} else {
 				// irq disable
 				if (mainCPU.clocks > Mapper64_IRQ_CLOCKS && Mapper64_IRQ_CLOCKS != 0) {
 					Mapper64_IRQ_ENABLE = 1;
-					cpu6502_IRQ();
-					mainCPU.irqClocks = 0;
+					cpu6502_IRQ(0);
+					mainCPU.ackIRQ(0);
 				}
 				Mapper64_IRQ_ENABLE = 0;
 			}
@@ -232,7 +232,7 @@ void nes_cart::Mapper64_ScanlineClock() {
 					uint32 TargetClocks = mainCPU.ppuClocks - (341 / 3) + flipCycles;
 					if (Mapper64_IRQ_ENABLE) {
 						// trigger an IRQ
-						mainCPU.irqClocks = TargetClocks;
+						mainCPU.setIRQ(0, TargetClocks);
 						Mapper64_IRQ_CLOCKS = 0;
 					} else {
 						Mapper64_IRQ_CLOCKS = TargetClocks;

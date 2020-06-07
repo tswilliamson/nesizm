@@ -27,17 +27,17 @@ void nes_cpu::writeSpecial(unsigned int addr, unsigned char value) {
 	} else if (addr < 0x4020) {
 		// APU and IO registers
 		switch (addr - 0x4000) {
-			case 0x14:
-				// perform OAM dma
-				nesPPU.oamDMA(((int) value) << 8);
-				break;
-			case 0x16:
-				input_writeStrobe(value);
-				break;
-			default:
-				// other wise this is an APU register
-				nesAPU.writeReg(addr - 0x4000, value);
-				break;
+		case 0x14:
+			// perform OAM dma
+			nesPPU.oamDMA(((int)value) << 8);
+			break;
+		case 0x16:
+			input_writeStrobe(value);
+			break;
+		default:
+			// other wise this is an APU register
+			nesAPU.writeReg(addr - 0x4000, value);
+			break;
 		}
 	} else if (addr < 0x10000) {
 		nesCart.writeSpecial(addr, value);
@@ -95,14 +95,25 @@ void nes_cpu::reset() {
 
 	// start with apuClocks in one frame
 	apuClocks = 7458;
+	
+	// all irqs high
+	irqMask = 0;
+	irqClock[0] = 0;
+	irqClock[1] = 0;
+	irqClock[2] = 0;
+	irqClock[3] = 0;
 
 	// trigger reset interrupt
 	cpu6502_SoftwareInterrupt(0xFFFC);
 }
 
-void cpu6502_IRQ() {
-	if (nesCart.IRQReached() == false)
+void cpu6502_IRQ(int irqBit) {
+	// 0 is cart IRQ, 1-2 APU IRQ
+	if (irqBit == 0 && nesCart.IRQReached() == false)
 		return;
+	else if ((irqBit == 1 || irqBit == 2) && nesAPU.IRQReached(irqBit) == false) {
+		return;
+	}
 
 	// perform interrupt if they are enabled
 	if ((mainCPU.P & ST_INT) == 0) {

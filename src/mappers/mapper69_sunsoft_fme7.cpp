@@ -84,9 +84,8 @@ void nes_cart::Mapper69_RunCommand(bool bIsForceUpdate) {
 		if (Mapper69_IRQCONTROL == 0x81) {
 			// IRQ is enabled
 			Mapper69_IRQ = countClks;
-			if (mainCPU.irqClocks == 0 || mainCPU.irqClocks > countClks) {
-				mainCPU.irqClocks = countClks;
-			}
+			mainCPU.setIRQ(0, countClks);
+
 		} else {
 			Mapper69_IRQ = 0;
 		}

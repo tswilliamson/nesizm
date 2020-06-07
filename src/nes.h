@@ -167,7 +167,7 @@ struct nes_cart {
 	// unloads ROM if loaded
 	void unload();
 
-	// called for when IRQ clocks are reached for mappers that need to reset counters
+	// called for when IRQ clocks are reached for mappers that need to reset counters. Return false to not cancel IRQ request
 	bool IRQReached();
 
 	// Sets up loaded ROM File with the selected mapper (returns false if unsupported)
@@ -549,14 +549,15 @@ struct nes_apu {
 
 	// frame counter IRQ
 	bool inhibitIRQ;
-	bool irqFlag;
-	bool dmcIRQFlag;
 	
 	void init();
 	void startup();
 
 	// write to APU registers (address is low byte of range $4000-$19)
 	void writeReg(unsigned int address, uint8 value);
+
+	// signal from the CPU that the irq is considered low and has been reached. Return false to bail
+	bool IRQReached(int irqBit);
 
 	// latched the status value (4015)
 	void clearFrameIRQ();

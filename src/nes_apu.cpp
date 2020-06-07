@@ -456,6 +456,7 @@ void nes_apu_dmc::writeReg(unsigned int regNum, uint8 value) {
 			} else {
 				irqEnabled = false;
 				nesAPU.clearDMCIRQ();
+				mainCPU.ackIRQ(2);
 			}
 			loop = helper.loop != 0;
 
@@ -507,9 +508,8 @@ void nes_apu_dmc::step() {
 					curSampleAddress = sampleAddress;
 				}
 				if (irqEnabled) {
-					nesAPU.dmcIRQFlag = true;
 					mainCPU.specialMemory[0x15] |= 0x80;
-					mainCPU.irqClocks = mainCPU.clocks + 1;
+					mainCPU.setIRQ(2, 0); 
 				}
 			}
 
@@ -608,20 +608,20 @@ void nes_apu::writeReg(unsigned int address, uint8 value) {
 }
 
 void nes_apu::clearFrameIRQ() {
-	irqFlag = false;
 	mainCPU.specialMemory[0x15] &= ~0x40;
+	mainCPU.ackIRQ(1);
 }
 
 void nes_apu::clearDMCIRQ() {
-	dmcIRQFlag = false;
 	mainCPU.specialMemory[0x15] &= ~0x80;
+	mainCPU.ackIRQ(2);
+}
+
+bool nes_apu::IRQReached(int irqBit) {
+	return true;
 }
 
 void nes_apu::step() {
-	if ((irqFlag || dmcIRQFlag) && mainCPU.irqClocks == 0) {
-		mainCPU.irqClocks = mainCPU.apuClocks;
-	}
-
 	switch (cycle) {
 		case 0:
 			step_quarter();
@@ -647,9 +647,8 @@ void nes_apu::step() {
 
 				// do an irq?
 				if (inhibitIRQ == false) {
-					irqFlag = true;
 					mainCPU.specialMemory[0x15] |= 0x40;
-					mainCPU.irqClocks = mainCPU.apuClocks;
+					mainCPU.setIRQ(1, mainCPU.apuClocks);
 				}
 
 				mainCPU.apuClocks += 7457;
