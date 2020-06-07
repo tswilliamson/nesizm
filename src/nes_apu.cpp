@@ -24,6 +24,8 @@ static bool bEnabled_dmc = true;
 #define CHECK_ENABLED(mixer) 
 #endif
 
+const unsigned int palFrameCounterClocks = 8313;
+
 // how much of a duty cycle sample from above to move through per sample, divided by 256
 int duty_delta(int t) {
 #if TARGET_PRIZM

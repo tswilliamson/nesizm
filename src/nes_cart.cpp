@@ -136,7 +136,8 @@ bool nes_cart::loadROM(const char* withFile) {
 	} else {
 		isPAL = 0;
 	}
-	if (strstr(withFile, "PAL") || strstr(withFile, "(E)")) { // force PAL hack
+	// force PAL hack as well as basic europe checks
+	if (strstr(withFile, "PAL") || strstr(withFile, "(E)") || strstr(withFile, "(Europe)")) {
  		isPAL = 1;
 	}
 
