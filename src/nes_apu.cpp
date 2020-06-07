@@ -24,7 +24,8 @@ static bool bEnabled_dmc = true;
 #define CHECK_ENABLED(mixer) 
 #endif
 
-const unsigned int palFrameCounterClocks = 8313;
+const unsigned int palFrame = 8313;
+const unsigned int ntscFrame = 7457;
 
 // how much of a duty cycle sample from above to move through per sample, divided by 256
 int duty_delta(int t) {
@@ -604,7 +605,7 @@ void nes_apu::writeReg(unsigned int address, uint8 value) {
 		}
 
 		// reset step counter
-		mainCPU.apuClocks = mainCPU.clocks + 7457;
+		mainCPU.apuClocks = mainCPU.clocks + nesCart.isPAL ? palFrame : ntscFrame;
 		cycle = 0;
 	}
 }
@@ -620,26 +621,33 @@ void nes_apu::clearDMCIRQ() {
 }
 
 bool nes_apu::IRQReached(int irqBit) {
+	// PAL apparently has cycle accurate sync issues (see Cobra Triangle), so don't issue frame IRQ, it appears to work better without it
+	if (irqBit == 1 && nesCart.isPAL) {
+		clearFrameIRQ();
+		return false;
+	}
+
 	return true;
 }
 
 void nes_apu::step() {
+	unsigned int frameBase = nesCart.isPAL ? palFrame : ntscFrame;
 	switch (cycle) {
 		case 0:
 			step_quarter();
 			cycle = 1;
-			mainCPU.apuClocks += 7456;
+			mainCPU.apuClocks += frameBase - 1;
 			break;
 		case 1:
 			step_quarter();
 			step_half();
 			cycle = 2;
-			mainCPU.apuClocks += 7458;
+			mainCPU.apuClocks += frameBase + 1;
 			break;
 		case 2:
 			step_quarter();
 			cycle = 3;
-			mainCPU.apuClocks += 7459;
+			mainCPU.apuClocks += frameBase + 2;
 			break;
 		case 3:
 			if (mode == 0) {
@@ -650,20 +658,20 @@ void nes_apu::step() {
 				// do an irq?
 				if (inhibitIRQ == false) {
 					mainCPU.specialMemory[0x15] |= 0x40;
-					mainCPU.setIRQ(1, mainCPU.apuClocks);
+					mainCPU.setIRQ(1, 0);
 				}
 
-				mainCPU.apuClocks += 7457;
+				mainCPU.apuClocks += frameBase;
 			} else {
 				cycle = 4;
-				mainCPU.apuClocks += 7452;
+				mainCPU.apuClocks += frameBase - 5;
 			}
 			break;
 		case 4:
 			step_quarter();
 			step_half(); 
 			cycle = 0;
-			mainCPU.apuClocks += 7457;
+			mainCPU.apuClocks += frameBase;
 			break;
 	}
 }

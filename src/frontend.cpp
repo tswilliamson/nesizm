@@ -589,13 +589,15 @@ void nes_frontend::RunGameLoop() {
 	while (!shouldExit) {
 		cpu6502_Step();
 		if (mainCPU.clocks >= mainCPU.ppuClocks) nesPPU.step();
+		if (mainCPU.clocks >= mainCPU.apuClocks) nesAPU.step();
+
+		// both APU and PPU can trigger an immediate IRQ
 		if (mainCPU.irqMask) {
 			if ((mainCPU.irqMask & 1) && mainCPU.clocks >= mainCPU.irqClock[0]) cpu6502_IRQ(0);
 			else if ((mainCPU.irqMask & 2) && mainCPU.clocks >= mainCPU.irqClock[1]) cpu6502_IRQ(1);
 			else if ((mainCPU.irqMask & 4) && mainCPU.clocks >= mainCPU.irqClock[2]) cpu6502_IRQ(2);
 			else if ((mainCPU.irqMask & 8) && mainCPU.clocks >= mainCPU.irqClock[3]) cpu6502_IRQ(3);
 		}
-		if (mainCPU.clocks >= mainCPU.apuClocks) nesAPU.step();
 	}
 
 	nesCart.OnPause();
