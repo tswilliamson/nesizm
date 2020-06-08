@@ -372,6 +372,9 @@ bool nes_cart::setupMapper() {
 		case 140:
 			setupMapper66_GXROM();
 			return true;
+		case 67:
+			setupMapper67_Sunsoft3();
+			return true;
 		case 69:
 			setupMapper69_Sunsoft();
 			return true;
@@ -593,6 +596,12 @@ bool nes_cart::IRQReached() {
 		MMC3_IRQ_LATCH = 0;
 	}
 
+	if (mapper == 67) {
+		Mapper67_IRQ_Counter = 0xFFFF;
+		Mapper67_IRQ_Enable = 0;
+		return true;
+	}
+
 	if (mapper == 69) {
 		if ((Mapper69_IRQCONTROL & 0x1) == 0) {
 			mainCPU.ackIRQ(0);
@@ -613,6 +622,8 @@ void nes_cart::rollbackClocks(unsigned int clockCount) {
 		if (Mapper64_IRQ_CLOCKS) {
 			Mapper64_IRQ_CLOCKS -= clockCount;
 		}
+	} else if (mapper == 67) {
+		Mapper67_IRQ_LastSet -= clockCount;
 	} else if (mapper == 69) {
 		if (Mapper69_LASTCOUNTERCLK) {
 			Mapper69_LASTCOUNTERCLK -= clockCount;

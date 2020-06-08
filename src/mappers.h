@@ -218,7 +218,22 @@ inline void mapPPU(unsigned int startAddrHigh, unsigned int numKB, unsigned char
 #define Mapper64_IRQ_CLOCKS nesCart.registers[16]
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Sunsoft Mapper 69
+// Sunsoft 3 Mapper 67
+
+#define Mapper67_CHR0 nesCart.registers[0]
+#define Mapper67_CHR1 nesCart.registers[1]
+#define Mapper67_CHR2 nesCart.registers[2]
+#define Mapper67_CHR3 nesCart.registers[3]
+
+#define Mapper67_IRQ_WriteToggle nesCart.registers[4]
+#define Mapper67_IRQ_LastSet nesCart.registers[5]
+#define Mapper67_IRQ_Counter nesCart.registers[6]
+#define Mapper67_IRQ_Enable nesCart.registers[7]
+
+#define Mapper67_PRG nesCart.registers[8]
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Sunsoft 5 Mapper 69
 
 #define Mapper69_CHAR0 nesCart.registers[0]
 #define Mapper69_CHAR1 nesCart.registers[1]

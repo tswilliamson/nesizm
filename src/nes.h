@@ -211,6 +211,10 @@ struct nes_cart {
 	static void Mapper64_ScanlineClock();
 	void Mapper64_StateLoaded();
 
+	void setupMapper67_Sunsoft3();
+	void Mapper67_Update();
+	void Mapper67_StateLoaded();
+
 	void setupMapper66_GXROM();
 
 	void setupMapper69_Sunsoft();
