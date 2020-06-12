@@ -375,6 +375,9 @@ bool nes_cart::setupMapper() {
 		case 67:
 			setupMapper67_Sunsoft3();
 			return true;
+		case 68:
+			setupMapper68_Sunsoft4();
+			return true;
 		case 69:
 			setupMapper69_Sunsoft();
 			return true;
@@ -533,6 +536,16 @@ unsigned char* nes_cart::cacheCHRBank(int16* indices) {
 		BlockRead(bank.ptr + 1024 * i, 1024, 16 + 16384 * numPRGBanks + 1024 * indices[i]);
 	}
 	return bank.ptr;
+}
+
+// caches a single 8 KB CHR bank based on the 8 KB index, returns result bank memory pointer
+unsigned char* nes_cart::cacheSingleCHRBank(int16 index) {
+	int16 indices[8] = {
+		index * 8 + 0, index * 8 + 1, index * 8 + 2, index * 8 + 3,
+		index * 8 + 4, index * 8 + 5, index * 8 + 6, index * 8 + 7
+	};
+
+	return cacheCHRBank(indices);
 }
 
 void nes_cart::MapProgramBanks(int32 toBank, int32 cartBank, int32 numBanks) {

@@ -155,8 +155,11 @@ struct nes_cart {
 	// caches an 8 KB PRG bank (so index up to 2 * numPRGBanks), returns result bank memory pointer
 	unsigned char* cachePRGBank(int index);
 
-	// caches a 4 KB CHR bank, returns result bank memory pointer
+	// caches a 8 KB CHR bank based on the given 1 KB indices, returns result bank memory pointer
 	unsigned char* cacheCHRBank(int16* indices);
+
+	// caches a single 8 KB CHR bank based on the 8 KB index, returns result bank memory pointer
+	unsigned char* cacheSingleCHRBank(int16 index);
 
 	// sets up bank pointers with the given allocated data
 	void allocateBanks(unsigned char* staticAlloced);
@@ -214,6 +217,10 @@ struct nes_cart {
 	void setupMapper67_Sunsoft3();
 	void Mapper67_Update();
 	void Mapper67_StateLoaded();
+
+	void setupMapper68_Sunsoft4();
+	void Mapper68_Update(bool bMapNametables);
+	void Mapper68_StateLoaded();
 
 	void setupMapper66_GXROM();
 

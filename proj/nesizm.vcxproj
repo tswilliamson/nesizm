@@ -53,6 +53,7 @@
     <ClCompile Include="..\src\mappers\mapper64_rambo.cpp" />
     <ClCompile Include="..\src\mappers\mapper66_gxrom.cpp" />
     <ClCompile Include="..\src\mappers\mapper67_sunsoft3.cpp" />
+    <ClCompile Include="..\src\mappers\mapper68_sunsoft4.cpp" />
     <ClCompile Include="..\src\mappers\mapper69_sunsoft_fme7.cpp" />
     <ClCompile Include="..\src\mappers\mapper71_camerica.cpp" />
     <ClCompile Include="..\src\mappers\mapper79_ave.cpp" />

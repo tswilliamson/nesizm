@@ -233,6 +233,20 @@ inline void mapPPU(unsigned int startAddrHigh, unsigned int numKB, unsigned char
 #define Mapper67_PRG nesCart.registers[8]
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Sunsoft 4 Mapper 68
+
+#define Mapper68_CHR0 nesCart.registers[0]
+#define Mapper68_CHR1 nesCart.registers[1]
+#define Mapper68_CHR2 nesCart.registers[2]
+#define Mapper68_CHR3 nesCart.registers[3]
+
+#define Mapper68_NT0 nesCart.registers[4]
+#define Mapper68_NT1 nesCart.registers[5]
+#define Mapper68_NTM nesCart.registers[6]
+
+#define Mapper68_PRG nesCart.registers[8]
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Sunsoft 5 Mapper 69
 
 #define Mapper69_CHAR0 nesCart.registers[0]
