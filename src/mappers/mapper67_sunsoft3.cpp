@@ -33,7 +33,7 @@ void Mapper67_writeSpecial(unsigned int address, unsigned char value) {
 		if (address < 0x8000) {
 			if (nesCart.numRAMBanks) {
 				// RAM
-				mainCPU.map[address >> 8][address & 0xFF] = value;
+				mainCPU.writeDirect(address, value);
 			}
 		} else {
 			if ((address & 0x8800) == 0x8000) {
@@ -122,6 +122,6 @@ void nes_cart::setupMapper67_Sunsoft3() {
 
 	// RAM bank if one is set up
 	if (numRAMBanks == 1) {
-		mapCPU(0x60, 8, cache[availableROMBanks].ptr);
+		mainCPU.setMapKB(0x60, 8, cache[availableROMBanks].ptr);
 	}
 }

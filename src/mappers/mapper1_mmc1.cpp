@@ -9,7 +9,7 @@ void MMC1_writeSpecial(unsigned int address, unsigned char value) {
 			// if enabled and available
 			if (nesCart.numRAMBanks && MMC1_RAM_DISABLE == 0) {
 				// RAM
-				mainCPU.map[address >> 8][address & 0xFF] = value;
+				mainCPU.writeDirect(address, value);
 			} 
 		} else {
 			if (value & 0x80) {
@@ -157,9 +157,9 @@ void nes_cart::MMC1_SetRAMBank(int value) {
 	MMC1_RAM_DISABLE = value;
 
 	if (!value) {
-		mapCPU(0x60, 8, cache[MMC1_RAM_BANK].ptr);
+		mainCPU.setMapKB(0x60, 8, cache[MMC1_RAM_BANK].ptr);
 	} else {
-		mapOpenBus(0x60, 8);
+		mainCPU.setMapOpenBusKB(0x60, 8);
 	}
 }
 

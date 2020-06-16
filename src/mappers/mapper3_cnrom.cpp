@@ -31,6 +31,6 @@ void nes_cart::setupMapper3_CNROM() {
 
 	// RAM bank if one is set up
 	if (numRAMBanks == 1) {
-		mapCPU(0x60, 8, cache[availableROMBanks].ptr);
+		mainCPU.setMapKB(0x60, 8, cache[availableROMBanks].ptr);
 	}
 }

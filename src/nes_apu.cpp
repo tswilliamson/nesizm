@@ -787,7 +787,7 @@ void nes_apu::mix(int* intoBuffer, int length) {
 				if (bHighQuality) {
 					int dampenFactor = 256 - dmc.output * 160 / 256;
 					for (int i = 0; i < toMixSamples; i++) {
-						*bufferWrite = *bufferWrite * dampenFactor / 256 + dmcVolume;
+						*bufferWrite += *bufferWrite * dampenFactor / 256 + dmcVolume;
 						// if DMC is being applied, then it's possible the total volume will clip, so keep it from wrapping
 						if (*bufferWrite > 16383) *bufferWrite = 16383;
 						++bufferWrite;
@@ -842,7 +842,7 @@ void nes_apu::mix(int* intoBuffer, int length) {
 
 
 	if (bHighQuality) {
-		// remove anu sudden spikes/dips
+		// remove any sudden spikes/dips
 		int32 maxSpike = 8192;
 		for (int32 i = 1; i < length - 1; i++) {
 			if (intoBuffer[i] - intoBuffer[i - 1] > maxSpike &&

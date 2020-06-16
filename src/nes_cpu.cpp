@@ -47,17 +47,17 @@ void nes_cpu::writeSpecial(unsigned int addr, unsigned char value) {
 }
 
 void nes_cpu::mapDefaults() {
-	memset(map, 0, sizeof(map));
+	memset(_map, 0, sizeof(_map));
 
 	// 0x0000 - 0x2000 is RAM and its mirrors
 	for (int m = 0x00; m < 0x20; m++) {
-		map[m] = &RAM[(m & 0x7) * 0x100];
-		map[m + 0x20] = nesPPU.memoryMap;
-		map[m + 0x40] = specialMemory;
+		setMap(m + 0x00, 1, &RAM[(m & 0x7) * 0x100]);
+		setMap(m + 0x20, 1, nesPPU.memoryMap);
+		setMap(m + 0x40, 1, specialMemory);
 	}
 
 	// wrap around
-	map[0x100] = map[0];
+	_map[0x100] = _map[0];
 
 	// remainder is by default unmapped (up to each mapper)
 }

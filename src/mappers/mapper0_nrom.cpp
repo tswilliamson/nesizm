@@ -8,7 +8,7 @@ void NROM_writeSpecial(unsigned int address, unsigned char value) {
 	if (address >= 0x6000) {
 		if (address < 0x8000 && nesCart.numRAMBanks) {
 			// RAM
-			mainCPU.map[address >> 8][address & 0xFF] = value;
+			mainCPU.writeDirect(address, value);
 		} else {
 			// does nothing!
 		}
@@ -35,6 +35,6 @@ void nes_cart::setupMapper0_NROM() {
 
 	// RAM bank if one is set up
 	if (numRAMBanks == 1) {
-		mapCPU(0x60, 8, cache[availableROMBanks].ptr);
+		mainCPU.setMapKB(0x60, 8, cache[availableROMBanks].ptr);
 	}
 }

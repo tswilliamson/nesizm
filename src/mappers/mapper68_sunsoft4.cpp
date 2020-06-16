@@ -33,7 +33,7 @@ void Mapper68_writeSpecial(unsigned int address, unsigned char value) {
 		if (address < 0x8000) {
 			if ((Mapper68_PRG & 0x10) && nesCart.numRAMBanks) {
 				// RAM
-				mainCPU.map[address >> 8][address & 0xFF] = value;
+				mainCPU.writeDirect(address, value);
 			}
 		} else {
 			address = address & 0xF000;
@@ -89,9 +89,9 @@ void Mapper68_writeSpecial(unsigned int address, unsigned char value) {
 				if ((oldValue & 0x10) != (value & 0x10)) {
 					// changed WRAM mode
 					if ((value & 0x10) && nesCart.numRAMBanks) {
-						mapCPU(0x60, 8, nesCart.cache[nesCart.availableROMBanks].ptr);
+						mainCPU.setMapKB(0x60, 8, nesCart.cache[nesCart.availableROMBanks].ptr);
 					} else {
-						mapOpenBus(0x60, 8);
+						mainCPU.setMapOpenBusKB(0x60, 8);
 					}
 				}
 			}
@@ -119,6 +119,6 @@ void nes_cart::setupMapper68_Sunsoft4() {
 
 	// RAM bank if one is set up
 	if (numRAMBanks == 1) {
-		mapCPU(0x60, 8, cache[availableROMBanks].ptr);
+		mainCPU.setMapKB(0x60, 8, cache[availableROMBanks].ptr);
 	}
 }

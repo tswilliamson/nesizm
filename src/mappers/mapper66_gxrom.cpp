@@ -8,7 +8,7 @@ void GXROM_writeSpecial(unsigned int address, unsigned char value) {
 		if (address < 0x8000 && nesCart.mapper != 140) {
 			if (nesCart.numRAMBanks) {
 				// RAM
-				mainCPU.map[address >> 8][address & 0xFF] = value;
+				mainCPU.writeDirect(address, value);
 			}
 		} else if (nesCart.mapper == 66 || address < 0x8000) {
 			// bank select
@@ -41,6 +41,6 @@ void nes_cart::setupMapper66_GXROM() {
 
 	// RAM bank if one is set up
 	if (numRAMBanks == 1) {
-		mapCPU(0x60, 8, cache[availableROMBanks].ptr);
+		mainCPU.setMapKB(0x60, 8, cache[availableROMBanks].ptr);
 	}
 }

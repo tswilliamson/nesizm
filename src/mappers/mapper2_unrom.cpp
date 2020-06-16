@@ -8,7 +8,7 @@ void UNROM_writeSpecial(unsigned int address, unsigned char value) {
 		if (address < 0x8000) {
 			if (nesCart.numRAMBanks) {
 				// RAM
-				mainCPU.map[address >> 8][address & 0xFF] = value;
+				mainCPU.writeDirect(address, value);
 			}
 		} else {
 			// bank select
@@ -39,6 +39,6 @@ void nes_cart::setupMapper2_UNROM() {
 
 	// RAM bank if one is set up
 	if (numRAMBanks == 1) {
-		mapCPU(0x60, 8, cache[chrBank + 1].ptr);
+		mainCPU.setMapKB(0x60, 8, cache[chrBank + 1].ptr);
 	}
 }

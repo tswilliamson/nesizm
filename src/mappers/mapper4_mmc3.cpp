@@ -9,7 +9,7 @@ void MMC3_writeSpecial(unsigned int address, unsigned char value) {
 		if (address < 0x8000) {
 			if (nesCart.numRAMBanks) {
 				// RAM
-				mainCPU.map[address >> 8][address & 0xFF] = value;
+				mainCPU.writeDirect(address, value);
 			} else {
 				// open bus
 			}
@@ -282,7 +282,7 @@ void nes_cart::setupMapper4_MMC3() {
 
 	// RAM bank if one is set up
 	if (numRAMBanks == 1) {
-		mapCPU(0x60, 8, cache[availableROMBanks].ptr);
+		mainCPU.setMapKB(0x60, 8, cache[availableROMBanks].ptr);
 	}
 
 	// this will set up all non permanent memory

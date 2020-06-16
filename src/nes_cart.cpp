@@ -334,7 +334,7 @@ bool nes_cart::setupMapper() {
 	}
 
 	// by default map 0x5000 - 0x7FFF to open bus to start
-	mapOpenBus(0x50, 12);
+	mainCPU.setMapOpenBusKB(0x50, 12);
 
 	switch (mapper) {
 		case 0:
@@ -557,7 +557,7 @@ void nes_cart::MapProgramBanks(int32 toBank, int32 cartBank, int32 numBanks) {
 		const int32 destBank = i + toBank;
 		if (programBanks[destBank] != cartBank + i) {
 			programBanks[destBank] = cartBank + i;
-			mapCPU(addrTarget[destBank], 8, cachePRGBank(cartBank + i));
+			mainCPU.setMapKB(addrTarget[destBank], 8, cachePRGBank(cartBank + i));
 		}
 	}
 }

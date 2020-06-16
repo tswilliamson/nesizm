@@ -10,7 +10,7 @@ void Mapper163_writeSpecial(unsigned int address, unsigned char value) {
 	if (address >= 0x6000) {
 		if (address < 0x8000 && nesCart.numRAMBanks) {
 			// RAM
-			mainCPU.map[address >> 8][address & 0xFF] = value;
+			mainCPU.writeDirect(address, value);
 		} else {
 			// does nothing!
 		}
@@ -106,12 +106,12 @@ void nes_cart::setupMapper163_Nanjing() {
 
 	// RAM bank if one is set up
 	if (numRAMBanks == 1) {
-		mapCPU(0x60, 8, cache[ramPage].ptr);
+		mainCPU.setMapKB(0x60, 8, cache[ramPage].ptr);
 	}
 
 	// map repeat 2 KB to 0x5000 - 0x6000 
-	mapCPU(0x50, 2, cache[protectPage].ptr);
-	mapCPU(0x58, 2, cache[protectPage].ptr);
+	mainCPU.setMapKB(0x50, 2, cache[protectPage].ptr);
+	mainCPU.setMapKB(0x58, 2, cache[protectPage].ptr);
 
 	// fill protect page with 4, apparently
 	for (int32 i = 0; i < 2048; i++) {

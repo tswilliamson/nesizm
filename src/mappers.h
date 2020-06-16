@@ -6,8 +6,6 @@
 #include "debug.h"
 #include "nes.h"
 
-extern unsigned char openBus[256];
-
 FORCE_INLINE void memcpy_fast32(void* dest, const void* src, unsigned int size) {
 #if TARGET_WINSIM
 	DebugAssert((((uint32)dest) & 3) == 0);
@@ -53,23 +51,6 @@ FORCE_INLINE void memcpy_fast32(void* dest, const void* src, unsigned int size) 
 }
 
 // inline mapping helpers
-inline void mapCPU(unsigned int startAddrHigh, unsigned int numKB, unsigned char* ptr) {
-	// 256 byte increments
-	numKB *= 4;
-
-	for (unsigned int i = 0; i < numKB; i++) {
-		mainCPU.map[i + startAddrHigh] = &ptr[i * 0x100];
-	}
-}
-
-inline void mapOpenBus(unsigned int startAddrHigh, unsigned int numKB) {
-	numKB *= 4;
-
-	for (unsigned int i = 0; i < numKB; i++) {
-		mainCPU.map[i + startAddrHigh] = openBus;
-	}
-}
-
 inline void mapPPU(unsigned int startAddrHigh, unsigned int numKB, unsigned char* ptr) {
 	// just copy to CHR ROM
 	DebugAssert(startAddrHigh * 0x100 + numKB * 1024 <= 0x2000);

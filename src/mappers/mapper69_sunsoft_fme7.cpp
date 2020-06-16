@@ -34,7 +34,7 @@ void nes_cart::Mapper69_RunCommand(bool bIsForceUpdate) {
 				isLowPRGROM = 0;
 				// map RAM to 0x6000 if setup
 				if (numRAMBanks == 1) {
-					mapCPU(0x60, 8, cache[availableROMBanks].ptr);
+					mainCPU.setMapKB(0x60, 8, cache[availableROMBanks].ptr);
 				}
 			} else {
 				// map program bank to 0x6000
@@ -122,7 +122,7 @@ void Mapper69_writeSpecial(unsigned int address, unsigned char value) {
 			if ((Mapper69_PRG0 & 0xC0) == 0xC0) {
 				if (nesCart.numRAMBanks) {
 					// RAM
-					mainCPU.map[address >> 8][address & 0xFF] = value;
+					mainCPU.writeDirect(address, value);
 				}
 			}
 		} else if (address < 0xA000) {
