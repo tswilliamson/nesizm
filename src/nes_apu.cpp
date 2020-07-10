@@ -605,7 +605,7 @@ void nes_apu::writeReg(unsigned int address, uint8 value) {
 		}
 
 		// reset step counter
-		mainCPU.apuClocks = mainCPU.clocks + nesCart.isPAL ? palFrame : ntscFrame;
+		mainCPU.apuClocks = mainCPU.clocks + (nesCart.isPAL ? palFrame : ntscFrame);
 		cycle = 0;
 	}
 }
