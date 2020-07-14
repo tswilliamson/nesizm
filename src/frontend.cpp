@@ -95,13 +95,13 @@ static void FindFiles(const char* path, foundFile* toArray, int& numFound, int m
 }
 
 foundFile* discoverFiles(int& numFound) {
-	static foundFile files[32];
+	static foundFile files[64];
 	static int lastFound = 0;
 
 	// only search once 
 	if (!lastFound) {
 		numFound = 0;
-		FindFiles("\\\\fls0\\*.nes", files, numFound, 32);
+		FindFiles("\\\\fls0\\*.nes", files, numFound, 64);
 		lastFound = numFound;
 	}
 
@@ -408,31 +408,30 @@ void nes_frontend::RenderMenuBackground(bool bForceRedraw) {
 	Bdisp_Fill_VRAM(0, 3);
 	DrawFrame(0);
 
-	extern PrizmImage gfx_logo;
-	extern PrizmImage gfx_bg_warp;
-	extern PrizmImage gfx_nes;
-
-	PrizmImage* logo = &gfx_logo;
-	PrizmImage* bg = &gfx_bg_warp;
-	PrizmImage* nes = &gfx_nes;
-
 #if TARGET_WINSIM
 	if (bRebuildGfx) {
-		logo = PrizmImage::LoadImage("\\\\dev0\\gfx\\logo.bmp");
-		bg = PrizmImage::LoadImage("\\\\dev0\\gfx\\rays.bmp");
-		nes = PrizmImage::LoadImage("\\\\dev0\\gfx\\nes.bmp");
+		PrizmImage* logo = PrizmImage::LoadImage("\\\\dev0\\gfx\\logo.bmp");
+		PrizmImage* bg0 = PrizmImage::LoadImage("\\\\dev0\\gfx\\rays.bmp");
+		PrizmImage* bg1 = PrizmImage::LoadImage("\\\\dev0\\gfx\\oldtv.bmp");
+		PrizmImage* nes = PrizmImage::LoadImage("\\\\dev0\\gfx\\nes.bmp");
 		logo->Compress();
-		bg->Compress();
+		bg0->Compress();
+		bg1->Compress();
 		nes->Compress();
 		logo->ExportZX7("gfx_logo", "src\\gfx\\logo.cpp");
-		bg->ExportZX7("gfx_bg_warp", "src\\gfx\\bg_warp.cpp");
+		bg0->ExportZX7("gfx_bg_warp", "src\\gfx\\bg_warp.cpp");
+		bg1->ExportZX7("gfx_bg_oldtv", "src\\gfx\\bg_oldtv.cpp");
 		nes->ExportZX7("gfx_nes", "src\\gfx\\nes_gfx.cpp");
 	}
 #endif
 
-	logo->Draw_Blit(5, 5);
-	bg->Draw_Blit(0, 71);
-	nes->Draw_OverlayMasked(195, 38, 192);
+	extern PrizmImage gfx_logo;
+	extern PrizmImage gfx_bg_warp;
+	extern PrizmImage gfx_nes;
+
+	gfx_logo.Draw_Blit(5, 5);
+	gfx_bg_warp.Draw_Blit(0, 71);
+	gfx_nes.Draw_OverlayMasked(195, 38, 192);
 
 	CalcType_Draw(&arial_small, "v0.95", 352, 203, COLOR_DARKGRAY, 0, 0);
 
@@ -444,9 +443,22 @@ void nes_frontend::RenderGameBackground() {
 	// note: this function cannot effect file system! Game should be considered active!
 	Bdisp_Fill_VRAM(0, 3);
 	DrawFrame(0);
+	nesPPU.scanlineOffset = 0;
+	nesPPU.currentBGColor = 0;
 
-	extern PrizmImage gfx_bg_warp;
-	gfx_bg_warp.Draw_Blit(0, 71);
+	if (nesSettings.GetSetting(ST_Background) == 0) {
+		extern PrizmImage gfx_bg_warp;
+		gfx_bg_warp.Draw_Blit(0, 71);
+	} else if (nesSettings.GetSetting(ST_Background) == 1) {
+		extern PrizmImage gfx_bg_oldtv;
+		gfx_bg_oldtv.Draw_Blit(0, 0);
+		if (nesSettings.GetSetting(ST_StretchScreen) == 0) {
+			nesPPU.scanlineOffset = -44;
+		} else if (nesSettings.GetSetting(ST_StretchScreen) == 1) {
+			nesPPU.scanlineOffset = -42;
+		}
+	}
+
 	Bdisp_PutDisp_DD();
 }
 

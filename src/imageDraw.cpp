@@ -573,7 +573,7 @@ void PrizmImage::ExportZX7(const char* imageName, const char* targetSrcFile) con
 
 		{
 			char dataDeclaration[256];
-			sprintf(dataDeclaration, "static uint8 %s_data[]={\n", imageName);
+			sprintf(dataDeclaration, "static const uint8 %s_data[]={\n", imageName);
 			Bfile_WriteFile_OS(file, dataDeclaration, strlen(dataDeclaration));
 		}
 
@@ -602,7 +602,7 @@ void PrizmImage::ExportZX7(const char* imageName, const char* targetSrcFile) con
 				"\t%d,\n" // width
 				"\t%d,\n" // height
 				"\t%d,\n" // isCompressed
-				"\t%s_data\n" // data
+				"\t(uint8*) %s_data\n" // data
 				"};\n"
 				, imageName, width, height, isCompressed, imageName);
 			Bfile_WriteFile_OS(file, imageDefinition, strlen(imageDefinition));

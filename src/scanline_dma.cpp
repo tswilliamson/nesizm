@@ -58,7 +58,7 @@ void DmaDrawStrip(void* srcAddress, unsigned int size) {
 	*DMA0_DMAOR = 0;
 
 	*((volatile unsigned*)MSTPCR0) &= ~(1 << 21);//Clear bit 21
-	*DMA0_SAR_0 = ((unsigned int)srcAddress);           //Source address is VRAM
+	*DMA0_SAR_0 = ((unsigned int)srcAddress);           //Source address is IL memory (avoids bus conflicts)
 	*DMA0_DAR_0 = LCD_BASE & 0x1FFFFFFF;				//Destination is LCD
 	*DMA0_TCR_0 = size / 32;							//Transfer count bytes/32
 	*DMA0_CHCR_0 = 0x00101400;
@@ -94,6 +94,37 @@ void FillBlackBorder() {
 	flushScanBuffer(390, 395, 0, 224, 6 * 224 * 2);
 
 	DmaWaitNext();
+}
+
+
+void nes_ppu::renderBGOverscan() {
+	DmaWaitNext();
+
+	// fill scan groups with BG color
+	unsigned short* grp0 = scanGroup[0], * grp1 = scanGroup[1];
+	for (int i = 0; i < 4096; i++) {
+		*(grp0++) = currentBGColor;
+	}
+	for (int i = 0; i < 4096; i++) {
+		*(grp1++) = currentBGColor;
+	}
+
+	if (nesSettings.GetSetting(ST_StretchScreen) == 1) {
+		for (int y = 0; y < 4; y++) {
+			flushScanBuffer(0, 47, 56*y, 56*(y+1), 48 * 56 * 2);
+			flushScanBuffer(348, 395, 56 * y, 56 * (y + 1), 48 * 56 * 2);
+		}
+	} else if (nesSettings.GetSetting(ST_StretchScreen) == 2) {
+		for (int y = 0; y < 2; y++) {
+			flushScanBuffer(0, 17, 112 * y, 112 * (y+1), 18 * 112 * 2);
+			flushScanBuffer(378, 395, 112 * y, 112 * (y + 1), 18 * 112 * 2);
+		}
+	} else {
+		for (int y = 0; y < 7; y++) {
+			flushScanBuffer(0, 77, 32 * y, 32 * (y + 1), 78 * 32 * 2);
+			flushScanBuffer(318, 395, 32 * y, 32 * (y + 1), 78 * 32 * 2);
+		}
+	}
 }
 
 
@@ -152,45 +183,45 @@ void nes_ppu::resolveScanline(int scrollOffset) {
 
 	if (nesSettings.GetSetting(ST_StretchScreen) == 1) {
 		const unsigned int bufferLines = 12;	// 600 bytes * 12 lines = 7200
-		const unsigned int scanBufferSize = bufferLines * 300 * 2;
 
 		// resolve le line
-		unsigned char* scanlineSrc = &nesPPU.scanlineBuffer[8 + scrollOffset];	// with clipping
+		unsigned char* scanlineSrc = &scanlineBuffer[8 + scrollOffset];	// with clipping
 		unsigned int* scanlineDest = (unsigned int*)(scanGroup[curDMABuffer] + 300 * curScan);
-		interlaced43Funcs[(dmaFrame + nesPPU.scanline) & 1](scanlineSrc, scanlineDest);
+		interlaced43Funcs[(dmaFrame + scanline) & 1](scanlineSrc, scanlineDest);
 
 		curScan++;
-		if (curScan == bufferLines) {
+		if (curScan == bufferLines || scanline == 232) {
 			// send DMA
-			flushScanBuffer(48, 347, nesPPU.scanline - 9 - bufferLines + 1, nesPPU.scanline - 9, scanBufferSize);
+			const unsigned int scanBufferSize = curScan * 300 * 2;
+			flushScanBuffer(48 + scanlineOffset, 347 + scanlineOffset, scanline - 9 - curScan + 1, scanline - 9, scanBufferSize);
 		}
 	} else if (nesSettings.GetSetting(ST_StretchScreen) == 2) {
 		const unsigned int bufferLines = 8;	// 720 bytes * 8 lines = 5760
 		const unsigned int scanBufferSize = bufferLines * 360 * 2;
 
 		// resolve le line
-		unsigned char* scanlineSrc = &nesPPU.scanlineBuffer[8 + scrollOffset];	// with clipping
+		unsigned char* scanlineSrc = &scanlineBuffer[8 + scrollOffset];	// with clipping
 		unsigned int* scanlineDest = (unsigned int*)(scanGroup[curDMABuffer] + 360 * curScan);
-		interlacedWideFuncs[(dmaFrame + nesPPU.scanline) & 1](scanlineSrc, scanlineDest);
+		interlacedWideFuncs[(dmaFrame + scanline) & 1](scanlineSrc, scanlineDest);
 
 		curScan++;
 		if (curScan == bufferLines) {
 			// send DMA
-			flushScanBuffer(18, 377, nesPPU.scanline - 9 - bufferLines + 1, nesPPU.scanline - 9, scanBufferSize);
+			flushScanBuffer(18 + scanlineOffset, 377 + scanlineOffset, scanline - 9 - bufferLines + 1, scanline - 9, scanBufferSize);
 		}
 	} else {
 		const unsigned int bufferLines = 14;	// 480 bytes * 14 lines = 6720
 		const unsigned int scanBufferSize = bufferLines * 240 * 2;
 
 		// resolve le line
-		unsigned char* scanlineSrc = &nesPPU.scanlineBuffer[8 + scrollOffset];	// with clipping
+		unsigned char* scanlineSrc = &scanlineBuffer[8 + scrollOffset];	// with clipping
 		unsigned int* scanlineDest = (unsigned int*)(scanGroup[curDMABuffer] + 240 * curScan);
 		RenderScanlineBuffer(scanlineSrc, scanlineDest);
 
 		curScan++;
 		if (curScan == bufferLines) {
 			// send DMA
-			flushScanBuffer(78, 317, nesPPU.scanline - 9 - bufferLines + 1, nesPPU.scanline - 9, scanBufferSize);
+			flushScanBuffer(78 + scanlineOffset, 317 + scanlineOffset, scanline - 9 - bufferLines + 1, scanline - 9, scanBufferSize);
 		}
 	}
 }

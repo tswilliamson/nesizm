@@ -322,6 +322,12 @@ struct nes_ppu {
 	// current scanline (0 = prerender line, 1 = first real scanline)
 	unsigned int scanline;
 
+	// scanline offset (used for some backgrounds)
+	int scanlineOffset;
+
+	// current rendered background color (for game color background option)
+	unsigned short currentBGColor;
+
 	// pointer to buffer representing palette entries for current scanline
 	uint8* scanlineBuffer;
 
@@ -427,6 +433,7 @@ struct nes_ppu {
 	void fastSprite0(bool bValidBackground);
 	void doOAMRender();
 	void resolveScanline(int scrollOffset);
+	void renderBGOverscan();
 	void finishFrame(bool bSkippedFrame);
 
 	// checks conditions for a sprite hit being possible

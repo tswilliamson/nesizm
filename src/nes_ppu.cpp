@@ -660,6 +660,15 @@ void nes_ppu::step() {
 			mainCPU.ppuNMI = true;
 		}
 
+		// update background color if we are in that BG mode
+		if (nesSettings.GetSetting(ST_Background) == 2 && skipFrame == false) {
+			unsigned short curColor = workingPalette[0];
+			if (curColor != currentBGColor) {
+				currentBGColor = curColor;
+				renderBGOverscan();
+			}
+		}
+
 		finishFrame(skipFrame);
 
 		ScopeTimer::ReportFrame();

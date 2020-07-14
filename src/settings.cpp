@@ -86,9 +86,8 @@ static const char* PaletteOptions[] = {
 static const char* BackgroundOptions[] = {
 	"Warp",
 	"TV",
-	"Game Color",
-	"Black",
-	"Custom",
+	"Game BG Color",
+	"Black"
 };
 
 static const char* OverclockOptions[] = {
@@ -104,18 +103,19 @@ static const char* StretchOptions[] = {
 };
 
 static SettingInfo infos[] = {
-	{ ST_AutoSave,			SG_System,		false,	0,	2,	"Auto Save",		OffOn},
+	{ ST_AutoSave,			SG_Deprecated,	false,	0,	2,	"Auto Save",		OffOn}, // decided to go with always auto SRAM save, manual state save
 	{ ST_OverClock,			SG_System,		true,   0,  3,  "Overclock",		OverclockOptions},
 	{ ST_FrameSkip,			SG_System,		true,	0,  6,	"Frame Skip",		FrameSkipOptions},
 	{ ST_Speed,				SG_System,		true,	1,	5,	"Speed",			SpeedOptions},
-	{ ST_TwoPlayer,			SG_Deprecated,	false,	0,	2,	"2 Player Mode",	OffOn},
+	{ ST_TwoPlayer,			SG_Deprecated,	false,	0,	2,	"2 Player Mode",	OffOn}, // to use 2 players, just define 2nd player keys
 	{ ST_TurboSetting,		SG_Controls,	true,	2,	5,	"Turbo Key",		TurboKeyOptions},
 	{ ST_Palette,			SG_Video,		false,	0,	3,	"Palette",			PaletteOptions},
-	{ ST_Background,		SG_Video,		false,	0,	5,	"Background",		BackgroundOptions},
+	{ ST_Background,		SG_Video,		true,	0,	4,	"Background",		BackgroundOptions},
 	{ ST_SoundEnabled,		SG_Sound,		true,	0,	2,	"Sound",			OffOn},
 	{ ST_SoundQuality,		SG_Sound,		true,	0,  2,  "Extra FX",			OffOn},
 	{ ST_DimScreen,			SG_Video,		true,	0,  2,  "Dim Screen",		OffOn},
-	{ ST_StretchScreen,		SG_Video,		true,	0,  3,  "Stretch",			StretchOptions}
+	{ ST_StretchScreen,		SG_Video,		true,	0,  3,  "Stretch",			StretchOptions},
+	{ ST_ShowClock,			SG_Video,		true,	0,  2,  "Show Clock",		OffOn}
 };
 
 const char* EmulatorSettings::GetSettingName(SettingType setting) {

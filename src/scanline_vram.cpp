@@ -22,7 +22,7 @@ void nes_ppu::resolveScanline(int scrollOffset) {
 
 	if (nesPPU.scanline >= 13 && nesPPU.scanline <= 228) {
 		if (nesSettings.GetSetting(ST_StretchScreen) == 1) {
-			unsigned short* scanlineDest = ((unsigned short*)GetVRAMAddress()) + (nesPPU.scanline - 13) * 384 + 42;
+			unsigned short* scanlineDest = ((unsigned short*)GetVRAMAddress()) + (nesPPU.scanline - 13) * 384 + 42 + scanlineOffset;
 			unsigned char* scanlineSrc = &nesPPU.scanlineBuffer[8 + scrollOffset];	// with clipping
 			const int interlacePixel = (nesPPU.frameCounter + nesPPU.scanline) & 3;
 			for (int i = 0; i < 60; i++) {
@@ -39,7 +39,7 @@ void nes_ppu::resolveScanline(int scrollOffset) {
 				}
 			}
 		} else if (nesSettings.GetSetting(ST_StretchScreen) == 2) {
-			unsigned short* scanlineDest = ((unsigned short*)GetVRAMAddress()) + (nesPPU.scanline - 13) * 384 + 12;
+			unsigned short* scanlineDest = ((unsigned short*)GetVRAMAddress()) + (nesPPU.scanline - 13) * 384 + 12 + scanlineOffset;
 			unsigned char* scanlineSrc = &nesPPU.scanlineBuffer[8 + scrollOffset];	// with clipping
 			const bool bInterlace = (nesPPU.frameCounter + nesPPU.scanline) & 1;
 			for (int i = 0; i < 120; i++) {
@@ -50,11 +50,48 @@ void nes_ppu::resolveScanline(int scrollOffset) {
 				*(scanlineDest++) = pixel2;
 			}
 		} else {
-			unsigned short* scanlineDest = ((unsigned short*)GetVRAMAddress()) + (nesPPU.scanline - 13) * 384 + 72;
+			unsigned short* scanlineDest = ((unsigned short*)GetVRAMAddress()) + (nesPPU.scanline - 13) * 384 + 72 + scanlineOffset;
 			unsigned char* scanlineSrc = &nesPPU.scanlineBuffer[8 + scrollOffset];	// with clipping
 			for (int i = 0; i < 240; i++, scanlineSrc++) {
 				*(scanlineDest++) = workingPalette[(*scanlineSrc) >> 1];
 			}
+		}
+	}
+}
+
+void nes_ppu::renderBGOverscan() {
+
+	unsigned short* scanlineDest = (unsigned short*)GetVRAMAddress();
+
+	if (nesSettings.GetSetting(ST_StretchScreen) == 1) {
+		for (int y = 0; y < 216; y++) {
+			unsigned short* scanlineLeft = scanlineDest;
+			unsigned short* scanlineRight = scanlineDest + (384 - 42);
+			for (int i = 0; i < 42; i++) {
+				*(scanlineLeft++) = currentBGColor;
+				*(scanlineRight++) = currentBGColor;
+			}
+			scanlineDest += 384;
+		}
+	} else if (nesSettings.GetSetting(ST_StretchScreen) == 2) {
+		for (int y = 0; y < 216; y++) {
+			unsigned short* scanlineLeft = scanlineDest;
+			unsigned short* scanlineRight = scanlineDest + (384 - 12);
+			for (int i = 0; i < 12; i++) {
+				*(scanlineLeft++) = currentBGColor;
+				*(scanlineRight++) = currentBGColor;
+			}
+			scanlineDest += 384;
+		}
+	} else {
+		for (int y = 0; y < 216; y++) {
+			unsigned short* scanlineLeft = scanlineDest;
+			unsigned short* scanlineRight = scanlineDest + (384 - 72);
+			for (int i = 0; i < 72; i++) {
+				*(scanlineLeft++) = currentBGColor;
+				*(scanlineRight++) = currentBGColor;
+			}
+			scanlineDest += 384;
 		}
 	}
 }

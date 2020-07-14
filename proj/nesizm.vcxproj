@@ -38,6 +38,7 @@
     <ClCompile Include="..\src\6502.cpp" />
     <ClCompile Include="..\src\debug.cpp" />
     <ClCompile Include="..\src\frontend.cpp" />
+    <ClCompile Include="..\src\gfx\bg_oldtv.cpp" />
     <ClCompile Include="..\src\gfx\bg_warp.cpp" />
     <ClCompile Include="..\src\gfx\logo.cpp" />
     <ClCompile Include="..\src\gfx\nes_gfx.cpp" />
@@ -73,6 +74,9 @@
     <ClCompile Include="..\src\scanline_vram.cpp" />
     <ClCompile Include="..\src\scope_timer\scope_timer.cpp" />
     <ClCompile Include="..\src\settings.cpp" />
+    <Text Include="..\README.md">
+      <FileType>Document</FileType>
+    </Text>
     <None Include="..\src\6502_instr_timing.inl" />
     <None Include="..\src\6502_opcodes.inl" />
     <None Include="..\src\asm\RenderScanlineBuffer.S" />
