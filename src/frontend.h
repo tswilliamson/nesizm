@@ -3,6 +3,9 @@
 
 #include "platform.h"
 
+const int CLOCK_WIDTH = 36;
+const int CLOCK_HEIGHT = 13;
+
 struct MenuOption {
 	friend class nes_frontend;
 
@@ -46,6 +49,7 @@ public:
 	void SetMainMenu();
 	void Run();
 	void RunGameLoop();
+	void RenderTimeToBuffer(unsigned short* buffer);
 };
 
 extern nes_frontend nesFrontend;

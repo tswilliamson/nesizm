@@ -6,6 +6,8 @@
 #include "debug.h"
 #include "nes.h"
 #include "settings.h"
+#include "imageDraw.h"
+#include "frontend.h"
 
 // used for direct render of frame count
 #include "calctype/calctype.h"
@@ -116,6 +118,23 @@ void nes_ppu::finishFrame(bool bSkippedFrame) {
 #endif
 
 	Bdisp_PutDisp_DD();
+}
+
+void nes_ppu::renderClock() {
+	unsigned short clockData[CLOCK_WIDTH * CLOCK_HEIGHT];
+	PrizmImage clockImage = {
+		CLOCK_WIDTH,CLOCK_HEIGHT,false, (uint8*) clockData
+	};
+	nesFrontend.RenderTimeToBuffer(clockData);
+
+#if TARGET_WINSIM
+	// image draw library expects big endian
+	for (int32 i = 0; i < CLOCK_WIDTH * CLOCK_HEIGHT; i++) {
+		EndianSwap(clockData[i]);
+	}
+#endif
+
+	clockImage.Draw_Blit(378 - CLOCK_WIDTH, 215 - CLOCK_HEIGHT);
 }
 
 #endif

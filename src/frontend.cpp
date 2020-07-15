@@ -445,6 +445,7 @@ void nes_frontend::RenderGameBackground() {
 	DrawFrame(0);
 	nesPPU.scanlineOffset = 0;
 	nesPPU.currentBGColor = 0;
+	nesSettings.cachedTime = -1;
 
 	if (nesSettings.GetSetting(ST_Background) == 0) {
 		extern PrizmImage gfx_bg_warp;
@@ -460,6 +461,48 @@ void nes_frontend::RenderGameBackground() {
 	}
 
 	Bdisp_PutDisp_DD();
+}
+
+void nes_frontend::RenderTimeToBuffer(unsigned short* buffer) {
+	char clockText[10];
+	int hours = nesSettings.cachedTime / 256;
+	int minutes = nesSettings.cachedTime % 256;
+	if (nesSettings.GetSetting(ST_ShowClock) == 2) {
+		switch (hours) {
+			case 0x13: hours = 0x01; break;
+			case 0x14: hours = 0x02; break;
+			case 0x15: hours = 0x03; break;
+			case 0x16: hours = 0x04; break;
+			case 0x17: hours = 0x05; break;
+			case 0x18: hours = 0x06; break;
+			case 0x19: hours = 0x07; break;
+			case 0x20: hours = 0x08; break;
+			case 0x21: hours = 0x09; break;
+			case 0x22: hours = 0x10; break;
+			case 0x23: hours = 0x11; break;
+			case 0x00: hours = 0x12; break;
+		}
+	}
+	sprintf(clockText, "%d%d:%d%d", hours / 16, hours % 16, minutes / 16, minutes % 16);
+	unsigned short bgColor = 0;
+	unsigned short textColor = COLOR_DARKGRAY;
+	switch (nesSettings.GetSetting(ST_Background)) {
+		case 1:
+			// TV color
+			bgColor = 0b1000101011000100;
+			textColor = COLOR_BLACK;
+			break;
+		case 2:
+			// match game bg color
+			bgColor = nesPPU.currentBGColor;
+			if (bgColor != 0)
+				textColor = COLOR_WHITE;
+			break;
+	}
+	for (int i = 0; i < CLOCK_WIDTH * CLOCK_HEIGHT; i++) {
+		buffer[i] = bgColor;
+	}
+	CalcType_Draw(&arial_small, clockText, 2, 1, textColor, (uint8*) buffer, CLOCK_WIDTH);
 }
 
 void nes_frontend::Render() {

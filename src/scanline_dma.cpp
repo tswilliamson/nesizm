@@ -9,6 +9,7 @@
 #include "scope_timer/scope_timer.h"
 #include "ptune2_simple/Ptune2_direct.h"
 #include "snd/snd.h"
+#include "frontend.h"
 
 #define LCD_GRAM	0x202
 #define LCD_BASE	0xB4000000
@@ -127,6 +128,17 @@ void nes_ppu::renderBGOverscan() {
 	}
 }
 
+void nes_ppu::renderClock() {
+	// render the clock to the scanline buffer and dma it
+	DmaWaitNext();
+	unsigned short* clockData = scanGroup[curDMABuffer];
+
+	nesFrontend.RenderTimeToBuffer(clockData);
+
+	int clockX = 385 - CLOCK_WIDTH;
+	int clockY = 215 - CLOCK_HEIGHT;
+	flushScanBuffer(clockX, clockX + CLOCK_WIDTH - 1, clockY, clockY + CLOCK_HEIGHT, CLOCK_WIDTH * CLOCK_HEIGHT * 2);
+}
 
 #if 0
 inline void RenderScanlineBufferWide1(unsigned char* scanlineSrc, unsigned int* scanlineDest) {

@@ -33,6 +33,8 @@ enum SettingGroup {
 struct EmulatorSettings {
 	int32 keyMap[NES_MAX_KEYS];
 
+	int32 cachedTime;
+
 	void SetDefaults();
 	void Load();
 	void Save();

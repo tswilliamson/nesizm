@@ -433,8 +433,13 @@ struct nes_ppu {
 	void fastSprite0(bool bValidBackground);
 	void doOAMRender();
 	void resolveScanline(int scrollOffset);
-	void renderBGOverscan();
 	void finishFrame(bool bSkippedFrame);
+
+	// renders background color overscan area for game background color option
+	void renderBGOverscan();
+
+	// render the clock to the screen
+	void renderClock();
 
 	// checks conditions for a sprite hit being possible
 	bool canSprite0Hit() {

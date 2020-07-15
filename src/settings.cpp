@@ -102,6 +102,12 @@ static const char* StretchOptions[] = {
 	"Wide",
 };
 
+static const char* ClockOptions[] = {
+	"Off",
+	"24 Hour",
+	"12 Hour",
+};
+
 static SettingInfo infos[] = {
 	{ ST_AutoSave,			SG_Deprecated,	false,	0,	2,	"Auto Save",		OffOn}, // decided to go with always auto SRAM save, manual state save
 	{ ST_OverClock,			SG_System,		true,   0,  3,  "Overclock",		OverclockOptions},
@@ -115,7 +121,7 @@ static SettingInfo infos[] = {
 	{ ST_SoundQuality,		SG_Sound,		true,	0,  2,  "Extra FX",			OffOn},
 	{ ST_DimScreen,			SG_Video,		true,	0,  2,  "Dim Screen",		OffOn},
 	{ ST_StretchScreen,		SG_Video,		true,	0,  3,  "Stretch",			StretchOptions},
-	{ ST_ShowClock,			SG_Video,		true,	0,  2,  "Show Clock",		OffOn}
+	{ ST_ShowClock,			SG_Video,		true,	0,  3,  "Show Clock",		ClockOptions}
 };
 
 const char* EmulatorSettings::GetSettingName(SettingType setting) {

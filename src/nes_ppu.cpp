@@ -665,7 +665,19 @@ void nes_ppu::step() {
 			unsigned short curColor = workingPalette[0];
 			if (curColor != currentBGColor) {
 				currentBGColor = curColor;
+				nesSettings.cachedTime = -1; // if we are rendering a clock, it needs to be invalidated
 				renderBGOverscan();
+			}
+		}
+
+		// update system clock if we requested on screen
+		if (nesSettings.GetSetting(ST_ShowClock) && skipFrame == false) {
+			unsigned int hour = 0, minute = 0, second = 0, ms = 0;
+			RTC_GetTime(&hour, &minute, &second, &ms);
+			int curTime = hour * 256 + minute;
+			if (curTime != nesSettings.cachedTime) {
+				nesSettings.cachedTime = curTime;
+				renderClock();
 			}
 		}
 
