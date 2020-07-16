@@ -143,6 +143,9 @@
     <ClCompile Include="..\src\gfx\bg_oldtv.cpp">
       <Filter>Source Files\gfx</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\faq.cpp">
+      <Filter>Source Files\frontend</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\main.h">
@@ -193,6 +196,8 @@
     <None Include="..\src\asm\RenderScanlineBuffer_43.S">
       <Filter>Source Files\asm</Filter>
     </None>
-    <None Include="..\README.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\README.md" />
   </ItemGroup>
 </Project>

@@ -35,6 +35,8 @@ struct EmulatorSettings {
 
 	int32 cachedTime;
 
+	uint32 faqPosition;
+
 	void SetDefaults();
 	void Load();
 	void Save();

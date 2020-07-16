@@ -37,6 +37,7 @@
   <ItemGroup>
     <ClCompile Include="..\src\6502.cpp" />
     <ClCompile Include="..\src\debug.cpp" />
+    <ClCompile Include="..\src\faq.cpp" />
     <ClCompile Include="..\src\frontend.cpp" />
     <ClCompile Include="..\src\gfx\bg_oldtv.cpp" />
     <ClCompile Include="..\src\gfx\bg_warp.cpp" />

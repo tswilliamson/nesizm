@@ -63,6 +63,19 @@ static int32 waitKey() {
 	return ret;
 }
 
+static void DrawInfoBox(const char* text1, const char* text2, const char* text3) {
+	PrizmImage::Draw_GradientRect(70, 73, 244, 69, 0b0000000011100000, COLOR_BLACK);
+	PrizmImage::Draw_BorderRect(71, 74, 242, 67, 2, COLOR_AQUAMARINE);
+	int32 w1 = CalcType_Width(&arial_small, text1);
+	int32 w2 = CalcType_Width(&arial_small, text2);
+	int32 w3 = CalcType_Width(&arial_small, text3);
+	CalcType_Draw(&arial_small, text1, 192 - w1 / 2, 83, COLOR_WHITE, 0, 0);
+	CalcType_Draw(&arial_small, text2, 192 - w2 / 2, 83 + arial_small.height + 6, COLOR_WHITE, 0, 0);
+	CalcType_Draw(&arial_small, text3, 192 - w3 / 2, 83 + arial_small.height * 2 + 12, COLOR_WHITE, 0, 0);
+	Bdisp_PutDisp_DD_stripe(73, 73 + 70);
+	waitKey();
+}
+
 extern MenuOption mainOptions[];
 extern MenuOption optionTree[];
 extern MenuOption remapOptions[];
@@ -194,6 +207,21 @@ static bool LoadROM_Selected(MenuOption* forOption, int key) {
 }
 
 static bool ViewFAQ_Selected(MenuOption* forOption, int key) {
+	if (isSelectKey(key)) {
+		if (!nesFrontend.loadFAQ()) {
+			char faqName[128];
+			nesFrontend.getFAQName(faqName);
+			DrawInfoBox(
+				"FAQ File Missing!",
+				faqName,
+				"should be in root directory."
+			);
+		} else {
+			nesFrontend.viewFAQ();
+			return true;
+		}
+	}
+
 	return false;
 }
 
@@ -211,20 +239,12 @@ static bool Options_Selected(MenuOption* forOption, int key) {
 
 static bool About_Selected(MenuOption* forOption, int key) {
 	if (isSelectKey(key)) {
-		PrizmImage::Draw_GradientRect(70, 73, 244, 69, 0b0000000011100000, COLOR_BLACK);
-		PrizmImage::Draw_BorderRect(71, 74, 242, 67, 2, COLOR_AQUAMARINE);
-		const char* text1 = "By @TSWilliamson";
-		const char* text2 = "Contact via my Github account";
-		const char* text3 = "Source at github.com/TSWilliamson/nesizm";
-		int32 w1 = CalcType_Width(&arial_small, text1);
-		int32 w2 = CalcType_Width(&arial_small, text2);
-		int32 w3 = CalcType_Width(&arial_small, text3);
-		CalcType_Draw(&arial_small, text1, 192 - w1 / 2, 83, COLOR_WHITE, 0, 0);
-		CalcType_Draw(&arial_small, text2, 192 - w2 / 2, 83 + arial_small.height + 6, COLOR_WHITE, 0, 0);
-		CalcType_Draw(&arial_small, text3, 192 - w3 / 2, 83 + arial_small.height * 2 + 12, COLOR_WHITE, 0, 0);
-		Bdisp_PutDisp_DD_stripe(73, 73 + 70);
+		DrawInfoBox(
+			"By @TSWilliamson",
+			"Contact via my Github account",
+			"Source at github.com/TSWilliamson/nesizm"
+		);
 
-		waitKey();
 		return true;
 	}
 
@@ -387,7 +407,7 @@ nes_frontend::nes_frontend() {
 }
 
 // returns a dirty hash of the vram contents
-uint32 GetVRAMHash() {
+uint32 nes_frontend::GetVRAMHash() {
 	const uint16* colors = (uint16*) GetVRAMAddress();
 	uint32 numColors = LCD_WIDTH_PX * LCD_HEIGHT_PX;
 	// sample 256 colors, hash them
@@ -529,6 +549,7 @@ void nes_frontend::SetMainMenu() {
 		// no ROM loaded, check for continue in settings
 		if (nesSettings.GetContinueFile()) {
 			mainOptions[0].disabled = false;
+			mainOptions[2].disabled = false;
 			mainOptions[0].OnKey = ROMFile_Selected;
 			mainOptions[0].extraData = 1; // denotes continue file
 
@@ -537,10 +558,12 @@ void nes_frontend::SetMainMenu() {
 			mainOptions[0].name = continueText;
 		} else {
 			mainOptions[0].disabled = true;
+			mainOptions[2].disabled = true;
 			selectedOption = 1;
 		}
 	} else {
 		mainOptions[0].disabled = false;
+		mainOptions[2].disabled = false;
 		mainOptions[0].OnKey = Continue_Selected;
 		mainOptions[0].name = "Continue";
 	}
@@ -663,7 +686,7 @@ MenuOption mainOptions[] =
 {
 	{"Continue", "Continue the current loaded game", false, Continue_Selected, nullptr, 0 },
 	{"Load ROM", "Select a ROM to load from your Root folder", false, LoadROM_Selected, nullptr, 0 },
-	{"View FAQ", "View .txt file of the same name as your ROM", true, ViewFAQ_Selected, nullptr, 0 },
+	{"View FAQ", "View .txt file of the same name as your ROM", false, ViewFAQ_Selected, nullptr, 0 },
 	{"Options", "Select a ROM to load from your Root folder", false, Options_Selected, nullptr, 0 },
 	{"About", "Where did this emulator come from?", false, About_Selected, nullptr, 0 },
 };

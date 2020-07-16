@@ -208,7 +208,7 @@ void EmulatorSettings::Load() {
 				}
 			}
 
-			// if a contine file is specified, validate that it still exists
+			// if a continue file is specified, validate that it still exists
 			if (cur <= len - 48) {
 				memcpy(continueFile, &contents[cur], 48);
 				cur += 48;
@@ -227,6 +227,12 @@ void EmulatorSettings::Load() {
 				} else {
 					Bfile_CloseFile_OS(file);
 				}
+			}
+
+			// load faqOffset if in this version
+			if (cur <= len - 4) {
+				memcpy(&faqPosition, &contents[cur], 4);
+				cur += 4;
 			}
 		}
 	}
@@ -274,6 +280,9 @@ void EmulatorSettings::Save() {
 		memcpy(&contents[size], continueFile, 48);
 		size += 48;
 	}
+
+	memcpy(&contents[size], &faqPosition, 4);
+	size += 4;
 
 	while (size % 4 != 0) size++;
 	DebugAssert(size < 256);

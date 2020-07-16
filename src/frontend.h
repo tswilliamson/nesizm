@@ -50,6 +50,15 @@ public:
 	void Run();
 	void RunGameLoop();
 	void RenderTimeToBuffer(unsigned short* buffer);
+
+	// FAQ viewing
+	void getFAQName(char* intoBuffer);
+	bool loadFAQ();
+	void viewFAQ();
+	int32 faqHandle;
+	uint8 faqHash;
+
+	static uint32 GetVRAMHash();
 };
 
 extern nes_frontend nesFrontend;
