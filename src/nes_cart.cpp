@@ -7,6 +7,7 @@
 #include "mappers.h"
 #include "scope_timer/scope_timer.h"
 #include "snd/snd.h"
+#include "settings.h"
 
 nes_cart nesCart;
 
@@ -553,11 +554,30 @@ void nes_cart::MapProgramBanks(int32 toBank, int32 cartBank, int32 numBanks) {
 
 	const unsigned int addrTarget[5] = {0x80, 0xA0, 0xC0, 0xE0, 0x60};
 
+	bool bDidRemap = false;
+
 	for (int32 i = 0; i < numBanks; i++) {
 		const int32 destBank = i + toBank;
 		if (programBanks[destBank] != cartBank + i) {
 			programBanks[destBank] = cartBank + i;
 			mainCPU.setMapKB(addrTarget[destBank], 8, cachePRGBank(cartBank + i));
+			bDidRemap = true;
+		}
+	}
+
+	if (bDidRemap) {
+		// game genie codes
+		for (int code = 0; code < 3; code++) {
+			if (nesSettings.codes[code].isActive()) {
+				unsigned int addr = nesSettings.codes[code].getEffAddr();
+				uint8 setValue = nesSettings.codes[code].getSetValue();
+				unsigned char* memValue = mainCPU.getNonIOMem(addr);
+				if ((size_t) memValue >= 0x10000 && (nesSettings.codes[code].doCompare() == false || nesSettings.codes[code].getCmpValue() == *memValue)) {
+					*memValue = setValue;
+				}
+			} else {
+				break;
+			}
 		}
 	}
 }

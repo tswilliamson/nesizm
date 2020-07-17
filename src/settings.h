@@ -30,12 +30,53 @@ enum SettingGroup {
 	SG_Deprecated
 };
 
+struct GameGenieCode {
+	GameGenieCode() {
+		clear();
+	}
+
+	// return false if invalid code is set
+	bool set(const char* withValue);
+	void clear();
+
+	bool isActive() const {
+		return code[0] != 0;
+	}
+
+	unsigned int getEffAddr() const {
+		return cachedAddr;
+	}
+
+	uint8 getCmpValue() const {
+		return cachedCmp;
+	}
+
+	uint8 getSetValue() const {
+		return cachedSet;
+	}
+
+	bool doCompare() const {
+		return bDoCompare;
+	}
+
+private:
+	bool update();
+
+	char code[8];
+	unsigned int cachedAddr;
+	unsigned char cachedCmp;
+	unsigned char cachedSet;
+	bool bDoCompare;
+};
+
 struct EmulatorSettings {
 	int32 keyMap[NES_MAX_KEYS];
 
 	int32 cachedTime;
 
 	uint32 faqPosition;
+
+	GameGenieCode codes[3];
 
 	void SetDefaults();
 	void Load();

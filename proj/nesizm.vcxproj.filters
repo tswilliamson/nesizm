@@ -146,6 +146,9 @@
     <ClCompile Include="..\src\faq.cpp">
       <Filter>Source Files\frontend</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\gamegenie.cpp">
+      <Filter>Source Files\frontend</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\main.h">
