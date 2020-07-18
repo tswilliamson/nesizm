@@ -233,6 +233,9 @@ bool nes_cart::loadROM(const char* withFile) {
 	// initialize APU
 	nesAPU.init();
 
+	// load game genie codes file if user supplied one
+	GameGenieCode::load(withFile);
+
 	// mapper logic
 	handle = file;
 	if (setupMapper()) {
@@ -567,7 +570,7 @@ void nes_cart::MapProgramBanks(int32 toBank, int32 cartBank, int32 numBanks) {
 
 	if (bDidRemap) {
 		// game genie codes
-		for (int code = 0; code < 3; code++) {
+		for (int code = 0; code < 10; code++) {
 			if (nesSettings.codes[code].isActive()) {
 				unsigned int addr = nesSettings.codes[code].getEffAddr();
 				uint8 setValue = nesSettings.codes[code].getSetValue();

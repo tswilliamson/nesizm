@@ -64,6 +64,9 @@ static int32 waitKey() {
 }
 
 static void DrawInfoBox(const char* text1, const char* text2, const char* text3) {
+	if (text1 == nullptr) text1 = "";
+	if (text2 == nullptr) text2 = "";
+	if (text3 == nullptr) text3 = "";
 	PrizmImage::Draw_GradientRect(70, 73, 244, 69, 0b0000000011100000, COLOR_BLACK);
 	PrizmImage::Draw_BorderRect(71, 74, 242, 67, 2, COLOR_AQUAMARINE);
 	int32 w1 = CalcType_Width(&arial_small, text1);
@@ -144,6 +147,24 @@ static bool ROMFile_Selected(MenuOption* forOption, int key) {
 			if (forOption->extraData == 0 && (!nesSettings.GetContinueFile() || strcmp(forOption->name, nesSettings.GetContinueFile()))) {
 				nesSettings.SetContinueFile(forOption->name);
 				nesSettings.Save();
+			}
+
+			// check for game genie application and display
+			const char* code0 = nullptr;
+			const char* code1 = nullptr;
+			int32 numCodes = 0;
+			for (int i = 0; i < 10; i++) {
+				if (nesSettings.codes[i].isActive()) {
+					if (i == 0) code0 = nesSettings.codes[i].getText();
+					if (i == 1) code1 = nesSettings.codes[i].getText();
+					numCodes++;
+				} else
+					break;
+			}
+			if (numCodes) {
+				char appliedText[32];
+				sprintf(appliedText, "Using %d Game Genie Code(s)", numCodes);
+				DrawInfoBox(appliedText, code0, code1);
 			}
 
 			mainCPU.reset();

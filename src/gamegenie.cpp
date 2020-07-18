@@ -38,24 +38,15 @@ bool SetBitsWithValue(Bits& intoBits, unsigned int withBits) {
 	return true;
 }
 
+char CodeTable[16] = {
+	'A','P','Z','L','G','I','T','Y',
+	'E','O','X','U','K','S','V','N'
+};
+
 bool SetBitsWithCode(Bits& intoBits, char withChar) {
-	switch (withChar) {
-		case 'A': return SetBitsWithValue(intoBits, 0b0000);
-		case 'P': return SetBitsWithValue(intoBits, 0b0001);
-		case 'Z': return SetBitsWithValue(intoBits, 0b0010);
-		case 'L': return SetBitsWithValue(intoBits, 0b0011);
-		case 'G': return SetBitsWithValue(intoBits, 0b0100);
-		case 'I': return SetBitsWithValue(intoBits, 0b0101);
-		case 'T': return SetBitsWithValue(intoBits, 0b0110);
-		case 'Y': return SetBitsWithValue(intoBits, 0b0111);
-		case 'E': return SetBitsWithValue(intoBits, 0b1000);
-		case 'O': return SetBitsWithValue(intoBits, 0b1001);
-		case 'X': return SetBitsWithValue(intoBits, 0b1010);
-		case 'U': return SetBitsWithValue(intoBits, 0b1011);
-		case 'K': return SetBitsWithValue(intoBits, 0b1100);
-		case 'S': return SetBitsWithValue(intoBits, 0b1101);
-		case 'V': return SetBitsWithValue(intoBits, 0b1110);
-		case 'N': return SetBitsWithValue(intoBits, 0b1111);
+	for (int i = 0; i < 16; i++) {
+		if (withChar == CodeTable[i])
+			return SetBitsWithValue(intoBits, i);
 	}
 	return false;
 }
@@ -116,4 +107,71 @@ bool GameGenieCode::update() {
 	cachedCmp = targetCmp;
 
 	return true;
+}
+
+
+void GameGenieCode::load(const char* romFile) {
+	// clear code 0 (codes are loaded sequentially so this effectively clears them)
+	nesSettings.codes[0].clear();
+
+	// loads optional game genie file
+	char ggFile[256];
+	strcpy(ggFile, romFile);
+	strcpy(strrchr(ggFile, '.'), ".gg");
+
+	int file;
+	{
+		unsigned short ggFileWide[256];
+		Bfile_StrToName_ncpy(ggFileWide, ggFile, 255);
+
+		file = Bfile_OpenFile_OS(ggFileWide, READ, 0);
+	}
+
+	if (file < 0) {
+		// no .gg file
+		return;
+	}
+
+	// load up to 10 codes
+	int curCode = 0;
+	char code[9];
+	int curLength = 0;
+	while (curCode < 10) {
+		char curChar;
+		bool done = Bfile_ReadFile_OS(file, &curChar, 1, -1) != 1;
+		if (done || curChar == '\n' || curChar == '\r') {
+			// end of code
+			if (curLength == 6 || curLength == 8) {
+				code[curLength] = 0;
+				if (nesSettings.codes[curCode].set(code)) {
+					// success!
+					curCode++;
+				}
+			}
+
+			if (done)
+				break;
+
+			// start next code over
+			curLength = 0;
+			continue;
+		}
+
+		// if greater than 8 then we are skipping this line
+		if (curLength > 8)
+			continue;
+
+		// check char for code table
+		if (curChar >= 'a' && curChar <= 'z')
+			curChar += 'A' - 'a';
+
+		for (int i = 0; i < 16; i++) {
+			if (curChar == CodeTable[i]) {
+				code[curLength++] = curChar;
+				break;
+			}
+		}
+	}
+
+	Bfile_CloseFile_OS(file);
 }

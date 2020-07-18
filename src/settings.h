@@ -59,14 +59,19 @@ struct GameGenieCode {
 		return bDoCompare;
 	}
 
+	const char* getText() const {
+		return code;
+	}
+
+	static void load(const char* romFile);
 private:
 	bool update();
 
-	char code[8];
-	unsigned int cachedAddr;
+	char code[9];
 	unsigned char cachedCmp;
 	unsigned char cachedSet;
 	bool bDoCompare;
+	unsigned int cachedAddr;
 };
 
 struct EmulatorSettings {
@@ -76,7 +81,7 @@ struct EmulatorSettings {
 
 	uint32 faqPosition;
 
-	GameGenieCode codes[3];
+	GameGenieCode codes[10];
 
 	void SetDefaults();
 	void Load();
