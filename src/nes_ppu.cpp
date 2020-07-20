@@ -52,91 +52,6 @@ inline void CopyOver16(uint8* srcBytes) {
 #endif
 }
 
-inline void UnrollPalette(uint32& palette) {
-	// put palette in every 4 bytes (* 2 to account for offset into word sized color table during resolve)
-	palette <<= 1;
-	palette = palette | (palette << 8);
-	palette = palette | (palette << 16);
-}
-
-void nes_ppu::resolveWorkingPalette() {
-	for (int i = 0; i < 0x20; i++) {
-		if (i & 3) {
-			workingPalette[i] = rgbPalettePtr[palette[i]];
-		} else {
-			workingPalette[i] = rgbPalettePtr[palette[0]];
-		}
-	}
-
-	// emphasis bits
-	uint32 emph = PPUMASK & (PPUMASK_EMPHRED | PPUMASK_EMPHGREEN | PPUMASK_EMPHBLUE);
-	if (emph || nesSettings.GetSetting(ST_DimScreen)) {
-		int shiftRed = 1;
-		int shiftGreen = 1;
-		int shiftBlue = 1;
-		if (emph & PPUMASK_EMPHRED) {
-			shiftRed -= 1;
-			shiftGreen += 1;
-			shiftBlue += 1;
-		}
-		if (emph & PPUMASK_EMPHGREEN) {
-			shiftRed += 1;
-			shiftGreen -= 1;
-			shiftBlue += 1;
-		}
-		if (emph & PPUMASK_EMPHBLUE) {
-			shiftRed += 1;
-			shiftGreen += 1;
-			shiftBlue -= 1;
-		}
-		if (nesSettings.GetSetting(ST_DimScreen)) {
-			shiftRed += 1;
-			shiftGreen += 1;
-			shiftBlue += 1;
-		}
-
-		const uint16 ShiftUpTable[32] =
-		{
-			0b00000, 0b00010, 0b00100, 0b00110, 0b01000, 0b01010, 0b01100, 0b01110,
-			0b10000, 0b10010, 0b10100, 0b10110, 0b11000, 0b11010, 0b11100, 0b11110,
-			0b11111, 0b11111, 0b11111, 0b11111, 0b11111, 0b11111, 0b11111, 0b11111,
-			0b11111, 0b11111, 0b11111, 0b11111, 0b11111, 0b11111, 0b11111, 0b11111,
-		};
-		const uint16 ShiftNoneTable[32] =
-		{
-			0b00000, 0b00001, 0b00010, 0b00011, 0b00100, 0b00101, 0b00110, 0b00111,
-			0b01000, 0b01001, 0b01010, 0b01011, 0b01100, 0b01101, 0b01110, 0b01111,
-			0b10000, 0b10001, 0b10010, 0b10011, 0b10100, 0b10101, 0b10110, 0b10111,
-			0b11000, 0b11001, 0b11010, 0b11011, 0b11100, 0b11101, 0b11110, 0b11111,
-		};
-		const uint16 ShiftDownTable[32] =
-		{
-			0b00000, 0b00001, 0b00010, 0b00010, 0b00011, 0b00100, 0b00101, 0b00101,
-			0b00110, 0b00111, 0b01000, 0b01000, 0b01001, 0b01010, 0b01011, 0b01011,
-			0b01100, 0b01101, 0b01110, 0b01110, 0b01111, 0b10000, 0b10001, 0b10001,
-			0b10010, 0b10011, 0b10100, 0b10100, 0b10101, 0b10110, 0b10111, 0b10111,
-		};
-		const uint16 ShiftDown2Table[32] =
-		{
-			0b00000, 0b00001, 0b00001, 0b00001, 0b00010, 0b00010, 0b00011, 0b00011,
-			0b00100, 0b00100, 0b00101, 0b00101, 0b00110, 0b00110, 0b00111, 0b00111,
-			0b01000, 0b01000, 0b01001, 0b01001, 0b01010, 0b01010, 0b01011, 0b01011,
-			0b01100, 0b01100, 0b01101, 0b01101, 0b01110, 0b01110, 0b01111, 0b01111,
-		};
-		const uint16* ShiftTables[5] = { ShiftUpTable, ShiftNoneTable, ShiftDownTable, ShiftDown2Table, ShiftDown2Table };
-
-		for (int32 i = 0; i < 0x20; i++) {
-			workingPalette[i] =
-				(ShiftTables[shiftRed + 1][(workingPalette[i] & 0b1111100000000000) >> 11] << 11) |
-				(ShiftTables[shiftGreen + 1][(workingPalette[i] & 0b0000011111000000) >> 6] << 6) |
-				(workingPalette[i] & 0b0000000000100000) |
-				ShiftTables[shiftBlue + 1][workingPalette[i] & 0b0000000000011111];
-		}
-	}
-
-	dirtyPalette = false;
-}
-
 // scanline buffers with padding to allow fast rendering with clipping
 static unsigned char oamScanlineBuffer[256 + 8] = { 0 }; 
 
@@ -170,46 +85,6 @@ void nes_ppu::midFrameScrollUpdate() {
 	// cause scroll decrement if background rendering is disabled
 	causeDecrement = renderingDisabled;
 }
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Palette
-
-// TODO : handle emphasis bits
-static unsigned short rgbPalette[64] = {
-	/*
-	Blargg 2C02 palette
-	0x5AAB, 0x010F, 0x0892, 0x3011, 0x480D, 0x6006, 0x5820, 0x40C0, 
-	0x2160, 0x09E0, 0x0200, 0x01E0, 0x01A8, 0x0000, 0x0000, 0x0000, 
-	0x9CD3, 0x0A79, 0x31BE, 0x611D, 0x88B6, 0xA0AD, 0x9924, 0x79E0, 
-	0x5AE0, 0x2BA0, 0x0BE0, 0x03C5, 0x034F, 0x0000, 0x0000, 0x0000, 
-	0xF79E, 0x54FE, 0x7BFE, 0xB33E, 0xEABE, 0xF2D7, 0xF36D, 0xDC44, 
-	0xA560, 0x7E20, 0x5684, 0x3E6E, 0x3DBA, 0x41E8, 0x0000, 0x0000, 
-	0xF79E, 0xAE7E, 0xC5FE, 0xDDBE, 0xF59E, 0xF59B, 0xF5B6, 0xEE32, 
-	0xD6AF, 0xBF0F, 0xAF32, 0x9F37, 0xA6DD, 0xA534, 0x0000, 0x0000
-	*/
-
-	/*
-	Web tools palette
-	0x6B6D, 0x01CC, 0x0132, 0x20B4, 0x4051, 0x582B, 0x6024, 0x6080, 
-	0x4920, 0x29A0, 0x0A20, 0x0240, 0x0225, 0x0000, 0x0000, 0x0000, 
-	0xC5F8, 0x13B6, 0x2AFE, 0x5A3F, 0x81BD, 0xA175, 0xB18B, 0xAA01, 
-	0x92C0, 0x63A0, 0x3C20, 0x1C62, 0x0C4C, 0x0000, 0x0000, 0x0000, 
-	0xFFFF, 0x6E9F, 0x85BF, 0xB4FF, 0xDC5F, 0xFC1F, 0xFC56, 0xFCCC, 
-	0xEDA4, 0xBE62, 0x9705, 0x6F4D, 0x6737, 0x528A, 0x0000, 0x0000, 
-	0xFFFF, 0xD7FF, 0xDF9F, 0xF73F, 0xFEFF, 0xFEDF, 0xFEFE, 0xFF39, 
-	0xFF96, 0xF7D5, 0xE7F7, 0xD7FA, 0xCFFE, 0xCE59, 0x0000, 0x0000,
-	*/
-
-	// FCEUX palette
-	0x7BAF, 0x28D2, 0x0015, 0x4814, 0x900F, 0xA802, 0xA800, 0x8040, 
-	0x4160, 0x0220, 0x0280, 0x01E3, 0x19EC, 0x0000, 0x0000, 0x0000, 
-	0xC5F8, 0x039E, 0x21DE, 0x801E, 0xC018, 0xE80B, 0xD940, 0xCA62, 
-	0x8B80, 0x04A0, 0x0540, 0x0487, 0x0411, 0x0000, 0x0000, 0x0000, 
-	0xFFFF, 0x45FF, 0x64BF, 0xD45F, 0xFBDF, 0xFBB7, 0xFBAC, 0xFCC7, 
-	0xF5E8, 0x8682, 0x56E9, 0x5FD3, 0x075B, 0x7BCF, 0x0000, 0x0000, 
-	0xFFFF, 0xAF3F, 0xCEBF, 0xDE5F, 0xFE3F, 0xFE3B, 0xFDF6, 0xFED5, 
-	0xFF34, 0xE7F4, 0xAF98, 0xB7FA, 0xA7FE, 0xCE39, 0x0000, 0x0000
-};
 
 void nes_ppu::prepPPUREAD(unsigned int address) {
 	if (address < 0x3F00) {
@@ -1013,6 +888,13 @@ void nes_ppu::resolveOAMExternal() {
 	}
 }
 
+inline void UnrollPalette(uint32& palette) {
+	// put palette in every 4 bytes (* 2 to account for offset into word sized color table during resolve)
+	palette <<= 1;
+	palette = palette | (palette << 8);
+	palette = palette | (palette << 16);
+}
+
 void nes_ppu::renderScanline_SingleMirror(nes_ppu& ppu) {
 	TIME_SCOPE_NAMED(scanline_single);
 
@@ -1477,7 +1359,6 @@ void nes_ppu::init() {
 	scanline = 1;
 	mirror = nes_mirror_type::MT_UNSET;
 	initScanlineBuffer();
-	rgbPalettePtr = rgbPalette;
 	autoFrameSkip = 0;
 }
 

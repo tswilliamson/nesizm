@@ -17,6 +17,8 @@ enum SettingType {
 	ST_DimScreen,
 	ST_StretchScreen,
 	ST_ShowClock,
+	ST_Brightness,
+	ST_Color,
 
 	MAX_SETTINGS
 };

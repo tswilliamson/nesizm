@@ -149,6 +149,9 @@
     <ClCompile Include="..\src\gamegenie.cpp">
       <Filter>Source Files\frontend</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\nes_palette.cpp">
+      <Filter>Source Files\nes</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\main.h">

@@ -17,7 +17,7 @@ struct MenuOption {
 	bool(*OnKey)(MenuOption*, int withKey);
 
 	// returns detail shown to the right of option, null if unused
-	const char*(*GetDetail)(MenuOption*);
+	void(*DrawDetail)(MenuOption*, int x, int y, int textColor, bool selected);
 
 	// extra data (used for options type)
 	int32 extraData;

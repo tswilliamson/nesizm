@@ -79,7 +79,8 @@ static const char* TurboKeyOptions[] = {
 
 static const char* PaletteOptions[] = {
 	"FCEUX",
-	"Blargg",
+	"NES Classic",
+	"Smooth (FBX)",
 	"Custom"
 };
 
@@ -115,13 +116,15 @@ static SettingInfo infos[] = {
 	{ ST_Speed,				SG_System,		true,	1,	5,	"Speed",			SpeedOptions},
 	{ ST_TwoPlayer,			SG_Deprecated,	false,	0,	2,	"2 Player Mode",	OffOn}, // to use 2 players, just define 2nd player keys
 	{ ST_TurboSetting,		SG_Controls,	true,	2,	5,	"Turbo Key",		TurboKeyOptions},
-	{ ST_Palette,			SG_Video,		false,	0,	3,	"Palette",			PaletteOptions},
+	{ ST_Palette,			SG_Video,		true,	0,	4,	"Palette",			PaletteOptions},
 	{ ST_Background,		SG_Video,		true,	0,	4,	"Background",		BackgroundOptions},
 	{ ST_SoundEnabled,		SG_Sound,		true,	0,	2,	"Sound",			OffOn},
 	{ ST_SoundQuality,		SG_Sound,		true,	0,  2,  "Extra FX",			OffOn},
-	{ ST_DimScreen,			SG_Video,		true,	0,  2,  "Dim Screen",		OffOn},
+	{ ST_DimScreen,			SG_Video,		false,	0,  2,  "Dim Screen",		OffOn}, // now use the brightness option
 	{ ST_StretchScreen,		SG_Video,		true,	0,  3,  "Stretch",			StretchOptions},
-	{ ST_ShowClock,			SG_Video,		true,	0,  3,  "Show Clock",		ClockOptions}
+	{ ST_ShowClock,			SG_Video,		true,	0,  3,  "Show Clock",		ClockOptions},
+	{ ST_Brightness,		SG_Video,		true,	5, 11,  "Brightness",		nullptr},
+	{ ST_Color,				SG_Video,		true,	5, 11,  "Color",			nullptr},
 };
 
 const char* EmulatorSettings::GetSettingName(SettingType setting) {
@@ -129,6 +132,9 @@ const char* EmulatorSettings::GetSettingName(SettingType setting) {
 }
 
 const char* EmulatorSettings::GetSettingValueName(SettingType setting, uint8 value) {
+	if (infos[setting].values == nullptr)
+		return nullptr;
+
 	return infos[setting].values[value];
 }
 

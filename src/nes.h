@@ -351,8 +351,8 @@ struct nes_ppu {
 
 	void setMirrorType(int withType);
 
-	// pointer to current 565 color palette (TODO: can change due to emphasis bits)
-	unsigned short* rgbPalettePtr;
+	// current 565 color palette, set up with initPalette()
+	unsigned short rgbPalette[64];
 
 	// perform an OAM dma from the given CPU memory address
 	void oamDMA(unsigned int addr);
@@ -412,6 +412,7 @@ struct nes_ppu {
 	void step();
 
 	// internals
+	void initPalette();
 	void resolveWorkingPalette();
 
 	// internal NMI handling

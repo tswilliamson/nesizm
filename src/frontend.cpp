@@ -79,6 +79,10 @@ static void DrawInfoBox(const char* text1, const char* text2, const char* text3)
 	waitKey();
 }
 
+static void PrintOptionDetail(const char* text, int x, int y, int textColor) {
+	CalcType_Draw(&commodore, text, x + 150, y, textColor, 0, 0);
+}
+
 extern MenuOption mainOptions[];
 extern MenuOption optionTree[];
 extern MenuOption remapOptions[];
@@ -308,16 +312,18 @@ static bool Option_RemapKey(MenuOption* forOption, int key) {
 	return false;
 }
 
-static const char* Option_GetKeyDetails(MenuOption* forOption) {
+static void Option_GetKeyDetails(MenuOption* forOption, int x, int y, int textColor, bool selected) {
 	int32 key = nesSettings.keyMap[forOption->extraData];
 	if (key == 0) {
-		return "None";
+		PrintOptionDetail("None", x, y, textColor);
+		return;
 	}
 	static char bufferCode[3];
 	bufferCode[0] = key / 10 + '0';
 	bufferCode[1] = key % 10 + '0';
 	bufferCode[2] = 0;
-	return bufferCode;
+	PrintOptionDetail(bufferCode, x, y, textColor);
+	return;
 }
 
 static bool OptionsBack(MenuOption* forOption, int key) {
@@ -339,10 +345,57 @@ static bool Option_Any(MenuOption* forOption, int key) {
 	return false;
 }
 
-static const char* Option_Detail(MenuOption* forOption) {
-	SettingType type = (SettingType) forOption->extraData;
-	return EmulatorSettings::GetSettingValueName(type, nesSettings.GetSetting(type));
+static void renderPalette() {
+	nesPPU.initPalette();
+
+	const int gridSize = 9;
+	const int gridSpacing = 1;
+	const int totalGrid = gridSize + gridSpacing;
+	for (int y = 0; y < 4; y++) {
+		for (int x = 0; x < 16; x++) {
+			int gridX = 384 - (16 - x) * totalGrid;
+			int gridY = 4 + y * totalGrid;
+
+			PrizmImage::Draw_FilledRect(gridX+1, gridY+1, gridSize-2, gridSize-2, nesPPU.rgbPalette[x + y * 16]);
+			PrizmImage::Draw_BorderRect(gridX, gridY, gridSize, gridSize, 1, 0b0011100111000111);
+		}
+	}
+
+	// check for valid custom palette
+	extern const uint8* GetCustomPalette();
+	if (nesSettings.GetSetting(ST_Palette) == 3 && GetCustomPalette() == nullptr) {
+		CalcType_Draw(&arial_small, "No Custom.pal file found!", 384 - 16 * totalGrid, 4 * totalGrid + 5, COLOR_RED, 0, 0);
+	}
 }
+
+static void Option_Detail(MenuOption* forOption, int x, int y, int textColor, bool bSelected) {
+	SettingType type = (SettingType) forOption->extraData;
+	const char* settingValue = EmulatorSettings::GetSettingValueName(type, nesSettings.GetSetting(type));
+	DebugAssert(settingValue);
+	PrintOptionDetail(settingValue, x, y, textColor);
+
+	if (type == ST_Palette && bSelected) {
+		renderPalette();
+	}
+}
+
+static void Option_ColorPercentage(MenuOption* forOption, int x, int y, int textColor, bool bSelected) {
+	SettingType type = (SettingType)forOption->extraData;
+	int value = nesSettings.GetSetting(type);
+
+	PrizmImage::Draw_GradientRect(x+146, y-1, value*10, 12, COLOR_BLUE, COLOR_DARKBLUE);
+	PrizmImage::Draw_BorderRect(x+146, y-1, 100, 12, 1, textColor);
+
+	char percentText[32];
+	sprintf(percentText, "%d%%", value * 20);
+	CalcType_Draw(&arial_small, percentText, x + 150, y, textColor, 0, 0);
+
+	// calculate the actual palette and render it to the top right when selected
+	if (bSelected) {
+		renderPalette();
+	}
+}
+
 
 static bool OptionMenu(MenuOption* forOption, int key) {
 	if (isSelectKey(key)) {
@@ -368,7 +421,10 @@ static bool OptionMenu(MenuOption* forOption, int key) {
 			if (EmulatorSettings::GetSettingGroup((SettingType)i) == group) {
 				options[curOption].name = EmulatorSettings::GetSettingName((SettingType)i);
 				options[curOption].OnKey = Option_Any;
-				options[curOption].GetDetail = Option_Detail;
+				if (EmulatorSettings::GetSettingValueName((SettingType)i, 0))
+					options[curOption].DrawDetail = Option_Detail;
+				else
+					options[curOption].DrawDetail = Option_ColorPercentage;
 				options[curOption].extraData = i;
 				options[curOption].disabled = EmulatorSettings::GetSettingAvailable((SettingType)i) == false;
 				curOption++;
@@ -414,8 +470,8 @@ void MenuOption::Draw(int x, int y, bool bSelected) {
 
 	CalcType_Draw(&commodore, buffer, x, y, color, 0, 0);
 
-	if (GetDetail && disabled == false) {
-		CalcType_Draw(&commodore, GetDetail(this), x + 150, y, color, 0, 0);
+	if (DrawDetail && disabled == false) {
+		DrawDetail(this, x, y, color, bSelected);
 	}
 }
 
@@ -672,6 +728,7 @@ void nes_frontend::Run() {
 			nesFrontend.RenderGameBackground();
 
 			nesAPU.startup();
+			nesPPU.initPalette(); // allows palette/screen options to change during session
 			RunGameLoop();
 			nesAPU.shutdown();
 

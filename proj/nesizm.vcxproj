@@ -66,6 +66,7 @@
     <ClCompile Include="..\src\nes_cart.cpp" />
     <ClCompile Include="..\src\nes_cpu.cpp" />
     <ClCompile Include="..\src\nes_input.cpp" />
+    <ClCompile Include="..\src\nes_palette.cpp" />
     <ClCompile Include="..\src\nes_ppu.cpp" />
     <ClCompile Include="..\src\nes_savestate.cpp" />
     <ClCompile Include="..\src\main.cpp">
