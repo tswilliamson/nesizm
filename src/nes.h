@@ -442,6 +442,9 @@ struct nes_ppu {
 	// render the clock to the screen
 	void renderClock();
 
+	// render FPS to the screen
+	void renderFPS(int32 fps);
+
 	// checks conditions for a sprite hit being possible
 	bool canSprite0Hit() {
 		return (PPUSTATUS & PPUSTAT_SPRITE0) == 0 && (PPUMASK & (PPUMASK_SHOWOBJ | PPUMASK_SHOWBG));

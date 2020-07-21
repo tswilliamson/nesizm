@@ -137,4 +137,23 @@ void nes_ppu::renderClock() {
 	clockImage.Draw_Blit(378 - CLOCK_WIDTH, 215 - CLOCK_HEIGHT);
 }
 
+void nes_ppu::renderFPS(int32 fps) {
+	unsigned short clockData[CLOCK_WIDTH * CLOCK_HEIGHT];
+	PrizmImage clockImage = {
+		CLOCK_WIDTH,CLOCK_HEIGHT,false, (uint8*)clockData
+	};
+	nesFrontend.RenderFPS(fps, clockData);
+
+#if TARGET_WINSIM
+	// image draw library expects big endian
+	for (int32 i = 0; i < CLOCK_WIDTH * CLOCK_HEIGHT; i++) {
+		EndianSwap(clockData[i]);
+	}
+#endif
+
+	int y = 215 - CLOCK_HEIGHT;
+	if (nesSettings.GetSetting(ST_ShowClock)) y -= CLOCK_HEIGHT;
+	clockImage.Draw_Blit(378 - CLOCK_WIDTH, y);
+}
+
 #endif

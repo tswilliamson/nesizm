@@ -136,8 +136,21 @@ void nes_ppu::renderClock() {
 	nesFrontend.RenderTimeToBuffer(clockData);
 
 	int clockX = 385 - CLOCK_WIDTH;
-	int clockY = 215 - CLOCK_HEIGHT;
+	int clockY = 223 - CLOCK_HEIGHT;
 	flushScanBuffer(clockX, clockX + CLOCK_WIDTH - 1, clockY, clockY + CLOCK_HEIGHT, CLOCK_WIDTH * CLOCK_HEIGHT * 2);
+}
+
+void nes_ppu::renderFPS(int32 fps) {
+	// render the fps to the scanline buffer and dma it
+	DmaWaitNext();
+	unsigned short* fpsBuffer = scanGroup[curDMABuffer];
+
+	nesFrontend.RenderFPS(fps, fpsBuffer);
+
+	int fpsX = 385 - CLOCK_WIDTH;
+	int fpsY = 223 - CLOCK_HEIGHT;
+	if (nesSettings.GetSetting(ST_ShowClock)) fpsY -= CLOCK_HEIGHT;
+	flushScanBuffer(fpsX, fpsX + CLOCK_WIDTH - 1, fpsY, fpsY + CLOCK_HEIGHT, CLOCK_WIDTH * CLOCK_HEIGHT * 2);
 }
 
 #if 0

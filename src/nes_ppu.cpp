@@ -557,6 +557,30 @@ void nes_ppu::step() {
 			}
 		}
 
+		// update the FPS counter
+		if (nesSettings.GetSetting(ST_ShowFPS) && skipFrame == false) {
+			// track fps in 8 half second buckets
+			static int32 frameBuckets[8] = { 0, 0, 0, 0, 0, 0, 0, 0};
+			static int32 curBucket = 0;
+			static int32 lastTicks = 0;
+			frameBuckets[curBucket]++;
+
+			int32 ticks = RTC_GetTicks();
+			if (ticks % 64 < lastTicks) {
+				curBucket = (curBucket + 1) % 8;
+				int totalFrames = 2; // rounding
+				for (int x = 0; x < 8; x++) {
+					totalFrames += frameBuckets[x];
+				}
+				totalFrames /= 4; // calculated FPS
+				if (totalFrames < 1) totalFrames = 1;
+				if (totalFrames > 240) totalFrames = 240;
+				renderFPS(totalFrames);
+				frameBuckets[curBucket] = 0;
+			}
+			lastTicks = ticks % 64;
+		}
+
 		finishFrame(skipFrame);
 
 		ScopeTimer::ReportFrame();

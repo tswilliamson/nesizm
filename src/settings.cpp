@@ -125,6 +125,7 @@ static SettingInfo infos[] = {
 	{ ST_ShowClock,			SG_Video,		true,	0,  3,  "Show Clock",		ClockOptions},
 	{ ST_Brightness,		SG_Video,		true,	5, 11,  "Brightness",		nullptr},
 	{ ST_Color,				SG_Video,		true,	5, 11,  "Color",			nullptr},
+	{ ST_ShowFPS,			SG_System,		true,	0,  2,  "Show FPS",			OffOn},
 };
 
 const char* EmulatorSettings::GetSettingName(SettingType setting) {

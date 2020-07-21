@@ -50,6 +50,7 @@ public:
 	void Run();
 	void RunGameLoop();
 	void RenderTimeToBuffer(unsigned short* buffer);
+	void RenderFPS(int32 fps, unsigned short* buffer);
 
 	void ResetPressed();
 

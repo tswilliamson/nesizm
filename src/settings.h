@@ -19,6 +19,7 @@ enum SettingType {
 	ST_ShowClock,
 	ST_Brightness,
 	ST_Color,
+	ST_ShowFPS,
 
 	MAX_SETTINGS
 };
