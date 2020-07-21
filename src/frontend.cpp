@@ -53,17 +53,19 @@ static int32 findKey() {
 
 static int32 waitKey() {
 	int32 ret = 0;
+
 	// wait for press
-	while (ret == 0) {
+	while (ret <= 10) {
 		ret = findKey();
 	}
+
 	// wait for unpress
-	while (findKey() != 0) {}
+	while (findKey() > 10) {}
 
 	return ret;
 }
 
-static void DrawInfoBox(const char* text1, const char* text2, const char* text3) {
+static int32 DrawInfoBox(const char* text1, const char* text2, const char* text3) {
 	if (text1 == nullptr) text1 = "";
 	if (text2 == nullptr) text2 = "";
 	if (text3 == nullptr) text3 = "";
@@ -76,7 +78,7 @@ static void DrawInfoBox(const char* text1, const char* text2, const char* text3)
 	CalcType_Draw(&arial_small, text2, 192 - w2 / 2, 83 + arial_small.height + 6, COLOR_WHITE, 0, 0);
 	CalcType_Draw(&arial_small, text3, 192 - w3 / 2, 83 + arial_small.height * 2 + 12, COLOR_WHITE, 0, 0);
 	Bdisp_PutDisp_DD_stripe(73, 73 + 70);
-	waitKey();
+	return waitKey();
 }
 
 static void PrintOptionDetail(const char* text, int x, int y, int textColor) {
@@ -129,6 +131,40 @@ foundFile* discoverFiles(int& numFound) {
 	return files;
 }
 
+static bool LoadROM(const char* filename, bool bShowCodes = true) {
+	// set up rom file, tell nes to go to game
+	cpu6502_Init();
+	nesPPU.init();
+
+	char romFile[128];
+	sprintf(romFile, "\\\\fls0\\%s", filename);
+	if (nesCart.loadROM(romFile)) {
+		// check for game genie application and display
+		const char* code0 = nullptr;
+		const char* code1 = nullptr;
+		int32 numCodes = 0;
+		for (int i = 0; i < 10; i++) {
+			if (nesSettings.codes[i].isActive()) {
+				if (i == 0) code0 = nesSettings.codes[i].getText();
+				if (i == 1) code1 = nesSettings.codes[i].getText();
+				numCodes++;
+			} else
+				break;
+		}
+		if (numCodes && bShowCodes) {
+			char appliedText[32];
+			sprintf(appliedText, "Using %d Game Genie Code(s)", numCodes);
+			DrawInfoBox(appliedText, code0, code1);
+		}
+
+		mainCPU.reset();
+
+		return true;
+	}
+
+	return false;
+}
+
 static bool ROMFile_Selected(MenuOption* forOption, int key) {
 	if (isSelectKey(key)) {
 		// unload existing game file if there is one:
@@ -136,42 +172,18 @@ static bool ROMFile_Selected(MenuOption* forOption, int key) {
 			nesCart.romFile[0] = 0;
 		}
 
-		// set up rom file, tell nes to go to game
-		cpu6502_Init();
-		nesPPU.init();
-
-		char romFile[128];
+		bool bLoaded = false;
 		if (forOption->extraData) {
 			// use continue file
-			sprintf(romFile, "\\\\fls0\\%s", nesSettings.GetContinueFile());
+			bLoaded = LoadROM(nesSettings.GetContinueFile());
 		} else {
-			sprintf(romFile, "\\\\fls0\\%s", forOption->name);
+			bLoaded = LoadROM(forOption->name);
 		}
-		if (nesCart.loadROM(romFile)) {
+		if (bLoaded) {
 			if (forOption->extraData == 0 && (!nesSettings.GetContinueFile() || strcmp(forOption->name, nesSettings.GetContinueFile()))) {
 				nesSettings.SetContinueFile(forOption->name);
 				nesSettings.Save();
 			}
-
-			// check for game genie application and display
-			const char* code0 = nullptr;
-			const char* code1 = nullptr;
-			int32 numCodes = 0;
-			for (int i = 0; i < 10; i++) {
-				if (nesSettings.codes[i].isActive()) {
-					if (i == 0) code0 = nesSettings.codes[i].getText();
-					if (i == 1) code1 = nesSettings.codes[i].getText();
-					numCodes++;
-				} else
-					break;
-			}
-			if (numCodes) {
-				char appliedText[32];
-				sprintf(appliedText, "Using %d Game Genie Code(s)", numCodes);
-				DrawInfoBox(appliedText, code0, code1);
-			}
-
-			mainCPU.reset();
 
 			nesFrontend.gotoGame = true;
 		} else {
@@ -758,6 +770,20 @@ void nes_frontend::RunGameLoop() {
 
 	nesCart.OnPause();
 	shouldExit = false;
+}
+
+void nes_frontend::ResetPressed() {
+	int32 keyEntered =
+		DrawInfoBox("Reset Game?", "Press EXE to reset", "Any other key to continue.");
+
+	// EXE
+	if (keyEntered == 31) {
+		nesCart.unload();
+		LoadROM(nesSettings.GetContinueFile(), false);
+		nesPPU.initPalette();
+	}
+
+	RenderGameBackground();
 }
 
 MenuOption mainOptions[] =

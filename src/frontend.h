@@ -51,6 +51,8 @@ public:
 	void RunGameLoop();
 	void RenderTimeToBuffer(unsigned short* buffer);
 
+	void ResetPressed();
+
 	// FAQ viewing
 	void getFAQName(char* intoBuffer);
 	bool loadFAQ();

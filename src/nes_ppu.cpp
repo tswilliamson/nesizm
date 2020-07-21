@@ -8,6 +8,7 @@
 
 #include "snd/snd.h"
 #include "scope_timer/scope_timer.h"
+#include "frontend.h"
 
 #if TRACE_DEBUG
 static unsigned int ppuWriteBreakpoint = 0x10000;
@@ -576,6 +577,11 @@ void nes_ppu::step() {
 			ScopeTimer::DisplayTimes();
 		}
 #endif
+
+		if (keyDown_fast(10)) // AC/ON
+		{
+			nesFrontend.ResetPressed();
+		}
 
 		input_cacheKeys();
 
