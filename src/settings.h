@@ -100,6 +100,7 @@ struct EmulatorSettings {
 	void SetContinueFile(const char* romFile);
 
 	static const char* GetSettingName(SettingType setting);
+	static const char* GetSettingHelp(SettingType setting);
 	static const char* GetSettingValueName(SettingType setting, uint8 value);
 	static int GetNumValues(SettingType setting);
 	static SettingGroup GetSettingGroup(SettingType setting);

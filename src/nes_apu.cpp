@@ -547,8 +547,6 @@ void nes_apu_dmc::step() {
 // APU
 
 void sndFrame(int* buffer, int length) {
-	TIME_SCOPE();
-	
 	nesAPU.mix(buffer, length);
 }
 
@@ -700,6 +698,8 @@ void nes_apu::shutdown() {
 // MIX
 
 void nes_apu::mix(int* intoBuffer, int length) {
+	TIME_SCOPE();
+
 	bool bHighQuality = nesSettings.GetSetting(ST_SoundQuality) != 0;
 
 	int triVolume = 237;

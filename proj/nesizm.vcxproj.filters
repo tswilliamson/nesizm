@@ -152,6 +152,9 @@
     <ClCompile Include="..\src\nes_palette.cpp">
       <Filter>Source Files\nes</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\gfx\controls_select.cpp">
+      <Filter>Source Files\gfx</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\main.h">

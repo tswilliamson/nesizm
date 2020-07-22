@@ -22,6 +22,7 @@ struct MenuOption {
 	// extra data (used for options type)
 	int32 extraData;
 
+	void DrawHelp();
 protected:
 	// draw the menu option to VRAM at the given pixel location
 	void Draw(int x, int y, bool bSelected);

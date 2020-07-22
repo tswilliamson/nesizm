@@ -265,7 +265,7 @@ static bool ViewFAQ_Selected(MenuOption* forOption, int key) {
 static bool Options_Selected(MenuOption* forOption, int key) {
 	if (isSelectKey(key)) {
 		nesFrontend.currentOptions = optionTree;
-		nesFrontend.numOptions = 5;
+		nesFrontend.numOptions = 6;
 		nesFrontend.selectedOption = 0;
 		nesFrontend.selectOffset = 0;
 		return true;
@@ -386,8 +386,12 @@ static void Option_Detail(MenuOption* forOption, int x, int y, int textColor, bo
 	DebugAssert(settingValue);
 	PrintOptionDetail(settingValue, x, y, textColor);
 
-	if (type == ST_Palette && bSelected) {
-		renderPalette();
+	if (bSelected) {
+		if (type == ST_Palette) {
+			renderPalette();
+		} else {
+			forOption->DrawHelp();
+		}
 	}
 }
 
@@ -426,12 +430,13 @@ static bool OptionMenu(MenuOption* forOption, int key) {
 		if (group == SG_Controls) {
 			options[curOption].name = "Remap Buttons";
 			options[curOption].OnKey = Option_RemapButtons;
-			options[curOption].help = "Map which keys are used for each NES button";
+			options[curOption].help = "Map which keys are used for each\ncontroller button";
 			curOption++;
 		}
 		for (int32 i = 0; i < MAX_SETTINGS; i++) {
 			if (EmulatorSettings::GetSettingGroup((SettingType)i) == group) {
 				options[curOption].name = EmulatorSettings::GetSettingName((SettingType)i);
+				options[curOption].help = EmulatorSettings::GetSettingHelp((SettingType)i);
 				options[curOption].OnKey = Option_Any;
 				if (EmulatorSettings::GetSettingValueName((SettingType)i, 0))
 					options[curOption].DrawDetail = Option_Detail;
@@ -443,6 +448,7 @@ static bool OptionMenu(MenuOption* forOption, int key) {
 			}
 		}
 		options[curOption].name = "Back";
+		options[curOption].help = "Return to options menu";
 		options[curOption].OnKey = OptionsBack;
 		curOption++;
 
@@ -453,6 +459,25 @@ static bool OptionMenu(MenuOption* forOption, int key) {
 
 		while (options[nesFrontend.selectedOption].disabled == true) {
 			nesFrontend.selectedOption++;
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
+static bool ResetOptions(MenuOption* forOption, int key) {
+	if (isSelectKey(key)) {
+		int key = DrawInfoBox(
+			"Are you sure?",
+			"To reset all options",
+			"Confirm with the EXE key"
+		);
+
+		if (key == 31) {
+			nesSettings.SetDefaults();
+			DrawInfoBox(nullptr, "Options reset.", nullptr);
 		}
 
 		return true;
@@ -477,13 +502,23 @@ void MenuOption::Draw(int x, int y, bool bSelected) {
 		color = COLOR_GRAY;
 	}
 
-	char buffer[128];
-	sprintf(buffer, "%s%s", bSelected ? "=> " : "   ", name);
+	if (bSelected) {
+		extern PrizmImage controls_select;
+		controls_select.Draw_Blit(x, y-1);
+	}
 
-	CalcType_Draw(&commodore, buffer, x, y, color, 0, 0);
+	CalcType_Draw(&commodore, name, x+29, y, color, 0, 0);
 
 	if (DrawDetail && disabled == false) {
 		DrawDetail(this, x, y, color, bSelected);
+	} else if (bSelected) {
+		DrawHelp();
+	}
+}
+
+void MenuOption::DrawHelp() {
+	if (help) {
+		CalcType_Draw(&arial_small, help, 192, 10, COLOR_CADETBLUE, 0, 0);
 	}
 }
 
@@ -523,6 +558,7 @@ void nes_frontend::RenderMenuBackground(bool bForceRedraw) {
 		PrizmImage* bg0 = PrizmImage::LoadImage("\\\\dev0\\gfx\\rays.bmp");
 		PrizmImage* bg1 = PrizmImage::LoadImage("\\\\dev0\\gfx\\oldtv.bmp");
 		PrizmImage* nes = PrizmImage::LoadImage("\\\\dev0\\gfx\\nes.bmp");
+		PrizmImage* controls = PrizmImage::LoadImage("\\\\dev0\\gfx\\controls_select.bmp");
 		logo->Compress();
 		bg0->Compress();
 		bg1->Compress();
@@ -531,6 +567,7 @@ void nes_frontend::RenderMenuBackground(bool bForceRedraw) {
 		bg0->ExportZX7("gfx_bg_warp", "src\\gfx\\bg_warp.cpp");
 		bg1->ExportZX7("gfx_bg_oldtv", "src\\gfx\\bg_oldtv.cpp");
 		nes->ExportZX7("gfx_nes", "src\\gfx\\nes_gfx.cpp");
+		controls->ExportZX7("controls_select", "src\\gfx\\controls_select.cpp");
 	}
 #endif
 
@@ -803,9 +840,9 @@ void nes_frontend::ResetPressed() {
 MenuOption mainOptions[] =
 {
 	{"Continue", "Continue the current loaded game", false, Continue_Selected, nullptr, 0 },
-	{"Load ROM", "Select a ROM to load from your Root folder", false, LoadROM_Selected, nullptr, 0 },
-	{"View FAQ", "View .txt file of the same name as your ROM", false, ViewFAQ_Selected, nullptr, 0 },
-	{"Options", "Select a ROM to load from your Root folder", false, Options_Selected, nullptr, 0 },
+	{"Load ROM", "Select a ROM to load from your\nRoot folder", false, LoadROM_Selected, nullptr, 0 },
+	{"View FAQ", "View .txt file of the same name\nas your ROM", false, ViewFAQ_Selected, nullptr, 0 },
+	{"Options", "Change controls, sound, or\nvideo options", false, Options_Selected, nullptr, 0 },
 	{"About", "Where did this emulator come from?", false, About_Selected, nullptr, 0 },
 };
 
@@ -815,6 +852,7 @@ MenuOption optionTree[] =
 	{ "Controls", "Controls options and keymappings", false, OptionMenu, nullptr, (int) SG_Controls },
 	{ "Display", "Misc video options", false, OptionMenu, nullptr, (int) SG_Video },
 	{ "Sound", "Sound options", false, OptionMenu, nullptr, (int) SG_Sound },
+	{ "Reset", "Reset all options to default", false, ResetOptions, nullptr, 0 },
 	{ "Back", "Return to main menu", false, LeaveOptions, nullptr, 0 }
 };
 

@@ -42,6 +42,7 @@
     <ClCompile Include="..\src\gamegenie.cpp" />
     <ClCompile Include="..\src\gfx\bg_oldtv.cpp" />
     <ClCompile Include="..\src\gfx\bg_warp.cpp" />
+    <ClCompile Include="..\src\gfx\controls_select.cpp" />
     <ClCompile Include="..\src\gfx\logo.cpp" />
     <ClCompile Include="..\src\gfx\nes_gfx.cpp" />
     <ClCompile Include="..\src\imageDraw.cpp" />

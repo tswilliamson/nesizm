@@ -13,6 +13,7 @@ struct SettingInfo {
 	int numValues;
 	const char* name;
 	const char** values;
+	const char* help;
 };
 
 /*
@@ -110,26 +111,30 @@ static const char* ClockOptions[] = {
 };
 
 static SettingInfo infos[] = {
-	{ ST_AutoSave,			SG_Deprecated,	false,	0,	2,	"Auto Save",		OffOn}, // decided to go with always auto SRAM save, manual state save
-	{ ST_OverClock,			SG_System,		true,   0,  3,  "Overclock",		OverclockOptions},
-	{ ST_FrameSkip,			SG_System,		true,	0,  6,	"Frame Skip",		FrameSkipOptions},
-	{ ST_Speed,				SG_System,		true,	1,	5,	"Speed",			SpeedOptions},
-	{ ST_TwoPlayer,			SG_Deprecated,	false,	0,	2,	"2 Player Mode",	OffOn}, // to use 2 players, just define 2nd player keys
-	{ ST_TurboSetting,		SG_Controls,	true,	2,	5,	"Turbo Key",		TurboKeyOptions},
-	{ ST_Palette,			SG_Video,		true,	0,	4,	"Palette",			PaletteOptions},
-	{ ST_Background,		SG_Video,		true,	0,	4,	"Background",		BackgroundOptions},
-	{ ST_SoundEnabled,		SG_Sound,		true,	0,	2,	"Sound",			OffOn},
-	{ ST_SoundQuality,		SG_Sound,		true,	0,  2,  "Extra FX",			OffOn},
-	{ ST_DimScreen,			SG_Video,		false,	0,  2,  "Dim Screen",		OffOn}, // now use the brightness option
-	{ ST_StretchScreen,		SG_Video,		true,	0,  3,  "Stretch",			StretchOptions},
-	{ ST_ShowClock,			SG_Video,		true,	0,  3,  "Show Clock",		ClockOptions},
-	{ ST_Brightness,		SG_Video,		true,	5, 11,  "Brightness",		nullptr},
-	{ ST_Color,				SG_Video,		true,	5, 11,  "Color",			nullptr},
-	{ ST_ShowFPS,			SG_System,		true,	0,  2,  "Show FPS",			OffOn},
+	{ ST_AutoSave,			SG_Deprecated,	false,	0,	2,	"Auto Save",		OffOn,				""}, // decided to go with always auto SRAM save, manual state save
+	{ ST_OverClock,			SG_System,		true,   0,  3,  "Overclock",		OverclockOptions,	"Increase calculator clock speed to\nimprove performance (costs battery)"},
+	{ ST_FrameSkip,			SG_System,		true,	0,  6,	"Frame Skip",		FrameSkipOptions,	"Number of frames to skip when\ndrawing screen to improve speed"},
+	{ ST_Speed,				SG_System,		true,	1,	5,	"Speed",			SpeedOptions,		"Desired emulation speed"},
+	{ ST_TwoPlayer,			SG_Deprecated,	false,	0,	2,	"2 Player Mode",	OffOn,				""}, // to use 2 players, just define 2nd player keys
+	{ ST_TurboSetting,		SG_Controls,	true,	2,	5,	"Turbo Key",		TurboKeyOptions,	"Repeat speed of key presses\nwhen using a turbo key."},
+	{ ST_Palette,			SG_Video,		true,	0,	4,	"Palette",			PaletteOptions,		""},
+	{ ST_Background,		SG_Video,		true,	0,	4,	"Background",		BackgroundOptions,	"Select the background behind the\ngame screen when playing"},
+	{ ST_SoundEnabled,		SG_Sound,		true,	0,	2,	"Sound",			OffOn,				"Enable sound. Requires a 2.5mm\nto 3.5 mm adaptor in top port"},
+	{ ST_SoundQuality,		SG_Sound,		true,	0,  2,  "Extra FX",			OffOn,				"Enable extra sound processing.\nCloser emulation at cost of speed."},
+	{ ST_DimScreen,			SG_Video,		false,	0,  2,  "Dim Screen",		OffOn,				""}, // now use the brightness option
+	{ ST_StretchScreen,		SG_Video,		true,	0,  3,  "Stretch",			StretchOptions,		"Whether to stretch game screen\n4:3 is closest to original system"},
+	{ ST_ShowClock,			SG_Video,		true,	0,  3,  "Show Clock",		ClockOptions,		"Enable to show current system\ntime in bottom corner."},
+	{ ST_Brightness,		SG_Video,		true,	5, 11,  "Brightness",		nullptr,			""},
+	{ ST_Color,				SG_Video,		true,	5, 11,  "Color",			nullptr,			""},
+	{ ST_ShowFPS,			SG_System,		true,	0,  2,  "Show FPS",			OffOn,				"Enable to show current frames\nper second in bottom right."},
 };
 
 const char* EmulatorSettings::GetSettingName(SettingType setting) {
 	return infos[setting].name;
+}
+
+const char* EmulatorSettings::GetSettingHelp(SettingType setting) {
+	return infos[setting].help;
 }
 
 const char* EmulatorSettings::GetSettingValueName(SettingType setting, uint8 value) {
