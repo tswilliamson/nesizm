@@ -222,7 +222,7 @@ void EmulatorSettings::Load() {
 
 			// if a continue file is specified, validate that it still exists
 			if (cur <= len - 48) {
-				memcpy(continueFile, &contents[cur], 48);
+				strncpy(continueFile, (const char*) &contents[cur], 48);
 				cur += 48;
 
 				// check to see that the rom still exists

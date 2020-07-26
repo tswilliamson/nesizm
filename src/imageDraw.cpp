@@ -82,12 +82,14 @@ void PrizmImage::BlitBlock(const uint8* colorData, uint32 size, int32 x, int32& 
 	DebugAssert(x >= 0 && x + width <= LCD_WIDTH_PX);
 	DebugAssert(y >= 0);
 
-	uint8* vram = (uint8*)GetVRAMAddress() + (y * LCD_WIDTH_PX + x) * 2;
+	uint16* vram = (uint16*)GetVRAMAddress() + (y * LCD_WIDTH_PX + x);
+	const uint16* curColor = (const uint16*)colorData;
 	while (size > 0) {
 		DebugAssert(y < LCD_HEIGHT_PX);
-		colorcopy(vram, colorData, width * 2);
-		vram += LCD_WIDTH_PX * 2;
-		colorData += width * 2;
+		for (uint32 x = 0; x < width; ++x, ++curColor) {
+			vram[x] = color_correct(curColor[0]);
+		}
+		vram += LCD_WIDTH_PX;
 		size -= width * 2;
 		y++;
 	}

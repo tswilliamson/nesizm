@@ -82,6 +82,7 @@
       <FileType>Document</FileType>
     </Text>
     <None Include="..\..\..\toolchain\prizm_rules" />
+    <None Include="..\copy.bat" />
     <None Include="..\src\6502_instr_timing.inl" />
     <None Include="..\src\6502_opcodes.inl" />
     <None Include="..\src\asm\RenderScanlineBuffer.S" />

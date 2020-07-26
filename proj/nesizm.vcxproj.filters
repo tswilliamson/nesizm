@@ -206,6 +206,7 @@
       <Filter>Source Files\asm</Filter>
     </None>
     <None Include="..\..\..\toolchain\prizm_rules" />
+    <None Include="..\copy.bat" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\README.md" />

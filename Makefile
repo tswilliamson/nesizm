@@ -28,18 +28,21 @@ INCLUDES	:=  src
 
 MKG3AFLAGS := -n basic:NESizm
 
-OPTIMIZATION = -O3
+OPTIMIZATION = -O2
 
 CBASEFLAGS	= $(OPTIMIZATION) \
 		  -Wall \
 		  -funroll-loops \
 		  -fno-trapping-math \
 		  -fno-trapv \
+		  -fno-threadsafe-statics \
+		  -fno-unwind-tables \
 		  -Wno-switch \
 		  -Wno-stringop-truncation \
 		  -Wno-class-memaccess \
 		  -Wno-narrowing \
 		  -Wno-format-overflow \
+		  -mpretend-cmove \
 		  $(MACHDEP) $(INCLUDE) $(DEFINES)
 		  
 CFLAGS	=	$(CBASEFLAGS) \
@@ -50,7 +53,8 @@ CXXFLAGS	=  $(CBASEFLAGS) \
 		  -fno-rtti \
 		  -fno-exceptions \
 		  -fno-threadsafe-statics \
-		  -fno-use-cxa-get-exception-ptr
+		  -fno-use-cxa-get-exception-ptr \
+		  -std=c++11
 
 ASFLAGS	=	$(CFLAGS) 
 
