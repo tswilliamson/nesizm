@@ -81,6 +81,7 @@
     <Text Include="..\README.md">
       <FileType>Document</FileType>
     </Text>
+    <None Include="..\..\..\toolchain\prizm_rules" />
     <None Include="..\src\6502_instr_timing.inl" />
     <None Include="..\src\6502_opcodes.inl" />
     <None Include="..\src\asm\RenderScanlineBuffer.S" />
@@ -180,7 +181,7 @@ rebuild.bat FXCGSDK=$(ProjectDir)/../../../ DEFINES="-DTARGET_PRIZM=1 -DDEBUG=0"
 clean.bat FXCGSDK=$(ProjectDir)/../../../ DEFINES="-DTARGET_PRIZM=1 -DDEBUG=0" CONFIG=$(Configuration)</NMakeCleanCommandLine>
     <NMakeOutput>$(ProjectDir)\..\$(ProjectName).g3a</NMakeOutput>
     <NMakeIncludeSearchPath>$(ProjectDir)\..\..\include</NMakeIncludeSearchPath>
-    <NMakePreprocessorDefinitions>TARGET_PRIZM</NMakePreprocessorDefinitions>
+    <NMakePreprocessorDefinitions>TARGET_PRIZM=1;DEBUG=0</NMakePreprocessorDefinitions>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DeviceRelease|Win32'">
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);..\..\..\include</IncludePath>
@@ -203,7 +204,7 @@ rebuild.bat FXCGSDK=$(ProjectDir)/../../../ DEFINES="-DTARGET_PRIZM=1 -DDEBUG=1"
 clean.bat FXCGSDK=$(ProjectDir)/../../../ DEFINES="-DTARGET_PRIZM=1 -DDEBUG=1" CONFIG=$(Configuration)</NMakeCleanCommandLine>
     <NMakeOutput>$(ProjectDir)\..\$(ProjectName).g3a</NMakeOutput>
     <NMakeIncludeSearchPath>$(ProjectDir)\..\..\include</NMakeIncludeSearchPath>
-    <NMakePreprocessorDefinitions>TARGET_PRIZM;DEBUG=1</NMakePreprocessorDefinitions>
+    <NMakePreprocessorDefinitions>TARGET_PRIZM=1;DEBUG=1</NMakePreprocessorDefinitions>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DeviceDebug|Win32'">
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);..\..\..\include</IncludePath>

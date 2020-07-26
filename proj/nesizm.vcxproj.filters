@@ -205,6 +205,7 @@
     <None Include="..\src\asm\RenderScanlineBuffer_43.S">
       <Filter>Source Files\asm</Filter>
     </None>
+    <None Include="..\..\..\toolchain\prizm_rules" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\README.md" />

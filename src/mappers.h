@@ -5,6 +5,7 @@
 #include "platform.h"
 #include "debug.h"
 #include "nes.h"
+#include "scope_timer/scope_timer.h"
 
 FORCE_INLINE void memcpy_fast32(void* dest, const void* src, unsigned int size) {
 #if TARGET_WINSIM

@@ -7,7 +7,7 @@ ifeq ($(strip $(FXCGSDK)),)
 export FXCGSDK := $(realpath ../../)
 endif
 
-include $(FXCGSDK)/common/prizm_rules
+include $(FXCGSDK)/toolchain/prizm_rules
 
 
 #---------------------------------------------------------------------------------
@@ -28,12 +28,18 @@ INCLUDES	:=  src
 
 MKG3AFLAGS := -n basic:NESizm
 
-CBASEFLAGS	= -O3 \
+OPTIMIZATION = -O3
+
+CBASEFLAGS	= $(OPTIMIZATION) \
 		  -Wall \
 		  -funroll-loops \
 		  -fno-trapping-math \
 		  -fno-trapv \
 		  -Wno-switch \
+		  -Wno-stringop-truncation \
+		  -Wno-class-memaccess \
+		  -Wno-narrowing \
+		  -Wno-format-overflow \
 		  $(MACHDEP) $(INCLUDE) $(DEFINES)
 		  
 CFLAGS	=	$(CBASEFLAGS) \
@@ -50,12 +56,12 @@ ASFLAGS	=	$(CFLAGS)
 
 # add -S -fverbose-asm for assembly output
 
-LDFLAGS	= $(MACHDEP) -O2 -T$(FXCGSDK)/common/prizm.ld -Wl,-static -g
+LDFLAGS	=  -Xlinker -Map=$(CURDIR)/output.map $(MACHDEP) $(OPTIMIZATION) -T$(FXCGSDK)/toolchain/prizm.x -Wl,-static -g
 
 #---------------------------------------------------------------------------------
 # any extra libraries we wish to link with the project
 #---------------------------------------------------------------------------------
-SYSTEMLIBS :=  -lfxcg -lm -lc -lgcc
+SYSTEMLIBS :=  -lc -lfxcg -lgcc
 LIBS	:=	-lzx7 -lcalctype -lsnd -lptune2_simple $(SYSTEMLIBS)
 
 #---------------------------------------------------------------------------------
@@ -119,13 +125,16 @@ export OUTPUT_FINAL		:=	$(CURDIR)/$(TARGET)
 
 #---------------------------------------------------------------------------------
 $(BUILD):
-	@[ -d $@ ] || mkdir $@
+	-mkdir $@
 	@make --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
 
 #---------------------------------------------------------------------------------
 export CYGWIN := nodosfilewarning
 clean:
-	$(RM) -fr $(BUILD) $(OUTPUT).bin $(OUTPUT_FINAL).g3a $(OUTPUT_FINAL)_cg10.g3a
+	$(call rmdir,$(BUILD))
+	$(call rm,$(OUTPUT).bin)
+	$(call rm,$(OUTPUT_FINAL).g3a)
+	$(call rm,$(OUTPUT_FINAL)_cg10.g3a)
 
 #---------------------------------------------------------------------------------
 else

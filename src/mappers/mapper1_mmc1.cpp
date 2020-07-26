@@ -42,7 +42,7 @@ void nes_cart::MMC1_Write(unsigned int addr, int regValue) {
 	// SUROM 256 select
 	if (MMC1_BOARD_TYPE == MMC1_SUROM && addr >= 0xA000 && addr < 0xE000) {
 		if (addr < 0xC000 || MMC1_CHR_BANK_MODE == 1) {
-			int selectedPRGBlock = (regValue & 0x10) * 2;
+			unsigned int selectedPRGBlock = (regValue & 0x10) * 2;
 			if ((MMC1_PRG_BANK_1 & 0x20) != selectedPRGBlock) {
 				MMC1_PRG_BANK_1 = (MMC1_PRG_BANK_1 & 0x1F) | selectedPRGBlock;
 				MMC1_PRG_BANK_2 = (MMC1_PRG_BANK_2 & 0x1F) | selectedPRGBlock;

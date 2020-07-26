@@ -55,7 +55,7 @@ void Mapper67_writeSpecial(unsigned int address, unsigned char value) {
 
 				// update counter by offset if applicable
 				if (Mapper67_IRQ_Enable) {
-					int clocksPassed = mainCPU.clocks - Mapper67_IRQ_LastSet;
+					unsigned int clocksPassed = mainCPU.clocks - Mapper67_IRQ_LastSet;
 					if (clocksPassed < Mapper67_IRQ_Counter) {
 						Mapper67_IRQ_Counter -= clocksPassed;
 					} else {
@@ -72,7 +72,7 @@ void Mapper67_writeSpecial(unsigned int address, unsigned char value) {
 				Mapper67_IRQ_WriteToggle ^= 1;
 			} else if (address == 0xD800) {
 				// enable IRQ
-				int newEnable = (value & 0x10);
+				unsigned int newEnable = (value & 0x10);
 				if (newEnable != Mapper67_IRQ_Enable) {
 					if (newEnable) {
 						Mapper67_IRQ_LastSet = mainCPU.clocks;

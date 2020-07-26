@@ -27,6 +27,7 @@ typedef unsigned int uint32;
 #include <time.h>
 #undef LoadImage
 #else
+
 #define ALIGN(x) __attribute__((aligned(x)))
 #define BIG_E
 #define override
@@ -34,6 +35,13 @@ typedef unsigned int uint32;
 #define RESTRICT __restrict__
 #include "fxcg_registers.h"
 #define nullptr NULL
+
+#include "fxcg\heap.h"
+#define malloc sys_malloc
+#define calloc sys_calloc
+#define realloc sys_realloc
+#define free sys_free
+
 #endif
 
 static inline void EndianSwap(unsigned short& s) {

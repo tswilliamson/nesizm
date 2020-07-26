@@ -468,7 +468,7 @@ struct FCEUX_File {
 		}
 		// Sunsoft-5
 		else if (nesCart.mapper == 69) {
-			uint32 regs[21];
+			uint32 regs[22];
 			memcpy(regs, data, 84);
 			for (int32 r = 0; r <= 21; r++) {
 				EndianSwap_Big(regs[r]);
