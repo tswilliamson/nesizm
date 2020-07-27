@@ -271,8 +271,8 @@ void nes_ppu::finishFrame(bool bSkippedFrame) {
 
 			tmu1Clocks = 0;
 		} else {
-			// expected TMU1 based sim frame time (for 60.09 FPS)
-			unsigned int simFrameTime = Ptune2_GetPLLFreq() * 235 >> Ptune2_GetPFCDiv();
+			// determine expected TMU1 based sim frame time (for 60.09 FPS)
+			int32 simFrameTime = Ptune2_GetPLLFreq() * 235 >> Ptune2_GetPFCDiv();
 
 			// PAL is slower (50 Hz)
 			if (nesCart.isPAL) {
@@ -286,7 +286,8 @@ void nes_ppu::finishFrame(bool bSkippedFrame) {
 				case 3: simFrameTime = simFrameTime * 4 / 3; break;
 			}
 
-			// clamp speed by waiting for frame time only on rendered frames
+			// clamp speed by waiting for frame time only on rendered frames, so accumulatedSimTime
+			// is the expected amount of time needed to pass for correct speed
 			static uint32 accumulatedSimTime = 0;
 			accumulatedSimTime += simFrameTime;
 			
@@ -294,21 +295,20 @@ void nes_ppu::finishFrame(bool bSkippedFrame) {
 				tmu1Clocks = counterStart - REG_TMU_TCNT_1;
 
 				// auto frameskip adjustment based on pre clamped time
-				static unsigned int collectedTime = 0;
-				static unsigned int collectedFrames = 0;
-				collectedTime += tmu1Clocks;
-				collectedFrames++;
-				if (nesSettings.GetSetting(ST_FrameSkip) == 0 && collectedFrames > 7) {
-					int speedUpTime = simFrameTime * 124 / 128;
-					int slowDownTime = simFrameTime * 129 / 128;
-					int avgTime = collectedTime / 8;
-					collectedTime = 0;
-					collectedFrames = 0;
+				if (nesSettings.GetSetting(ST_FrameSkip) == 0) {
+					static int32 timeOffset = 0;
+					timeOffset += tmu1Clocks - accumulatedSimTime;
 
-					if (avgTime < speedUpTime && nesPPU.autoFrameSkip != 0) {
-						nesPPU.autoFrameSkip--;
-					} else if (avgTime > slowDownTime && nesPPU.autoFrameSkip != 24) {
-						nesPPU.autoFrameSkip++;
+					static int32 framesCollected = 0;
+					if (++framesCollected >= 60) {
+						if (timeOffset < -simFrameTime && nesPPU.autoFrameSkip != 0) {
+							nesPPU.autoFrameSkip--;
+						} else if (timeOffset > 0 && nesPPU.autoFrameSkip != 24) {
+							nesPPU.autoFrameSkip++;
+						}
+
+						framesCollected = 0;
+						timeOffset = 0;
 					}
 				}
 

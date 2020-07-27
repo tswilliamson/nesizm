@@ -409,12 +409,9 @@ void nes_ppu::step() {
 		switch (frameSkipValue) {
 			case 0: // auto
 			{
-				// reverse the bits of the previous frame counter xor'd with this one and
-				// compare against our ratio:
-				unsigned int f = (frameCounter % 32) ^ ((frameCounter + 1) % 32);
+				unsigned int f = (frameCounter % 32);
 				f = ((f & 0x10) >> 4) | ((f & 0x8) >> 2) | ((f & 0x2) << 2) | ((f & 0x01) << 4);
 
-				// negative is automatic (frame skip amt stored in HOW negative it is)
 				skipFrame = f < autoFrameSkip;
 				break;
 			}

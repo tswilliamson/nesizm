@@ -43,6 +43,7 @@ CBASEFLAGS	= $(OPTIMIZATION) \
 		  -Wno-narrowing \
 		  -Wno-format-overflow \
 		  -mpretend-cmove \
+		  -fdelayed-branch \
 		  $(MACHDEP) $(INCLUDE) $(DEFINES)
 		  
 CFLAGS	=	$(CBASEFLAGS) \
