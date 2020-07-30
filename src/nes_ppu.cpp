@@ -708,7 +708,7 @@ static const unsigned short MortonTable[256] =
 };
 
 // table of 8 byte wide bit overlays per all possible 256 byte combinations
-uint8 OverlayTable[8 * 256] = {
+static const uint8 OverlayTable[8 * 256] = {
 	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,2,0,0,0,0,0,0,0,2,2,0,0,0,0,0,2,0,0,0,0,0,0,0,2,0,2,0,0,0,0,0,2,2,0,0,0,0,0,0,2,2,2,
 	0,0,0,0,2,0,0,0,0,0,0,0,2,0,0,2,0,0,0,0,2,0,2,0,0,0,0,0,2,0,2,2,0,0,0,0,2,2,0,0,0,0,0,0,2,2,0,2,0,0,0,0,2,2,2,0,0,0,0,0,2,2,2,2,
 	0,0,0,2,0,0,0,0,0,0,0,2,0,0,0,2,0,0,0,2,0,0,2,0,0,0,0,2,0,0,2,2,0,0,0,2,0,2,0,0,0,0,0,2,0,2,0,2,0,0,0,2,0,2,2,0,0,0,0,2,0,2,2,2,
@@ -1075,7 +1075,7 @@ void nes_ppu::renderScanline_HorzMirror(nes_ppu& ppu) {
 		uint32 attrX = (ppu.SCROLLX >> 5) & 7;
 		unsigned int attrPalette = 0;
 		if (tileLine & 2) { // 4 bit shift for bottom row of attribute
-			attrPalette = ((attr[attrX] >> 4) & 0xF);
+			attrPalette = attr[attrX] >> 4;
 			attrX = (attrX + 7) & 7;
 			for (int loop = 0; loop < 7; loop++) {
 				attrPalette <<= 4;
@@ -1221,7 +1221,7 @@ static void renderScanline_VertMirror_Latched(nes_ppu& ppu) {
 		// determine base addresses
 		unsigned char* nameTable;
 		unsigned char* attr;
-		int attrShift = (tileLine & 2) << 1;	// 4 bit shift for bottom row of attribute
+		const bool attrShift = (tileLine & 2);	// 4 bit shift for bottom row of attribute
 		unsigned int chrOffset = (line & 7);
 		unsigned char* patternTable = ppu.chrPages[(ppu.PPUCTRL & PPUCTRL_BGDTABLE) >> 4] + chrOffset;
 
@@ -1241,8 +1241,14 @@ static void renderScanline_VertMirror_Latched(nes_ppu& ppu) {
 		while (curTileX < 32) {
 			// grab and rotate palette selection
 			bool hadLatch = false;
-			int attrPalette = (attr[(curTileX >> 2)] >> attrShift) >> (curTileX & 2);
-			uint32 palette = (attrPalette & 0x03) << 2;
+			uint32 attrPalette;
+			if (attrShift) {
+				attrPalette = (attr[(curTileX >> 2)] >> 2) >> (curTileX & 2);
+			} else {
+				attrPalette = (attr[(curTileX >> 2)] << 2) >> (curTileX & 2);
+			}
+
+			uint32 palette = (attrPalette & 0x0C);
 			
 			uint8 chr1 = nameTable[curTileX++];
 			uint8 chr2 = nameTable[curTileX++];
@@ -1300,8 +1306,13 @@ static void renderScanline_VertMirror_Latched(nes_ppu& ppu) {
 		while (buffer < bufferEnd) {
 			// grab and rotate palette selection
 			bool hadLatch = false;
-			int attrPalette = (attr[(curTileX >> 2)] >> attrShift) >> (curTileX & 2);
-			uint32 palette = (attrPalette & 0x03) << 2;
+			uint32 attrPalette;
+			if (attrShift) {
+				attrPalette = (attr[(curTileX >> 2)] >> 2) >> (curTileX & 2);
+			} else {
+				attrPalette = (attr[(curTileX >> 2)] << 2) >> (curTileX & 2);
+			}
+			uint32 palette = (attrPalette & 0x0C);
 
 			uint8 chr1 = nameTable[curTileX++];
 			uint8 chr2 = nameTable[curTileX++];
