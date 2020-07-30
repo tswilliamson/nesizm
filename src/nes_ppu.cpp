@@ -708,7 +708,7 @@ static const unsigned short MortonTable[256] =
 };
 
 // table of 8 byte wide bit overlays per all possible 256 byte combinations
-static const uint8 OverlayTable[8 * 256] = {
+const uint8 OverlayTable[8 * 256] = {
 	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,2,0,0,0,0,0,0,0,2,2,0,0,0,0,0,2,0,0,0,0,0,0,0,2,0,2,0,0,0,0,0,2,2,0,0,0,0,0,0,2,2,2,
 	0,0,0,0,2,0,0,0,0,0,0,0,2,0,0,2,0,0,0,0,2,0,2,0,0,0,0,0,2,0,2,2,0,0,0,0,2,2,0,0,0,0,0,0,2,2,0,2,0,0,0,0,2,2,2,0,0,0,0,0,2,2,2,2,
 	0,0,0,2,0,0,0,0,0,0,0,2,0,0,0,2,0,0,0,2,0,0,2,0,0,0,0,2,0,0,2,2,0,0,0,2,0,2,0,0,0,0,0,2,0,2,0,2,0,0,0,2,0,2,2,0,0,0,0,2,0,2,2,2,
@@ -774,8 +774,10 @@ void nes_ppu::resolveOAM() {
 		uint8 bitMask = (1 << b);
 		for (int i = 0; i < 8; i++, curObj -= 4) {
 			unsigned int line = curObj[0] + scanlineOffset;
-			for (int x = 0; x < spriteSize; x++, line++) {
-				fetchMask[line] |= bitMask;
+			if (line <= 242) {
+				for (int x = 0; x < spriteSize; x++, line++) {
+					fetchMask[line] |= bitMask;
+				}
 			}
 		}
 	}
