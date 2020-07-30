@@ -15,7 +15,7 @@ static unsigned int ppuWriteBreakpoint = 0x10000;
 extern void PPUBreakpoint();
 #endif
 
-nes_ppu nesPPU ALIGN(256);
+nes_ppu nesPPU;
 
 static uint16 reverseBytelookup[16] = {
 	0x0, 0x8, 0x4, 0xc, 0x2, 0xa, 0x6, 0xe,
@@ -336,7 +336,7 @@ void nes_ppu::fastSprite0(bool bValidBackground) {
 
 		if (bValidBackground) {
 			int baseX = SCROLLX & 15;
-			uint8* buffer = scanlineBuffer + baseX + spriteX;
+			uint8* buffer = &scanlineBuffer[baseX + spriteX];
 			for (int32 x = 0; x < 8; x++, buffer++) {
 				if ((tileMask & 1) && (*buffer)) {
 					SetPPUSTATUS(PPUSTATUS | PPUSTAT_SPRITE0);
@@ -729,7 +729,7 @@ uint8 OverlayTable[8 * 256] = {
 #if TARGET_WINSIM
 // super fast blitting method!
 inline void RenderToScanline(unsigned char*patternTable, int chr, uint32 unrolledPalette, uint8* buffer) {
-	DebugAssert(uint32(buffer) % 4 == 0); // long alignment required in SH4
+	DebugAssert((uint32(buffer) & 3) == 0); // long alignment required in SH4
 
 	unsigned int* bitPlane1 = (unsigned int*) &OverlayTable[patternTable[chr] * 8];
 	unsigned int* bitPlane2 = (unsigned int*) &OverlayTable[patternTable[chr + 8] * 8];
@@ -1268,7 +1268,7 @@ static void renderScanline_VertMirror_Latched(nes_ppu& ppu) {
 		nameTableIndex = nameTableIndex ^ 1;
 		nameTable = &ppu.nameTables[nameTableIndex].table[tileLine << 5];
 		attr = &ppu.nameTables[nameTableIndex].attr[(tileLine >> 2) << 3];
-		uint8* bufferEnd = ppu.scanlineBuffer + 16 * 17;
+		uint8* bufferEnd = &ppu.scanlineBuffer[16 * 17];
 
 		while (buffer < bufferEnd) {
 			// grab and rotate palette selection
@@ -1385,7 +1385,6 @@ void nes_ppu::init() {
 	memset(this, 0, sizeof(nes_ppu));
 	scanline = 1;
 	mirror = nes_mirror_type::MT_UNSET;
-	initScanlineBuffer();
 	autoFrameSkip = 0;
 }
 

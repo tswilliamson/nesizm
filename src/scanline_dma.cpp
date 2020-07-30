@@ -22,20 +22,12 @@
 #define DMA0_DAR_0	(volatile unsigned*)0xFE008024
 #define DMA0_TCR_0	(volatile unsigned*)0xFE008028
 
-// resolved line buffer in on chip mem
+// resolved line buffer in on chip Y mem, 4 kb chunks
 static unsigned short* scanGroup[2] = { (unsigned short*) 0xE5007000, (unsigned short*) 0xE5017000 };
 static int curDMABuffer = 0;
 
-// scanline buffer goes in on chip mem 2
-unsigned char scanlineBufferPtr[256 + 16 * 2];
-
 // resolve assembly defines used by various .S files
 uint16* ppu_workingPalette = &nesPPU.workingPalette[0];
-unsigned char* ppu_scanlineBuffer = &scanlineBufferPtr[0];
-
-void nes_ppu::initScanlineBuffer() {
-	scanlineBuffer = scanlineBufferPtr;
-}
 
 static unsigned int curScan = 0;
 static unsigned int dmaFrame = 0;
@@ -235,7 +227,7 @@ void nes_ppu::resolveScanline(int scrollOffset) {
 			flushScanBuffer(18 + scanlineOffset, 377 + scanlineOffset, scanline - 9 - bufferLines + 1, scanline - 9, scanBufferSize);
 		}
 	} else {
-		const unsigned int bufferLines = 14;	// 480 bytes * 14 lines = 6720
+		const unsigned int bufferLines = 16;	// 480 bytes * 16 lines = 7680
 		const unsigned int scanBufferSize = bufferLines * 240 * 2;
 
 		// resolve le line

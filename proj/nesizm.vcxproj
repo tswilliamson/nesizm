@@ -303,6 +303,7 @@ clean.bat FXCGSDK=$(ProjectDir)/../../../ DEFINES="-DTARGET=PRIZMEMU -DDEBUG=1" 
       <ExceptionHandling>false</ExceptionHandling>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <PostBuildEvent>
       <Command>copy /Y "$(SolutionDir)..\..\..\utils\winsim\freeglut\bin\*.dll" "$(TargetDir)"</Command>

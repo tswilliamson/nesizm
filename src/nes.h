@@ -314,7 +314,7 @@ struct nes_ppu {
 	int mirror;
 
 	// up to four name tables potentially (most games use 2)
-	nes_nametable* nameTables;
+	nes_nametable nameTables[4];
 
 	// character memory split into 4 kb pages (0x0000 and 0x1000)
 	unsigned char* chrPages[2];
@@ -328,22 +328,23 @@ struct nes_ppu {
 	// current rendered background color (for game color background option)
 	unsigned short currentBGColor;
 
-	// pointer to buffer representing palette entries for current scanline
-	uint8* scanlineBuffer;
+	// working palette (actual LCD colors of each palette entry from palette[], accounts for background color mirroring)
+	uint16 workingPalette[0x20];
 
-	// pointer to function to render current scanline to scanline buffer (based on mirror mode)
-	void(*renderScanline)(nes_ppu& ppu);
+	// pointer to buffer representing palette entries for current scanline
+	uint8 scanlineBuffer[256 + 16 * 2] ALIGN(4);
 
 	// palette ram (first 16 bytes are BG, second are OBJ palettes)
 	unsigned char palette[0x20];
 
+	bool dirtyPalette;
+
+	// pointer to function to render current scanline to scanline buffer (based on mirror mode)
+	void(*renderScanline)(nes_ppu& ppu);
+
 	// oam data
 	unsigned char oam[0x100];
 	bool dirtyOAM;
-	
-	// working palette (actual LCD colors of each palette entry from palette[], accounts for background color mirroring)
-	uint16 workingPalette[0x20];
-	bool dirtyPalette;
 
 	// current frame
 	unsigned int frameCounter;
@@ -430,7 +431,6 @@ struct nes_ppu {
 	unsigned char memoryMap[256];
 
 	// main rendering
-	void initScanlineBuffer();
 	void fastSprite0(bool bValidBackground);
 	void doOAMRender();
 	void resolveScanline(int scrollOffset);
@@ -456,9 +456,6 @@ struct nes_ppu {
 	static void renderScanline_4PaneMirror(nes_ppu& ppu);
 };
 
-#define USE_DMA TARGET_PRIZM
-
-// main ppu registers (2000-2007 and emulated latch)
 extern nes_ppu nesPPU;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

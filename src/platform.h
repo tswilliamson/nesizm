@@ -68,7 +68,7 @@ static inline void EndianSwap(unsigned int& i) {
 
 // compile time assert, will throw negative subscript error
 #ifdef __GNUC__
-#define CT_ASSERT(cond) typedef char __attribute__((error("assertion failure: '" #cond "' not true"))) badCompileTimeAssertion [(cond) ? 1 : -1];
+#define CT_ASSERT(cond) static_assert(cond);
 #else
 #define CT_ASSERT(cond) typedef char check##__LINE__ [(cond) ? 1 : -1];
 #endif
