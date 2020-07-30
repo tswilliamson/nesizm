@@ -30,11 +30,28 @@ uint16 reverseByte(uint16 b) {
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Scanline handling
 
+inline void Rotate_2Bit(uint32& value) {
+#if TARGET_WINSIM
+	value = (value >> 2) | (value << 30);
+#else
+	asm volatile inline (
+		"rotr %[value]						\n\t"
+		"rotr %[value]						\n\t"
+		// outputs
+		: [value] "+r" (value)
+		// inputs
+		: "0" (value)
+		// clobbers
+		: "cc"
+	);
+#endif
+}
+
 inline void CopyOver16(uint8* srcBytes) {
 #if TARGET_WINSIM
 	memcpy(srcBytes + 16, srcBytes, 16);
 #elif TARGET_PRIZM
-	asm(
+	asm (
 		"mov.l @%[src],r0						\n\t"
 		"mov.l r0,@(16,%[src])					\n\t" 
 		"mov.l @(4, %[src]),r0					\n\t"
@@ -978,19 +995,19 @@ void nes_ppu::renderScanline_SingleMirror(nes_ppu& ppu) {
 		// we render 16 pixels at a time (easy attribute table lookup), 17 times and clip
 		uint8* buffer = ppu.scanlineBuffer;
 		int tileX = (ppu.SCROLLX >> 4) * 2;	// always start on an even numbered tile
-		int lastChr = -1;
+		uint32 lastChr = -1;
 
 		for (int loop = 0; loop < 17; loop++) {
 			// grab and rotate palette selection
 			uint32 palette = (attrPalette & 0x0C);
-			attrPalette = (attrPalette >> 2) | (attrPalette << 30);
+			Rotate_2Bit(attrPalette);
 
 			// keep tileX mirroring
 			tileX &= 0x1F;
 
-			int chr1 = nameTable[tileX++];
-			int chr2 = nameTable[tileX++];
-			int chrSig = (chr1 << 16) | (chr2 << 8) | palette;
+			uint8 chr1 = nameTable[tileX++];
+			uint8 chr2 = nameTable[tileX++];
+			uint32 chrSig = (chr1 << 16) | (chr2 << 8) | palette;
 
 			if (chrSig == lastChr) {
 				CopyOver16(buffer - 16);
@@ -1055,13 +1072,24 @@ void nes_ppu::renderScanline_HorzMirror(nes_ppu& ppu) {
 
 		// pre-build attribute table lookup into one big 32 bit int
 		// this is done backwards so the value is easily popped later
-		int attrX = (ppu.SCROLLX >> 5) & 7;
-		int attrShift = (tileLine & 2) << 1;	// 4 bit shift for bottom row of attribute
+		uint32 attrX = (ppu.SCROLLX >> 5) & 7;
 		unsigned int attrPalette = 0;
-		for (int loop = 0; loop < 8; loop++) {
-			attrPalette <<= 4;
-			attrPalette |= ((attr[attrX] >> attrShift) & 0xF);
+		if (tileLine & 2) { // 4 bit shift for bottom row of attribute
+			attrPalette = ((attr[attrX] >> 4) & 0xF);
 			attrX = (attrX + 7) & 7;
+			for (int loop = 0; loop < 7; loop++) {
+				attrPalette <<= 4;
+				attrPalette |= (attr[attrX] >> 4);
+				attrX = (attrX + 7) & 7;
+			}
+		} else {
+			attrPalette |= (attr[attrX] & 0xF);
+			attrX = (attrX + 7) & 7;
+			for (int loop = 0; loop < 7; loop++) {
+				attrPalette <<= 4;
+				attrPalette |= (attr[attrX] & 0xF);
+				attrX = (attrX + 7) & 7;
+			}
 		}
 
 		if ((ppu.SCROLLX & 0x10) == 0) {
@@ -1076,18 +1104,18 @@ void nes_ppu::renderScanline_HorzMirror(nes_ppu& ppu) {
 
 		// MMC2/4 too branch here for faster code:
 		if (nesCart.renderLatch) {
-			int lastChr = -1;
+			uint32 lastChr = -1;
 			for (int loop = 0; loop < 17; loop++) {
 				// grab and rotate palette selection
 				uint32 palette = (attrPalette & 0x0C);
-				attrPalette = (attrPalette >> 2) | (attrPalette << 30);
+				Rotate_2Bit(attrPalette);
 
 				// keep tileX mirroring
 				tileX &= 0x1F;
 
-				int chr1 = nameTable[tileX++];
-				int chr2 = nameTable[tileX++];
-				int chrSig = (chr1 << 16) | (chr2 << 8) | palette;
+				uint8 chr1 = nameTable[tileX++];
+				uint8 chr2 = nameTable[tileX++];
+				uint32 chrSig = (chr1 << 16) | (chr2 << 8) | palette;
 
 				if (chrSig == lastChr) {
 					CopyOver16(buffer - 16);
@@ -1097,13 +1125,13 @@ void nes_ppu::renderScanline_HorzMirror(nes_ppu& ppu) {
 					lastChr = chrSig;
 
 					RenderToScanline(patternTable, chr1 << 4, palette, buffer);
-					if (chr1 >= 0xFD && nesCart.renderLatch) {
+					if (chr1 >= 0xFD) {
 						nesCart.renderLatch((chr1 << 4) + chrOffset + 8 + ((ppu.PPUCTRL & PPUCTRL_BGDTABLE) << 8));
 						patternTable = ppu.chrPages[(ppu.PPUCTRL & PPUCTRL_BGDTABLE) >> 4] + chrOffset;
 					}
 					buffer += 8;
 					RenderToScanline(patternTable, chr2 << 4, palette, buffer);
-					if (chr2 >= 0xFD && nesCart.renderLatch) {
+					if (chr2 >= 0xFD) {
 						nesCart.renderLatch((chr2 << 4) + chrOffset + 8 + ((ppu.PPUCTRL & PPUCTRL_BGDTABLE) << 8));
 						patternTable = ppu.chrPages[(ppu.PPUCTRL & PPUCTRL_BGDTABLE) >> 4] + chrOffset;
 					}
@@ -1111,32 +1139,31 @@ void nes_ppu::renderScanline_HorzMirror(nes_ppu& ppu) {
 				}
 			}
 		} else {
-			int lastChr = -1;
+			uint32 lastChr = -1;
 
 			for (int loop = 0; loop < 17; loop++) {
 				// grab and rotate palette selection
 				uint32 palette = (attrPalette & 0x0C);
-				attrPalette = (attrPalette >> 2) | (attrPalette << 30);
+				Rotate_2Bit(attrPalette);
 
 				// keep tileX mirroring
 				tileX &= 0x1F;
 
-				int chr1 = nameTable[tileX++];
-				int chr2 = nameTable[tileX++];
-				int chrSig = (chr1 << 16) | (chr2 << 8) | palette;
+				uint32 chr1 = nameTable[tileX++];
+				uint32 chr2 = nameTable[tileX++] << 8;
+				uint32 chrSig = (chr1 << 16) | chr2 | palette;
 
 				if (chrSig == lastChr) {
 					CopyOver16(buffer - 16);
-					buffer += 16;
 				} else {
 					UnrollPalette(palette);
 					lastChr = chrSig;
 
 					RenderToScanline(patternTable, chr1 << 4, palette, buffer);
-					buffer += 8;
-					RenderToScanline(patternTable, chr2 << 4, palette, buffer);
-					buffer += 8;
+					RenderToScanline(patternTable, chr2 >> 4, palette, buffer + 8);
 				}
+
+				buffer += 16;
 			}
 		}
 	} else {
@@ -1210,16 +1237,16 @@ static void renderScanline_VertMirror_Latched(nes_ppu& ppu) {
 
 		// render tileX up to the end of the current nametable
 		int curTileX = tileX & 0x1F;
-		int lastChr = -1;
+		uint32 lastChr = -1;
 		while (curTileX < 32) {
 			// grab and rotate palette selection
 			bool hadLatch = false;
 			int attrPalette = (attr[(curTileX >> 2)] >> attrShift) >> (curTileX & 2);
 			uint32 palette = (attrPalette & 0x03) << 2;
 			
-			int chr1 = nameTable[curTileX++];
-			int chr2 = nameTable[curTileX++];
-			int chrSig = (chr1 << 16) | (chr2 << 8) | palette;
+			uint8 chr1 = nameTable[curTileX++];
+			uint8 chr2 = nameTable[curTileX++];
+			uint32 chrSig = (chr1 << 16) | (chr2 << 8) | palette;
 
 			if (chrSig == lastChr) {
 				CopyOver16(buffer - 16);
@@ -1276,9 +1303,9 @@ static void renderScanline_VertMirror_Latched(nes_ppu& ppu) {
 			int attrPalette = (attr[(curTileX >> 2)] >> attrShift) >> (curTileX & 2);
 			uint32 palette = (attrPalette & 0x03) << 2;
 
-			int chr1 = nameTable[curTileX++];
-			int chr2 = nameTable[curTileX++];
-			int chrSig = (chr1 << 16) | (chr2 << 8) | palette;
+			uint8 chr1 = nameTable[curTileX++];
+			uint8 chr2 = nameTable[curTileX++];
+			uint32 chrSig = (chr1 << 16) | (chr2 << 8) | palette;
 			
 			if (chrSig == lastChr) {
 				CopyOver16(buffer - 16);

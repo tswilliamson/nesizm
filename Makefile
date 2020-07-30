@@ -30,6 +30,7 @@ MKG3AFLAGS := -n basic:NESizm
 
 OPTIMIZATION = -O2
 
+# add -S -fverbose-asm for assembly output
 CBASEFLAGS	= $(OPTIMIZATION) \
 		  -Wall \
 		  -funroll-loops \
@@ -58,8 +59,6 @@ CXXFLAGS	=  $(CBASEFLAGS) \
 		  -std=c++11
 
 ASFLAGS	=	$(CFLAGS) 
-
-# add -S -fverbose-asm for assembly output
 
 LDFLAGS	=  -Xlinker -Map=$(CURDIR)/output.map $(MACHDEP) $(OPTIMIZATION) -T$(FXCGSDK)/toolchain/prizm.x -Wl,-static -g
 
