@@ -32,7 +32,7 @@ uint16* ppu_workingPalette = &nesPPU.workingPalette[0];
 static unsigned int curScan = 0;
 static unsigned int dmaFrame = 0;
 
-void DmaWaitNext(void) {
+static inline void DmaWaitNext(void) {
 	while (1) {
 		if ((*DMA0_DMAOR) & 4)//Address error has occurred stop looping
 			break;
@@ -45,7 +45,7 @@ void DmaWaitNext(void) {
 	*DMA0_DMAOR = 0;
 }
 
-void DmaDrawStrip(void* srcAddress, unsigned int size) {
+static inline void DmaDrawStrip(void* srcAddress, unsigned int size) {
 	// disable dma so we can issue new command
 	*DMA0_CHCR_0 &= ~1;
 	*DMA0_DMAOR = 0;
@@ -62,8 +62,6 @@ void DmaDrawStrip(void* srcAddress, unsigned int size) {
 }
 
 void flushScanBuffer(int startX, int endX, int startY, int endY, int scanBufferSize) {
-	TIME_SCOPE();
-
 	DmaWaitNext();
 
 	Bdisp_WriteDDRegister3_bit7(1);

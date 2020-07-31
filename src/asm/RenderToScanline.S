@@ -2,7 +2,7 @@
 # void RenderToScanline(unsigned char*patternTable, int chr, int palette, uint8* buffer);
 
 # r4 = uint8* patternTable;
-# r5 = int chr; (spriteIndex * !6)
+# r5 = int chr; 
 # r6 = int palette;
 # r7 = uint8* buffer; (4-byte aligned)
 # symbol = uint8* OverlayTable

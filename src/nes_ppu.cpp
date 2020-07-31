@@ -543,6 +543,8 @@ void nes_ppu::step() {
 		triggerNMI = (mainCPU.clocks > 140000);
 		setVBL = (mainCPU.clocks > 30000);
 	} else if (scanline == 242) {
+		TIME_SCOPE_NAMED(lastScanline);
+
 		if (setVBL) {
 			SetPPUSTATUS(PPUSTATUS | PPUSTAT_NMI);
 		}
@@ -815,6 +817,7 @@ void static renderOAM(nes_ppu& ppu) {
 		int minSpriteMask = 32;
 		int maxSpriteMask = 0;
 		int scanlineOffset = ppu.scanline - 2;
+		bool bHadBGPriority = false;
 
 		// mask out 8 at a time
 		for (int b = fetchMask[ppu.scanline]; b; b = b >> 1) {
@@ -847,6 +850,9 @@ void static renderOAM(nes_ppu& ppu) {
 					unsigned int bitPlane = (MortonTable[tile0] | (MortonTable[tile8] << 1)) << 1;
 					unsigned int palette = (((curObj[2] & 3) << 2) + (curObj[2] & OAMATTR_PRIORITY) + 16) << 1;
 					unsigned char* buffer = oamScanlineBuffer + x;
+					if (curObj[2] & OAMATTR_PRIORITY) {
+						bHadBGPriority = true;
+					}
 
 					if (curObj[2] & OAMATTR_HFLIP) {
 											if (bitPlane & 6) buffer[0] = palette | (bitPlane & 6);
@@ -897,12 +903,21 @@ void static renderOAM(nes_ppu& ppu) {
 				if (spriteMask[sprite]) {
 					unsigned char* targetPixel = targetPixelBase + sprite * 8;
 					unsigned char* oamPixel = &oamScanlineBuffer[sprite *8];
-					for (int b = spriteMask[sprite]; b; b >>= 1, oamPixel++, targetPixel++) {
-						if (b & 1) {
-							if ((*oamPixel & PRIORITY_PIXEL) == 0 || (*targetPixel & 6) == 0) {
-								*targetPixel = (*oamPixel & (PRIORITY_PIXEL - 1));
+					if (bHadBGPriority) {
+						for (int b = spriteMask[sprite]; b; b >>= 1, oamPixel++, targetPixel++) {
+							if (b & 1) {
+								if ((*oamPixel & PRIORITY_PIXEL) == 0 || (*targetPixel & 6) == 0) {
+									*targetPixel = (*oamPixel & (PRIORITY_PIXEL - 1));
+								}
+								*oamPixel = 0;
 							}
-							*oamPixel = 0;
+						}
+					} else {
+						for (int b = spriteMask[sprite]; b; b >>= 1, oamPixel++, targetPixel++) {
+							if (b & 1) {
+								*targetPixel = (*oamPixel & (PRIORITY_PIXEL - 1));
+								*oamPixel = 0;
+							}
 						}
 					}
 					spriteMask[sprite] = 0;
