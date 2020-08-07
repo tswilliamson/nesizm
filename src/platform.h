@@ -26,6 +26,11 @@ typedef unsigned int uint32;
 #define RESTRICT __restrict
 #include <time.h>
 #undef LoadImage
+
+extern "C" {
+	int simmain(void);
+}
+
 #else
 
 #define ALIGN(x) __attribute__((aligned(x)))

@@ -1,6 +1,7 @@
 ![Menu Screen](gfx/Menu.png) ![Screenshot1](gfx/Shot1.png) 
 
 # NESizm v 1.00
+
 NESizm is a Nintendo Entertainment System emulator for the Casio Prizm series of graphics calculators. It currently supports the FX-CG10, FX-CG20, FX-CG50, and Graph 90+ E Casio calculators. NESizm was built from the ground up with performance in mind, while maintaining accurate emulation and compatibility wherever possible with clever caching, forced alignment, and hand written assembly where necessary. It runs most titles at 60 FPS with no overclocking on the FX-CG50.
 
 This project has its roots in my interest in early game development technology, as well as the inherent benefits of the Prizm as a platform. There is a large install base of players who can now play NES over many many hours of battery life with 0 input lag from keyboard to display.
@@ -67,6 +68,8 @@ If you are so inclined, a custom palette can be used. There are 192 byte palette
 
 ### Backgrounds
 
+![Screenshot3](gfx/Shot4.png)
+
 4 Background options are available. The 'Warp' background matches the main menu. The TV background provides a nostalgic old TV background, particularly in the smaller screen stretch modes. The Game BG Color option will match the currently selected game background palette color. The usage of this varies per game but it works well in some, such as the blue/black background selections in Super Mario Bros.
 
 ### In-game clock
@@ -107,6 +110,8 @@ PAL ROMS run at a different frame rate of 50 Hz compared to games from the USA a
 Game genie codes are supported via a separate file per game. If you have a text file with the file name "GameName.gg" where GameName matches your ROM file minus the nes extension, with line separated game genie codes, the emulator will load and use those codes when the ROM is loaded. You will be presented with a dialog in the menu when this happens successfully. I recommend the Utilities app by gbl08ma if you would like to edit codes manually using a text editor on the calculator. You can find that at https://github.com/gbl08ma/utilities
 
 ## FAQ Viewer
+
+![Screenshot3](gfx/FAQ.png)
 
 If you have a txt file with the same name as your ROM file, it will be visible while the game is loaded in the FAQ viewer via the main menu. The FAQ viewer will remember your previous position as you play. Navigate the FAQ with the arrow keys, your position is shown via the scroll bar on the right. You can jump through 10% increments of the file as well with the 0-9 keys.
 

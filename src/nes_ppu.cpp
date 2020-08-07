@@ -635,7 +635,7 @@ void nes_ppu::step() {
 		{
 			nesCart.LoadState();
 		}
-
+		
 		// good time to synchronize cpu clock if we are getting too high (to avoid wraparound at 30 min of play)
 		mainCPU.syncClocks();
 
