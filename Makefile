@@ -66,7 +66,7 @@ LDFLAGS	=  -Xlinker -Map=$(CURDIR)/output.map $(MACHDEP) $(OPTIMIZATION) -T$(FXC
 # any extra libraries we wish to link with the project
 #---------------------------------------------------------------------------------
 SYSTEMLIBS :=  -lc -lfxcg -lgcc
-LIBS	:=	-lzx7 -lcalctype -lsnd -lptune2_simple $(SYSTEMLIBS)
+LIBS	:=	-lzx7 -lcalctype -lsnd -lscope_timer -lptune2_simple $(SYSTEMLIBS)
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing

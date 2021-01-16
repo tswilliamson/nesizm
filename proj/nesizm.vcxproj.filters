@@ -9,17 +9,11 @@
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
     </Filter>
-    <Filter Include="Dependencies">
-      <UniqueIdentifier>{f173ffdc-d20a-4353-9134-18f00b441e65}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Source Files\nes">
       <UniqueIdentifier>{4cf9d8cc-eabb-4644-96c0-4ab61549d1f5}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\6502">
       <UniqueIdentifier>{268dc9a3-d68e-4ebf-b976-dd986bb9eb57}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Dependencies\scope_timer">
-      <UniqueIdentifier>{fe587b97-6634-4fa8-bcf9-7321d0135ae4}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\frontend">
       <UniqueIdentifier>{e65937d6-c204-460d-b348-a78718bc43ca}</UniqueIdentifier>
@@ -61,9 +55,6 @@
     </ClCompile>
     <ClCompile Include="..\src\scanline_dma.cpp">
       <Filter>Source Files\nes</Filter>
-    </ClCompile>
-    <ClCompile Include="..\src\scope_timer\scope_timer.cpp">
-      <Filter>Dependencies\scope_timer</Filter>
     </ClCompile>
     <ClCompile Include="..\src\imageDraw.cpp">
       <Filter>Source Files\frontend</Filter>
@@ -171,9 +162,6 @@
     </ClInclude>
     <ClInclude Include="..\src\nes_cpu.h">
       <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\src\scope_timer\scope_timer.h">
-      <Filter>Dependencies\scope_timer</Filter>
     </ClInclude>
     <ClInclude Include="..\src\imageDraw.h">
       <Filter>Header Files</Filter>

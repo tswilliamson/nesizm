@@ -76,7 +76,6 @@
     </ClCompile>
     <ClCompile Include="..\src\scanline_dma.cpp" />
     <ClCompile Include="..\src\scanline_vram.cpp" />
-    <ClCompile Include="..\src\scope_timer\scope_timer.cpp" />
     <ClCompile Include="..\src\settings.cpp" />
     <Text Include="..\README.md">
       <FileType>Document</FileType>
@@ -98,7 +97,6 @@
     <ClInclude Include="..\src\nes_cpu.h" />
     <ClInclude Include="..\src\main.h" />
     <ClInclude Include="..\src\platform.h" />
-    <ClInclude Include="..\src\scope_timer\scope_timer.h" />
     <ClInclude Include="..\src\settings.h" />
   </ItemGroup>
   <ItemGroup>
